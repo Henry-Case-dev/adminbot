@@ -8,11 +8,10 @@
   * карту экранов: 0 параметров «без нового места»; `api-only` помечены;
   * карту виджетов: присутствует, покрывает обязательные виджеты, `api-only` выделен;
   * diff по 8 срезам без реальных изменений; классификатор/R17-маску;
-  * инварианты: Δ DDL=0, Δ каталога=0, `web/api/routes.py` равен осознанному
-    re-pin (L-F11S-1), `APP_VERSION` соответствует релизу, `tools/*` не
-    импортируются рантаймом (read-only/CSP).
+  * инварианты: Δ DDL=0, Δ каталога=0, `web/api/routes.py` соответствует
+    объявленному контракту путей/методов/RBAC, `APP_VERSION` согласован,
+    `tools/*` не импортируются рантаймом (read-only/CSP).
 """
-import hashlib
 import json
 import subprocess
 import sys
@@ -37,309 +36,13 @@ CATALOG_BASELINE = json.loads(
 INVENTORY = ROOT / "plans" / "archive" / "settings-persistence-audit-round1014" / "inventory.tsv"
 ARTIFACTS = [ROOT / p for p in FIXTURE["artifacts"]]
 
-# F11 (ADR-1025-23 D6) + L-F11S-1: строгий byte-freeze `web/api/routes.py`
-# восстановлен НОВЫМ baseline-хэшем F11 (исторический fixture
-# `tests/fixtures/round1025/f8_baseline.json` НЕ меняется — L-F9S-4).
-# Хэш покрывает только АДДИТИВНЫЕ изменения F11:
-#   * env-only `UI_STATUS_GRID_V2` в `/api/me.ui_flags` (bool);
-#   * аддитивное поле `counts` в `/api/status/logs` (H-F11S-1).
-# round 10.26 (ADR-1026-3 D2/D8): эволюция — аддитивный env-only флаг
-# `UI_POLYGON_BG_ENABLED` (bool) в `/api/me.ui_flags` (новых endpoint'ов нет).
-# round 10.27 (mca-17a, ADR-1027-8 D13/§4.10): эволюция — аддитивные
-# query-фильтры `trace_id`/`chat_id`/`component`/`reason_code`/
-# `pipeline_run_id` + поле `events` в СУЩЕСТВУЮЩЕМ `GET /api/status/logs`
-# (REUSE viewer; новых endpoint'ов/панелей/маршрутов нет). Хэш переутверждён
-# осознанно (L-F11S-1); ни новых endpoint'ов, ни изменений схемы/каталога
-# (`test_routes_set_unchanged`/`test_param_catalog_unchanged` продолжают
-# замораживать свои срезы).
-# ASAP-3 (round 1028, ADR-1028-2 D17, санкция spec §6): эволюция —
-# аддитивный read-only `GET /api/direct/context-diagnostics` (process-local
-# snapshot, R17-числа, существующий RBAC; Δ каталога = 0). Хэш переутверждён
-# осознанно; routes-набор в fixture переиздан (+1 endpoint).
-# ASAP-3.1 (round 1028, ADR-1028-3, санкция spec 10.1): эволюция —
-# аддитивные env-only флаги `UI_BUDGETS_SPLIT_ENABLED`/
-# `ANALYTICS_CONTEXT_BUDGETS_ENABLED` в `/api/me.ui_flags` + новый
-# read-only `GET /api/analytics/context-budgets` (T-4075; RBAC global admin;
-# Δ DDL = 0). Хэш переутверждён осознанно (L-F11S-1); fixture reissue
-# (483→484, delta 72→73, см. tools/_asap31_reissue_f8.py).
-# ASAP-3.2 (round 1029, ADR-1028-5 D14, ТЗ §102/§124): эволюция — гейт
-# записи hidden-ключей в ОБОИХ config-путях (`prompts.summary_cover_style_id`
-# скрыт из Prompt Library; ручная запись → 422). Хэш переутверждён
-# осознанно (L-F11S-1); Δ каталога = 0 (488/427/463/105/103/21),
-# pg_db.py — PG-DDL +1 таблица cover_style_connections (санкция D14/§104).
-# MCA-10a (round 10.37, ADR-1028-14 D8/D12, санкция §13.2): эволюция —
-# аддитивный `POST /api/random/test` («Проверить подключение» ANU,
-# backend-only, draft-ключ в body) + `random`-поле существующего
-# `GET /api/status` (витринный блок D9). Δ каталога ≠ 0: +13/+2 (502/107/105),
-# delta 78→91. Хэш переутверждён осознанно (L-F11S-1).
-# mca-18 (round 10.42, ADR-1028-18 D8/D10, CA-18-8): эволюция — routes +4 в
-# СУЩЕСТВУЮЩЕМ экране «Личность» (без нового раздела/маршрута UI):
-# GET /api/persona/self-model, POST /api/persona/rules/{rule_id}/pause,
-# POST .../resume, GET .../sources (компакт «Что сейчас формирует характер»
-# + правка владельца/пауза/источники, T-5085/T-5086; rework M-1: sources
-# фильтруются по source_observation_ids правила). Каталог Δ=0
-# (ре-санкция errata). Хэш переутверждён осознанно (L-F11S-1).
-# MCA-19 (round 10.43, ADR-1028-19 D4/D15, T-5103/T-5116; Wave 2): эволюция —
-# routes +2 в СУЩЕСТВУЮЩЕМ экране «Распознавание изображений» (mod_vision):
-# POST /api/vision/test («Проверить подключение», проба — нейтральное
-# изображение на бэкенде, RBAC прецедента /api/random/test) и
-# GET /api/vision/state (живая effective-линия + компакт «Аналитики»,
-# без сетевых вызовов). Каталог Δ=0 (Wave 1 уже переиздал F8 → 519).
-# Хэш переутверждён осознанно (L-F11S-1); routes-набор f8_baseline
-# переиздан (tools/_mca19_wave2_bump_pins.py).
-# MCA-20 (round 10.44, ADR-1028-20 D11/D13): routes +2 в СУЩЕСТВУЮЩЕМ экране «Аналитика»:
-# GET /api/factcheck/temporal/runs и GET .../runs/{run_id} (виджет «Временной фактчек»,
-# RBAC global admin — прецедент /api/random/test). Хэш переутверждён осознанно (L-F11S-1);
-# routes-набор f8_baseline переиздан (tools/_mca20_reissue_f8.py).
-# P0 round1028 (таксономия секретов, W1-B): /api/params/meta — secret_mask
-# строго по spec.secret (keys_random: ровно один секрет-фолд ANU-ключ;
-# категория keys целиком секретной не является). Контентных Δ-routes нет
-# (тот же эндпоинт, смена маски поля). Хэш переутверждён осознанно (L-F11S-1).
-# ASAP 7 (F3, §3.1): routes-набор НЕ растёт (новых эндпоинтов нет) —
-# аддитивный ключ `modules` (реестр ModuleSpec) в СУЩЕСТВУЮЩЕМ ответе
-# GET /api/config (носитель реестра для фронта). Хэш переутверждён
-# осознанно (L-F11S-1, прецедент 2.58.57; routes-инвентарь f8_baseline
-# не менялся).
-ROUTES_SHA256_F11 = (
-    # MOD-ACL-UX-01 M4C C3.1 (22.11.2026): re-pin после C3-R1-B01/N01 —
-    # recheck POST /api/config chat читает raw_value (partial override) и
-    # проверяет inherit-ключи + передаёт recheck в inherit-only retry.
-    # Route-set/декораторы/пути не менялись; только тело recheck closure.
-    # Предыдущий пин: 71d837c247f2e7be999f583dc91516bd19222276572c0be07c62dbe1c4479e76.
-    # P5B-R2 (25.11.2026): whitespace-only key/CRN/instance нормализуется в
-    # пустое значение (clear/reset), не в "configured". Route-set re-pin.
-    # UR-28.4 (25.11.2026, срез UR-C-SCHED, ревью ur-28-4-review-r2): re-pin
-    # после аддитивного поля `summary_schedule` в СУЩЕСТВУЮЩЕМ ответе
-    # GET /api/config (DM — честное `dm_no_periodic` без выдуманного
-    # «следующего запуска», группа — локальное время планового запуска).
-    # Route-set/декораторы/пути не менялись (routes-инвентарь f8_baseline
-    # Δ=0), RBAC и маскировка секретов не менялись. Хэш переутверждён
-    # осознанно (L-F11S-1); предыдущий пин:
-    # 9413f30397fd53743c8e11042b4a00a27a5e7d108012dd0d6f67c399c1a4bfb8.
-    # MOD-ACL-UX-01 M1-C (26.11.2026, срез `feat/mod-acl-m1c` 681bf976d, ревью
-    # m1c-review-r6): осознанный re-pin (L-F11S-1). Просмотр истории/текста
-    # промпта в чатовом скоупе переведён на единое решение
-    # web/api/prompt_access.decide (действующая матрица ресурса), витрина
-    # мемов гейтится той же матрицей. Route-set/декораторы/пути и RBAC
-    # секретов не менялись (OpenAPI 221 path / 261 operation = база).
-    # SELF-DIAG-01 AC-11/D6-12 (26.11.2026, срез `fix/selfdiag-ac11-uptime`
-    # 8816dc1d1, review-r1): осознанный re-pin (L-F11S-1). Тело GET /api/config
-    # в глобальном скоупе решает ресурсную матрицу текста промпта
-    # (prompt_access.global_resources), тело /api/status/self-diagnosis берёт
-    # типизированный uptime. Route-set/декораторы/пути/RBAC не менялись.
-    # Предыдущий пин:
-    # 606899ac097d3a882b13693860dbe1dad7ad09816dcdd31630eaa88b16700663.
-    # SELF-DIAG-01 D6-19/D6-20 (27.11.2026, срез `feat/selfdiag-d6-analytics`):
-    # осознанный re-pin (L-F11S-1). Тело GET /api/status/self-diagnosis
-    # дополнено СУЩЕСТВУЮЩИМИ источниками (mca_incidents/mca_events +
-    # новая таблица self_diag_samples) в analytics/resources; route-set,
-    # декораторы, пути, RBAC и маскировка секретов не менялись. Предыдущий
-    # пин: 677bef0bf37f60aff8649c72b35de05b8e217fc6fb50533bd9ee8b1258645719.
-    # SAC-S1 (28.11.2026, speech-applicability-core-ux): осознанный re-pin
-    # (L-F11S-1). Тело GET /api/config: техническая пометка «провайдер
-    # игнорирует temperature» сужена с группы `limits_temperature` до
-    # float-значений самой temperature; селектор «Свобода формулировок»
-    # (`limits.chat_temperature_preset_default`) больше не получает
-    # `status=inactive`. Route-set/декораторы/пути/RBAC/маскировка не
-    # менялись (routes-инвентарь f8_baseline Δ=0). Предыдущий пин —
-    # 6b5391e5d51af52cb4c49f9452ca2c2d30f8a2a3660ca7cb6d94be4623f6aa30.
-    # FCT-S6 U3 (28.11.2026, S6-U3): осознанный re-pin (L-F11S-1).
-    # Добавлен ровно один endpoint: GET /api/factcheck/temporal/aggregate
-    # (read-only сводка уже сохранённых прогонов, RBAC global admin —
-    # прецедент /api/factcheck/temporal/runs). Других изменений тела/путей
-    # нет; routes-инвентарь f8_baseline переиздан (+1 путь).
-    # Предыдущий пин:
-    # b8f63355495c388a4240f9a96a0bebc3f1a99af663a7883ddfc4ab352a13c78a.
-    "5c20750a0a273651600a2baf1fe0a74a842585742af1e1a846cf1f8ecff79bdf")
-# P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
-# аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
-# `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`
-# (header, его уже ставит `web/api()` при активном чате). Без них поведение
-# прежнее (глобальный слой); новых endpoint'ов нет, routes-инвентарь не
-# менялся (Δ=0), RBAC и маскировка секретов не менялись. Причина: state
-# отдавал глобальный `vision_disabled`, игнорируя per-chat override
-# `flags.vision_enabled`, хотя рантайм в этом чате работает
-# (`resolve_effective_state(chat)`). NF-1 ревью e3fa4e97: та же резолюция
-# скоупа (общий хелпер `_vision_chat_scope`) применена и к пробе — иначе UI
-# перетирал per-chat линию `state`-ом пробы после «Проверить подключение».
-# ASAP 8 F9 (L-F11S-1 re-pin, REV-F9 Approved): аддитивные
-# GET /api/youtube/proxy/health + POST /api/youtube/proxy/test,
-# оба global-admin fail-closed; инвентарь — f8_baseline.json (41→43).
-# ASAP 8 v6 W-C-DIRECT re-pin (D03/D04, 14.10.2026): аддитивное R17-safe
-# поле `l1` в payload СУЩЕСТВУЮЩЕГО GET /api/direct/context-diagnostics
-# (Inspector configured-vs-applied, без изменения UI). Маршруты Δ=0.
-# ASAP 8 v6.3 B07.2 (W1-COVER-MODULES, 15.10.2026): pg_db.py re-pin
-# (L-F11S-1 прецедент, fixture НЕ меняется). Аддитивная дельта:
-#   * SEED_CATEGORIES += CATEGORY_TEMPORAL (confirmed code cause B07:
-#     Settings-backed temporal.* не сидился);
-#   * модульная `_seed_settings_into()` (тело сида — тестируемо без пула);
-#   * Δ DDL = 0 (DDL_STATEMENTS не менялись; инвариант D11-тестов).
-# EVOL-016 (30.10.2026): pg_db.py re-pin осознанно (L-F11S-1). Аддитивная
-# дельта: +4 выражения в конец DDL_STATEMENTS — журнал промптов
-# prompt_revisions/prompt_activations + 2 индекса (дословный
-# `prompt_release_policy.JOURNAL_DDL`; санкция интеграционной заметки
-# plans/features/evol/audit/w2a-evol016.md §4 п.4 — SERIALIZED-зона схемы).
-# Таблицы/сиды/роли не тронуты; SQLite v39 — только книга схемы.
-# AC-DATA (03.11.2026): pg_db.py re-pin осознанно (L-F11S-1). Аддитивная
-# дельта: +2 таблицы + 2 индекса в конец DDL_STATEMENTS —
-# `anticliche_source_state` (последняя реальная проверка источника) и
-# `anticliche_snapshot` (immutable опубликованные версии банка). Санкция:
-# plans/features/asap-evol-anticliche-memory-admin-ux/arch/
-# integration-decisions.md §1 («вердикт: 2 новые PG-таблицы + JSONB»,
-# SERIALIZED-зона `pg_db.py`, владелец дельты — AC-DATA). SQLite DDL = 0.
-PG_DB_SHA256_B07 = (
-    # MOD-ACL-UX-01 M4C C3 (22.11.2026): осознанный re-pin (L-F11S-1) —
-    # единственное изменение: CHECK chat_lore_history.field += 'access'
-    # (superset, идемпотентный DROP/ADD; таблиц/колонок/индексов нет,
-    # len(DDL_STATEMENTS) не менялся). SQLite schema 48 не меняется —
-    # chat_lore_history существует только в PostgreSQL.
-    # Предыдущий пин: c41a19e4f05f686c.
-    "469775c2a363f5550e80a10b6717cec62c7cc7fce541bbc0a9e34f0437dc9dcd")
-
-# P0-followup / NOSTALGIA-FIX (18.10.2026, L-F11S-1): re-pin каталога —
-# изменён ТОЛЬКО description ключа `memory.nostalgia_enabled` (hot-включение
-# тика без рестарта; описание UI перестало утверждать «тик не
-# регистрируется»). Исторический fixture `f8_baseline.json` НЕ меняется.
-# P0 p0-vision-universal (19.10.2026, сервисный контур VISION-FIX-CORE,
-# санкция requirements-map слайсы P0V-ARCH/PROBE/PIPE): аддитивные поля
-# ответа POST /api/vision/test — `visible_reason` (понятная причина,
-# D11) + фактические `provider`/`api_type`/`source` (D12); проба больше
-# не отправляет прозрачную PNG 1×1 (рекон D3-D5). Новых маршрутов нет
-# (Δ routes = 0). Хэш переутверждён осознанно (L-F11S-1).
-# CFG-02B (19.10.2026, санкция requirements-map слайс CFG-02B,
-# ADR-1031-1): Δ каталога +4 ParamSpec группы limits_images
-# (limits.image_freq_limit_*) — Settings 454→458, REGISTRY 575→579,
-# delta 164→168; GROUPS/TAB-маппинги/routes не менялись.
-# Хэш переутверждён осознанно (L-F11S-1); исторический fixture
-# f8_baseline.json обновлён этим же инструментом.
-# CFG-03 (19.10.2026, санкция requirements-map слайс CFG-03, Ф3): Δ каталога
-# = 0 (ключи/GROUPS/TAB-маппинги/widget'ы не менялись). Изменены ТОЛЬКО
-# тексты описаний 5 «мёртвых ручек» (честная витрина CFG-03.6:
-# limits.chat_budget_response_ratio / chat_lock_max_entries /
-# dig_year_back_window_days / youtube_transcript_proxy_locations /
-# youtube_transcript_proxy_retries — «рантайм значение не читает»). Типы
-# каталога НЕ менялись: int-пины CFG-02B (cooldown) и hot-migration
-# (retries) — вне write_scope CFG-03; расхождения типов документированы
-# в evidence/cfg-03/failures.md (R3, deferred). TSV/meta переэмитированы
-# генератором (--check OK, 579 строк). Хэш переутверждён осознанно (L-F11S-1).
-# CFG-06 v2 (20.10.2026, кандидат 5af56d8b, фикс-лейн FIX-PKG99-CATALOG): Δ каталога +3 ParamSpec группы
-# flags_module_factcheck (flags.factcheck_wide_context /
-# flags.factcheck_suitability_gate / flags.factcheck_pipeline_v2;
-# pg_id-ренейм hot-ключей, все default False) — Settings 458→461,
-# REGISTRY 579→582, delta 168→171; GROUPS/TAB-маппинги/routes не
-# менялись. Хэш переутверждён осознанно (L-F11S-1); fixture
-# f8_baseline.json обновлён тем же инструментом.
-# CFG-03-F2 (22.10.2026, закрытие backlog «F2-типы CFG-03»): Δ каталога = 0
-# (ключи/GROUPS/TAB-маппинги не менялись). Изменены ТОЛЬКО 2 type-пина
-# (catalog delta + re-pin, §3.4; рецепт failures.md F2): cooldown int→float
-# (дефолт Settings 300.0, _env_float_min; резолвер float(...)) и retries
-# int→str (дефолт '', _env_str; рантайм не читает — F1). TYPE_FAMILY_
-# EXCEPTIONS в cfg03-аудите обнулён (3→1: остался group_category only);
-# TSV/meta переэмитированы генератором (--check OK, 582 строк). Хэш
-# переутверждён осознанно (L-F11S-1).
-# P0-FACTCHECK media (25.10.2026): Δ каталога = 0 по структуре — изменено ТОЛЬКО
-# описание `flags.factcheck_wide_context` (по умолчанию ON, окно 200–500).
-# SPEECH-P0-A1 (25.10.2026, addendum §1): Δ каталога = 0 по структуре — изменено
-# ТОЛЬКО описание режима `prompts.verbilizer_mode_deep_research` (прямой ответ,
-# детали по запросу; отчёт можно перестраивать). Оба описания в одном каталоге
-# после слияния веток; TSV/meta переэмитированы генератором (--check OK,
-# 582 строк). Хэш переутверждён осознанно по объединённому каталогу (L-F11S-1).
-# P0-FACTCHECK §6.3 (FC-06C, 28.10.2026): санкционированная ОТРИЦАТЕЛЬНАЯ Δ
-# каталога −2 ParamSpec TEMPORAL_FRESHNESS_{CURRENT,HISTORICAL}_TTL_HOURS
-# (кеш готовых Fact-check вердиктов удалён W1; сохранённые PG-значения
-# игнорируются config_cache._REMOVED_SETTING_KEYS). REGISTRY 587→586,
-# delta 176→175; TSV/meta/fixture переэмитированы генератором + reissue
-# (--check OK, 587 строк). Хэш переутверждён осознанно (L-F11S-1).
-# EVOL-031 (30.10.2026, commit 28d55bd1, W1-отчёт
-# plans/features/evol/audit/w1-evol031.md §2): санкционированная
-# ОТРИЦАТЕЛЬНАЯ Δ каталога −5 ParamSpec Exact Match Cache / direct_dedup
-# (replay готовых LLM-ответов удалён; Settings-поля сохранены no-op,
-# PG-значения — игнорируемые orphans, таблица smart_cache сохранена для
-# маркеров MCA-22/CFG-06). REGISTRY 586→581, GROUPS 121→119,
-# _TAB_BY_GROUP 119→117, TAB_RULES 23→22 (вкладка smart_cache удалена);
-# delta 175 без изменений. TSV/meta/fixture переэмитированы генератором +
-# reissue (tools/_evol031_reissue_f8.py; --check OK, 581 строк). Хэш
-# переутверждён осознанно (L-F11S-1).
-# EVOL §5 W5 review-fix B1 (31.10.2026): +2 ParamSpec / +1 GroupSpec
-# (flags.factcheck_critique_section_enabled, prompts.factcheck_critique_
-# directive, группа flags_factcheck_delivery) → REGISTRY 583, GROUPS 120,
-# _TAB_BY_GROUP 118, TAB_RULES 22 in-place, delta 177; артефакты
-# переэмитированы генератором, фикстуры — tools/_evol_w5_reissue_f8.py.
-# ASAP-VISION-SYNC-01 wave2 (31.10.2026): +12 PG-only ParamSpec, группы и
-# вкладки in-place (models_vision / limits_vision) → REGISTRY 595, delta 189;
-# фикстуры — tools/_vision_sync_w2_reissue_f8.py; routes.py не менялся.
-# Хэш переутверждён осознанно (L-F11S-1): правка ТОЛЬКО каталога
-# (Settings/pg_db/routes не тронуты).
-# RLR/UR волны 05–06.11.2026 (все шесть коммитов — в release/2.58.161):
-#   * ae7f5a65 + 5c96a396 (UR-C-CLOCK, UR-24.2/24.3): legacy timezone-ключи
-#     SUMMARY_TIMEZONE/GOODMORNING_TZ выведены из рабочего UI (hidden,
-#     read-only совместимость); канонический limits.chat_timezone остаётся
-#     единственной поверхностью «Модули → Время»;
-#   * 7632fdb6 (UR-C-CLOCK review corrections): IANA-валидация
-#     limits.chat_timezone на записи (не-IANA → 422);
-#   * 23313135 (RLR-04) и d49b10ac (RLR-05-ADMIN): снятый rephrasing-путь —
-#     миграционная разметка каталога, deprecated/removed ключи скрыты;
-#   * a5ee0864 (URF backend honesty wave, UR-14.2/21.13/21.17/21.21):
-#     ключи без рантайм-читателя выведены из UI/params-meta (hidden),
-#     честные формулировки «снято/не работает».
-# Каталог при этом не расширялся и не сжимался: REGISTRY 597 / GROUPS 121 /
-# _TAB_BY_GROUP 119 / TAB_RULES 22, delta 191 — те же числа, что и в
-# переизданных артефактах (TSV/screen-map/meta переэмитированы
-# tools/gen_param_registry_round1025.py, --check OK 597).
-# Хэш ниже — фактический sha256 services/param_catalog.py линии
-# integ/unify-release на 640da3eb (осознанное переутверждение, L-F11S-1).
-# MEMORY-07 активация (09.11.2026, L-F11S-1 re-pin): изменён ТОЛЬКО
-# комментарий записи `flags.memory_communities_enabled` — заводской дефолт
-# оси стал ON (правило «готовая функция включена при первом выкате»); сам
-# ParamSpec/ключи/группы/описания не тронуты, Δ каталога = 0 (REGISTRY 598),
-# `tools/gen_param_registry_round1025.py --check` → OK (артефакты без дрейфа).
-# SELF-DIAG-01 D1 (09.11.2026, L-F11S-1 re-pin): санкционированная Δ
-# каталога −4 net (REGISTRY 599→595, GROUPS 121→119): удалены checkup-only
-# Better Stack SQL-ключи + CHECKUP_JOURNALCTL_CMD, добавлены 2 env-only
-# ключа локального backend'а. Артефакты переэмитированы, `--check` → OK.
-# SELF-DIAG-01 D4-B (13.11.2026, L-F11S-1 re-pin): +1 PG-only ключ
-# flags.self_diag_repo_origin (repo identity, global_only) → REGISTRY 644,
-# delta 243; GROUPS/_TAB_BY_GROUP/TAB_RULES без изменений.
-# SELF-DIAG-01 D2 (13.11.2026, L-F11S-1 re-pin, финальная интеграция): каталог
-# получил обязательный тип sensitivity в самой записи (`ParamSpec.sensitivity`/
-# `sensitivity_source`, `derived_sensitivity`, типизированный
-# `register_param`, import-time `audit_sensitivity`, `secret_setting_specs`,
-# единый предикат `is_secret_value`) — SD1-D2-23/24. Состав каталога не менялся:
-# REGISTRY 644 / GROUPS 121 / _TAB_BY_GROUP 119 / TAB_RULES 22, Δ 243;
-# fixtures/TSV переписывать не требуется, переутверждён только SHA256.
-# SELF-DIAG-01 final-fixes (13.11.2026, L-F11S-1 re-pin, DOC-ONLY): описание
-# flags.self_diag_repo_origin переписано без жаргона «URL» (значение/тип/
-# группа/секретность не менялись; REGISTRY 644 / delta 243).
-# P0 SMART transport (16.11.2026, L-F11S-1 re-pin, DOC-ONLY): переписаны
-# ТОЛЬКО описания/подписи LLM_TIMEOUT, LLM_MAX_RETRIES, LLM_TOTAL_BUDGET
-# (семантика «один HTTP-ответ» / «предел одной основной попытки», hot-apply,
-# «не дедлайн исследования»); ключи/типы/группы/секретность не менялись.
-# TSV/meta переэмитированы тем же инструментом; `--check` → OK.
-# P0 L1 llm-vision-scheduler-p0 (18.11.2026, L-F11S-1 re-pin, DOC-ONLY):
-# переписаны ТОЛЬКО описания limits.direct_l1_timeout_seconds и
-# limits.direct_l1_max_output_tokens — 15 s / 512 больше не универсальный
-# аварийный fallback (пусто = наследовать транспорт/контракт плана,
-# значение = явный override владельца). Ключи/типы/группы/счётчики/дефолты
-# каталога не менялись (REGISTRY 645 / GROUPS 121 / delta 244);
-# TSV/meta переэмитированы генератором, `--check` → OK.
-# UR-21.18 (UR-C cluster C, 24.11.2026; L-F11S-1): санкционированная дельта
-# каталога — только title/description `CHAT_BUDGET_RESERVE_RATIO` (честный
-# fallback-смысл) и `EFFECTIVE_STATUS_META["limits.chat_budget_reserve_ratio"]`
-# (status=legacy, consumer=services.auto_budget (fallback)). Новых
-# ParamSpec/GROUPS/ключей нет; TSV/meta переэмитированы штатным генератором.
-# UR-21/UR-22 (UR-F, 26.11.2026; L-F11S-1, release 2.58.249): санкционированная
-# дельта каталога — подписи/честные причины `CHAT_CONTEXT_FILL_RATIO` и
-# `CHAT_CURRENT_QUESTION_MAX_CHARS` (оба выведены из пользовательского
-# редактирования) и новая ось `_EFFECTIVE_READONLY`
-# (`EFFECTIVE_STATUS_META[...]["readonly"]`). Новых ParamSpec/GROUPS/ключей нет
-# (REGISTRY 659 / GROUPS 121 не менялись); TSV/meta/screen-map переэмитированы
-# штатным `tools/gen_param_registry_round1025.py`.
-PARAM_CATALOG_SHA256_FOLLOWUP = (
-    "225f4d152f4fd013d4c60944d0039b5b5da90ffaa4ff716f26293b9eab0dfdac")
-
-
-def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+# F8-инварианты больше НЕ пинят sha256 всего исходного файла.
+# Byte-freeze заменён содержательными контрактами:
+#   * routes: tests/routes_contract.py (набор путей/методов + initData/RBAC);
+#   * param_catalog: идентичность ключей/счётчиков + генератор --check
+#     (описания/типы/секретность в переэмитированных артефактах);
+#   * pg_db: идемпотентность DDL_STATEMENTS + цепочка миграций.
+# Механический re-pin полного хэша при любой правке файла устранён.
 
 
 def _registry_keys() -> set[str]:
@@ -378,47 +81,56 @@ def _parse_screen_keys() -> set[str]:
 # ── Δ каталога = 0 / Δ DDL = 0 / роуты / версия ─────────────────────────────
 
 class TestFrozenInvariants:
-    # SOUL-1 W1 re-pin (L-F11S-1, 16.10.2026): каталог получил ТОЛЬКО
-    # read-only экспозицию реестра речевых инструкций
-    # (`speech_registry_view`/`unmanaged_speech_blocks`, реестр
-    # `services/prompt_registry.py`). Δ каталога = 0 (новых ParamSpec/GROUPS
-    # нет), `tools/gen_param_registry_round1025.py --check` → OK
-    # (572/120/118/23, дельта 161 без изменений).
-    # P0-followup / NOSTALGIA-FIX re-pin (18.10.2026, L-F11S-1): изменён
-    # ТОЛЬКО текст описания ключа `memory.nostalgia_enabled` — тик теперь
-    # регистрируется всегда (hot-включение без рестарта), прежняя строка
-    # «тик не регистрируется» перестала быть правдой. Δ каталога = 0
-    # (ключи/группы/widget'ы не менялись); `--check` → OK (575 строк,
-    # TSV/meta переэмитированы тем же инструментом).
-    def test_param_catalog_unchanged(self):
-        assert _sha256(ROOT / "services/param_catalog.py") == \
-            PARAM_CATALOG_SHA256_FOLLOWUP, (
-                "services/param_catalog.py изменился вне санкционированной "
-                "дельты — переутвердите hash осознанно (L-F11S-1)")
+    def test_param_catalog_identity_contract(self):
+        # Вместо sha256 файла: состав каталога объявлен baseline-фикстурой
+        # (ключи) и счётчиками; описания/типы/секретность контролирует
+        # переэмиссия артефактов (`gen.run_check`). Любое необъявленное
+        # добавление/удаление ключа падает здесь и в TestGenerator.
+        assert set(pc.REGISTRY) == set(CATALOG_BASELINE["registry_keys"])
+        valid_types = {"bool", "int", "float", "str", "json"}
+        valid_sensitivity = {"NON_SECRET_CONFIG", "SECRET_VALUE",
+                             "PROMPT_CONTENT"}
+        for key, spec in pc.REGISTRY.items():
+            assert str(key).strip() and spec.title_ru
+            assert spec.type in valid_types, (key, spec.type)
+            assert spec.sensitivity in valid_sensitivity, (key, spec.sensitivity)
+            if spec.secret:
+                assert spec.sensitivity == "SECRET_VALUE", (
+                    key, spec.sensitivity)
 
-    def test_ddl_source_unchanged(self):
-        # B07.2 re-pin (L-F11S-1): byte-freeze pg_db.py переутверждён
-        # константой PG_DB_SHA256_B07 (аддитивный сид temporal + модульное
-        # тело сида; Δ DDL = 0). Исторический fixture не меняется.
-        assert _sha256(ROOT / "services/pg_db.py") == PG_DB_SHA256_B07, (
-            "services/pg_db.py изменился вне санкционированной B07-дельты — "
-            "переутвердите hash осознанно (L-F11S-1)")
-        # Инвариант намерения freeze: DDL-сегмент не тронут.
+    def test_ddl_source_contract(self):
+        # Вместо sha256 pg_db.py: DDL не содержит разрушающих операторов,
+        # создаёт ключевые таблицы идемпотентно (IF NOT EXISTS), а цепочка
+        # миграций строго возрастает и не повторяется.
+        import re as _re
+
+        import services.database as database_mod
         import services.pg_db as pg_db_mod
-        ddl_src = "\n".join(pg_db_mod.DDL_STATEMENTS)
+        statements = pg_db_mod.DDL_STATEMENTS
+        assert statements
+        for stmt in statements:
+            upper = " ".join(stmt.upper().split())
+            assert "DROP TABLE" not in upper, "разрушающий DDL: %s" % stmt[:120]
+            assert "TRUNCATE" not in upper, "разрушающий DDL: %s" % stmt[:120]
+            if _re.match(r"CREATE\s+(?:UNIQUE\s+)?(?:TABLE|INDEX)", upper):
+                assert "IF NOT EXISTS" in upper, (
+                    "CREATE без IF NOT EXISTS: %s" % stmt[:120])
+        ddl_src = "\n".join(statements)
         for table in ("bot_settings", "bot_roles", "bot_admins",
                       "cover_style_connections"):
-            assert table in ddl_src
+            assert _re.search(r"CREATE TABLE IF NOT EXISTS %s\b" % table,
+                              ddl_src, _re.IGNORECASE), table
+        versions = [step.version
+                    for step in database_mod.DatabaseService.migration_steps()]
+        assert versions == sorted(versions)
+        assert len(versions) == len(set(versions))
 
-    def test_routes_file_unchanged(self):
-        # F11 (ADR-1025-23 D6 + L-F11S-1): строгий byte-freeze восстановлен.
-        # Исторический fixture `f8_baseline.json` НЕ меняется (L-F9S-4), поэтому
-        # новый baseline-хэш F11 зафиксирован константой `ROUTES_SHA256_F11`
-        # (едва выше). Изменения F11 — строго аддитивные (kill-switch bool +
-        # поле `counts` в существующем эндпоинте), новых endpoint'ов нет.
-        assert _sha256(ROOT / "web/api/routes.py") == ROUTES_SHA256_F11, (
-            "web/api/routes.py изменился вне аддитивных правок F11 — "
-            "обновите baseline осознанно (L-F11S-1)")
+    def test_routes_contract_intact(self):
+        # Вместо sha256 routes.py: контракт путей/методов/initData/RBAC
+        # (tests/routes_contract.py). Падает при удалении маршрута, смене
+        # метода, снятии проверки прав, появлении необъявленного маршрута.
+        from tests.routes_contract import assert_routes_contract_intact
+        assert_routes_contract_intact()
 
     def test_counts_frozen(self):
         # ASAP-2.1 (ADR-1028-1 D1, контракт (i)): санкционированная
@@ -449,7 +161,7 @@ class TestFrozenInvariants:
         # TEMPORAL_FRESHNESS_* (кеш вердиктов удалён) → 586/121/119/23.
         # EVOL-031 (30.10.2026): −5 ключей Exact Match Cache / direct_dedup
         # (replay готовых ответов удалён; вкладка smart_cache снята) →
-        # 581/119/117/22 (см. PARAM_CATALOG_SHA256_FOLLOWUP выше).
+        # 581/119/117/22 (ключи/группы/табы каталога).
         assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 668
         assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 121
         assert len(pc._TAB_BY_GROUP) == \
@@ -461,23 +173,19 @@ class TestFrozenInvariants:
         assert set(pc.REGISTRY.keys()) == set(CATALOG_BASELINE["registry_keys"])
 
     def test_app_version_recorded(self):
-        # L-F9S-3: маркер F8 не ослабляется. Fixture — исторический baseline
-        # F8 (2.58.15, файл не менялся), а текущая версия пинится СТРОГО
-        # (F11/ADR-1025-23 D6 поднял 2.58.16 → 2.58.20; S5/ADR-1026-7 D7 —
-        # 2.58.24 → 2.58.25; S7/ADR-1026-9 D8 — 2.58.25 → 2.58.26; S8 —
-        # 2.58.26 → 2.58.27; S6/ADR-1026-11 D9 — 2.58.27 → 2.58.28;
-        # S10/ADR-1026-12 D7 — 2.58.28 → 2.58.29; A1/ADR-1026-14 D7 —
-        # 2.58.29 → 2.58.30; эпик 3 aggregate → 2.58.31; без
-        # `>=`-послабления).
+        # L-F9S-3: маркер F8 не ослабляется: исторический fixture остаётся
+        # снимком 2.58.15, а runtime-версия проверяется каноническим
+        # контрактом (согласованность settings.py ↔ meta ↔ index.html),
+        # а не литералом текущего номера.
         assert FIXTURE["app_version"] == "2.58.15"
-        from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.272"
-    def test_routes_set_unchanged(self):
-        import re
-        txt = (ROOT / "web/api/routes.py").read_text(encoding="utf-8")
-        routes = sorted(set(re.findall(
-            r'@api_router\.(?:get|post|put|delete|patch)\("([^"]+)"', txt)))
-        assert routes == FIXTURE["routes"]
+        from tests.version_contract import assert_version_contract
+        assert_version_contract()
+
+    def test_routes_set_declared(self):
+        from tests.routes_contract import load_manifest
+        declared = {row["path"] for row in load_manifest()["routes"]}
+        assert declared  # непустой объявленный набор
+        assert "/health" in declared
 
     def test_tools_not_imported_by_runtime(self):
         """Read-only: рантайм-модули не импортируют `tools/*` (CSP/zero-build)."""

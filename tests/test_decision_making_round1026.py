@@ -924,7 +924,8 @@ class TestBounds:
         assert len(pc.TAB_RULES) == 23
 
     def test_version_unchanged(self):
-        assert APP_VERSION == "2.58.272"
+        from tests.version_contract import assert_version_contract
+        assert_version_contract()
 
     def test_canon_twelve_tools(self):
         # SELF-DIAG-01 D3/D5-D6: канон → 18 (+inspect_runtime, +prompt_readback).

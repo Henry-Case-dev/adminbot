@@ -165,16 +165,35 @@ class TestInvariants:
         assert len(pc.TAB_RULES) == 23
         assert len({f.name for f in dataclasses.fields(Settings)}) == 477  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10 ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
 
-    def test_secrets_count_28(self):
-        # 20 category=keys (UI) + 8 env-only infra — состав НЕ изменён.
-        # ASAP-2 round1027 (контракт (j)): +2 UI-секрета (keys.summary_l1/
-        # l2_api_key, masked-виджет adr-1025-22) → 30.
-        # ASAP 7 F2 (§1.6): +1 keys.direct_l1_api_key → 34.
-        assert len(pc_secret_names()) == 32
+    def test_secret_inventory_exact(self):
+        # Не «магическое число», а объявленный инвентарь секретов: любое
+        # добавление/снятие secret-флага меняет множество и требует
+        # осознанного решения (security-relevant), а не механического bump.
+        # 20 category=keys (UI) + 8 env-only infra + summary L1/L2 +
+        # direct_l1 (ASAP 7 F2 §1.6) + vision/embedding/quantum/IBM и т.д.
+        assert pc_secret_names() == {
+            "API_TOKEN", "COBALT_HTTP_PROXY", "EMBEDDING_API_KEY",
+            "EMBEDDING_FALLBACK_API_KEY", "EMBEDDING_FALLBACK_API_KEY_2",
+            "EXA_API_KEY", "GROQ_API_KEY", "IMAGE_API_KEY",
+            "IMAGE_STYLE_API_KEY", "INTEL_BG_API_KEY",
+            "INTEL_HISTORY_API_KEY", "INTEL_REFLECTION_API_KEY",
+            "LLM_API_KEY", "LLM_FALLBACK_API_KEY", "LOGTAIL_SOURCE_TOKEN",
+            "MEDIA_SHARE_SECRET", "OPENROUTER_API_KEY", "POSTGRES_DSN",
+            "POSTGRES_PASSWORD", "RANDOM_IBM_API_KEY", "RANDOM_IBM_CRN",
+            "RANDOM_QUANTUM_API_KEY", "SENTRY_DSN", "TAVILY_API_KEY",
+            "TELEGRAM_API_HASH", "TELEGRAM_API_ID", "VISION_API_KEY",
+            "YOUTUBE_COOKIES_FILE", "YOUTUBE_TRANSCRIPT_PROXY_PASSWORD",
+            "YOUTUBE_TRANSCRIPT_PROXY_URL",
+            "YOUTUBE_TRANSCRIPT_PROXY_USERNAME",
+            "keys.direct_l1_api_key", "keys.summary_l1_api_key",
+            "keys.summary_l2_api_key",
+        }
 
-    def test_app_version_bump(self):
-        m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.272", m and m.group(1)
+    def test_app_version_contract(self):
+        # Текущий номер — канонический источник, а не литерал теста.
+        from tests.version_contract import assert_version_contract
+        assert_version_contract()
+        # Историческая отметка README (снимок F9) не является контрактом версии.
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         assert "v2.58.34" in readme
 

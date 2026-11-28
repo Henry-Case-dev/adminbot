@@ -1,0 +1,835 @@
+{
+  "schema": 1,
+  "source": "web/api/routes.py",
+  "routes": [
+    {
+      "path": "/admins",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user",
+        "requires_permission:access"
+      ]
+    },
+    {
+      "path": "/admins",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user",
+        "requires_global_admin"
+      ]
+    },
+    {
+      "path": "/admins/remove",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user",
+        "requires_global_admin"
+      ]
+    },
+    {
+      "path": "/config",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "_ensure_keyvalue_object",
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/config",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/config/chat/{key}",
+      "methods": [
+        "DELETE"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/config/keys/own",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "_ctx_global_admin",
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/config/keys/own",
+      "methods": [
+        "PUT"
+      ],
+      "init_data": true,
+      "checks": [
+        "_ctx_global_admin",
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/config/keys/own/{key_name}",
+      "methods": [
+        "DELETE"
+      ],
+      "init_data": true,
+      "checks": [
+        "_ctx_global_admin",
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/config/keys/status",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/config/overrides-map",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/config/params-meta",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/config/time",
+      "methods": [
+        "DELETE"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/config/time",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/config/time",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/config/timezones",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/control/restart",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user",
+        "requires_permission:action.control.restart"
+      ]
+    },
+    {
+      "path": "/control/start",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user",
+        "requires_permission:action.control.start"
+      ]
+    },
+    {
+      "path": "/control/stop",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user",
+        "requires_permission:action.control.stop"
+      ]
+    },
+    {
+      "path": "/debug/config",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user",
+        "requires_permission:action.debug.config"
+      ]
+    },
+    {
+      "path": "/direct/context-diagnostics",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/direct/turn-diagnostics",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/episodes/feed",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "_require_chat_access",
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/episodes/recovery",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "_require_chat_access",
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/episodes/{episode_id}",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "_require_chat_access",
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/experience/pipeline",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "_ctx_global_admin",
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/factcheck/temporal/aggregate",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "_ctx_global_admin",
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/factcheck/temporal/runs",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "_ctx_global_admin",
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/factcheck/temporal/runs/{run_id}",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "_ctx_global_admin",
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/health",
+      "methods": [
+        "GET"
+      ],
+      "init_data": false,
+      "checks": []
+    },
+    {
+      "path": "/images/test",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user",
+        "requires_global_admin"
+      ]
+    },
+    {
+      "path": "/info",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/info",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user",
+        "requires_permission:edit_info"
+      ]
+    },
+    {
+      "path": "/info/guide",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/info/guide",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user",
+        "requires_permission:edit_info"
+      ]
+    },
+    {
+      "path": "/info/guide/backup",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user",
+        "requires_permission:edit_info"
+      ]
+    },
+    {
+      "path": "/info/guide/reset",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user",
+        "requires_permission:edit_info"
+      ]
+    },
+    {
+      "path": "/info/reset-canon",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user",
+        "requires_permission:edit_info"
+      ]
+    },
+    {
+      "path": "/initiative/meme-settings",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "_require_chat_access",
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/initiative/meme-settings",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/llm/test",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user",
+        "requires_global_admin"
+      ]
+    },
+    {
+      "path": "/me",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/persona",
+      "methods": [
+        "DELETE"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/persona",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/persona",
+      "methods": [
+        "PUT"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/persona/health",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user",
+        "requires_global_admin"
+      ]
+    },
+    {
+      "path": "/persona/rules/{rule_id}/pause",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/persona/rules/{rule_id}/resume",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/persona/rules/{rule_id}/sources",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/persona/self-model",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/prompts/catalog",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/prompts/revisions/diff",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "_prompt_require_revision_view",
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/prompts/revisions/{revision_id}/copy-to-global",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "_prompt_require_edit",
+        "_prompt_require_revision_view",
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/prompts/revisions/{revision_id}/source",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "_prompt_require_revision_view",
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/prompts/{prompt_key}/activate",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "_prompt_require_edit",
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/prompts/{prompt_key}/baseline",
+      "methods": [
+        "DELETE"
+      ],
+      "init_data": true,
+      "checks": [
+        "_prompt_require_edit",
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/prompts/{prompt_key}/baseline",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "_prompt_require_view",
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/prompts/{prompt_key}/baseline",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "_prompt_require_edit",
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/prompts/{prompt_key}/baseline/restore",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "_prompt_require_edit",
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/prompts/{prompt_key}/factory/restore",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "_prompt_require_edit",
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/prompts/{prompt_key}/versions",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "_prompt_require_view",
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/random/ibm/smoke",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user",
+        "requires_global_admin"
+      ]
+    },
+    {
+      "path": "/random/test",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user",
+        "requires_global_admin"
+      ]
+    },
+    {
+      "path": "/roles",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user",
+        "requires_permission:access"
+      ]
+    },
+    {
+      "path": "/roles",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user",
+        "requires_global_admin"
+      ]
+    },
+    {
+      "path": "/roles/tree",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user",
+        "requires_permission:access"
+      ]
+    },
+    {
+      "path": "/roles/{role_name}",
+      "methods": [
+        "DELETE"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user",
+        "requires_global_admin"
+      ]
+    },
+    {
+      "path": "/roles/{role_name}/rename",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user",
+        "requires_global_admin"
+      ]
+    },
+    {
+      "path": "/status",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/status/key-history",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/status/logs",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "_is_global_admin",
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/status/media-health",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/status/self-diagnosis",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/vision/recognition-check",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "_ctx_global_admin",
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/vision/state",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "_ctx_global_admin",
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/vision/test",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "_ctx_global_admin",
+        "get_tma_user"
+      ]
+    },
+    {
+      "path": "/youtube/proxy/health",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user",
+        "requires_global_admin"
+      ]
+    },
+    {
+      "path": "/youtube/proxy/test",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "checks": [
+        "get_tma_user",
+        "requires_global_admin"
+      ]
+    }
+  ]
+}

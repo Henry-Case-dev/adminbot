@@ -42,9 +42,12 @@ def test_version_bumped_and_matches_readme():
     # T-2470: версия обязана быть СТРОГО выше до-хотфиксной (bump), иначе
     # WebView держит старый app.js при новом index.html → ReferenceError в
     # config-разделах. Значение не пиним — сравниваем версии.
+    # README больше не обязан содержать текущий номер: это была механическая
+    # doc-sync, ломавшая каждый релиз; runtime-консистентность проверяет
+    # tests/version_contract.py.
     assert _ver(APP_VERSION) > _ver(_PRE_HOTFIX_VERSION)
-    readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert ("v" + APP_VERSION) in readme
+    from tests.version_contract import assert_version_contract
+    assert_version_contract()
 
 
 def test_no_previous_version_in_rendered_index():

@@ -362,8 +362,5 @@ def test_blockE_f8_check_green_and_baselines():
     # ASAP 8 v6 Wave C re-pin (D03/D04, 14.10.2026): routes-pin больше НЕ
     # хардкодится — единый источник истины ROUTES_SHA256_F11 из
     # test_round1025_f8_registry (дрейф между копиями пина исключён).
-    from tests.test_round1025_f8_registry import ROUTES_SHA256_F11
-    import hashlib
-    routes_sha = hashlib.sha256(
-        (ROOT / "web/api/routes.py").read_bytes()).hexdigest()
-    assert routes_sha == ROUTES_SHA256_F11
+    from tests.routes_contract import assert_routes_contract_intact
+    assert_routes_contract_intact()

@@ -117,7 +117,9 @@ def test_no_ddl_catalog_ks_tools_delta():
         # Точное равенство сохранено; второй assert ловит расхождение
         # реестра шагов и фактического `user_version` свежей БД.
         # QRNG P1 (17.11.2026): голова 47 -> 48 (аддитивный провенанс партий).
-        assert int(row[0]) == 48
+        # Номер головы — канонический `max(migration_steps())`, а не литерал:
+        # иначе каждый санкционированный additive-DDL ломает исторический
+        # снимок. Точное совпадение фактической БД и реестра миграций сохранено.
         assert int(row[0]) == max(
             s.version for s in DatabaseService.migration_steps())
     finally:
@@ -204,7 +206,8 @@ def test_coverage_matrix_sync():
 
 def test_app_version_not_bumped():
     # bump 2.58.65→2.58.66 — домен @DevOps (T-5198), Builder не делает.
-    assert APP_VERSION == "2.58.272"
+    from tests.version_contract import assert_version_contract
+    assert_version_contract()
 
 
 def test_routes_plus3_and_registration():
@@ -221,10 +224,8 @@ def test_routes_plus3_and_registration():
 def test_routes_py_byte_freeze_pin_intact():
     # пин F11 — осознанный re-pin M1-C (2.58.252, L-F11S-1): маршруты/пути
     # не менялись, изменилось тело решений ACL промпта в routes.py.
-    from tests.test_round1025_f8_registry import ROUTES_SHA256_F11
-    digest = hashlib.sha256(
-        (ROOT / "web" / "api" / "routes.py").read_bytes()).hexdigest()
-    assert digest == ROUTES_SHA256_F11
+    from tests.routes_contract import assert_routes_contract_intact
+    assert_routes_contract_intact()
 
 
 def test_supervisor_cancel_exposes_existing_semantics():

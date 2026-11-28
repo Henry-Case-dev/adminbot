@@ -678,17 +678,12 @@ class TestObservedLimitMetaCleanup:
 # ── 5. Routes-пин: routes.py не меняется (маршрут в cover_styles_router) ────
 
 class TestRoutesPinUnchanged:
-    def test_routes_sha256_f11_intact(self):
-        sys_path = str(ROOT)
-        import sys
-        if sys_path not in sys.path:
-            sys.path.insert(0, sys_path)
-        from tests.test_round1025_f8_registry import ROUTES_SHA256_F11
-        digest = hashlib.sha256(
-            (ROOT / "web" / "api" / "routes.py").read_bytes()).hexdigest()
-        assert digest == ROUTES_SHA256_F11, (
-            "web/api/routes.py изменился — переутверждение ROUTES_SHA256_F11 "
-            "по прецеденту (tools/_mca18_repin_routes.py) вне этого теста")
+    def test_routes_contract_intact(self):
+        # routes.py не пинится sha256: контракт путей/методов/initData/RBAC
+        # (tests/routes_contract.py). Добавление маршрута в другой зоне
+        # (cover_styles_router) требует осознанного объявления контракта.
+        from tests.routes_contract import assert_routes_contract_intact
+        assert_routes_contract_intact()
 
     def test_new_route_in_cover_styles_router(self):
         from web.api.cover_styles import cover_styles_router
