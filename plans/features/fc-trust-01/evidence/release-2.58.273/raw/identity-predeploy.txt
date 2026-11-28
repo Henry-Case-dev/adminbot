@@ -1,0 +1,13 @@
+﻿branch=release/2.58.273
+head=5e38d9b72de1cb1ff612fc4368c52467b31102e3
+head_tree=5e5c965d0c0acf9618d6ed298c9bafc526ccd968
+base_2.58.272=fa4ba62920a04ab5a4c994ad05c7dfb33d101f0e
+merge_s7=430d3e52e40f6202888c8d38011c4d3f997c24c8
+candidate_s7=57ba095b578f2f3f2f6426436d5d17e4e26f4cae
+candidate_admission=eab570fe0a5b6d361dc477a270d4249689b8776e
+candidate_u1_tip=10652fea41651937abd79ccded56a9b319dfc0a6
+candidate_u1_code=0fc7201ea
+dirty_tracked=0
+worktrees=16
+dirty_untracked=12
+untracked_paths=plans/features/fc-trust-01/evidence/release-2.58.273/raw/candidates-identity.txt plans/features/fc-trust-01/evidence/release-2.58.273/raw/collect-only.txt plans/features/fc-trust-01/evidence/release-2.58.273/raw/identity-predeploy.txt plans/features/fc-trust-01/evidence/release-2.58.273/raw/registry-check.txt plans/features/fc-trust-01/evidence/release-2.58.273/raw/tests-factcheck-family-base-2.58.272.txt plans/features/fc-trust-01/evidence/release-2.58.273/raw/tests-factcheck-family-base-failures.txt plans/features/fc-trust-01/evidence/release-2.58.273/raw/tests-factcheck-family-release-failures.txt plans/features/fc-trust-01/evidence/release-2.58.273/raw/tests-factcheck-family-release.txt plans/features/fc-trust-01/evidence/release-2.58.273/raw/tests-routes-pins.txt plans/features/fc-trust-01/evidence/release-2.58.273/raw/tests-supplementary.txt plans/features/fc-trust-01/evidence/release-2.58.273/raw/tests-targeted.txt plans/features/fc-trust-01/evidence/release-2.58.273/raw/version-contract.txt
