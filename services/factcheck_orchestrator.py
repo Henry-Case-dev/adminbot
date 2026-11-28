@@ -1931,6 +1931,23 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
         verdict = fat.attach_attribution_evidence(verdict,
                                                   attribution_match)
     _notice = publication.notice()
+    # FCT-702 (S4 U3): если медиа-флаг принадлежит конкретной части, оговорка
+    # публикуется у ЭТОЙ части (renderer), а не как общая по публикации.
+    # Фактическая причина материала передаётся аддитивным `media_note` части;
+    # общий текст не дублируется ни дважды, ни «на всю публикацию».
+    _media_parts = [part for part in (getattr(verdict, "parts", ()) or ())
+                    if isinstance(part, dict) and part.get("unverified_media")]
+    if _media_parts:
+        _media_note = str(publication.notice() or "").strip()
+        if _media_note:
+            verdict = dataclasses.replace(
+                verdict,
+                parts=tuple(
+                    ({**part, "media_note": _media_note}
+                     if isinstance(part, dict)
+                     and part.get("unverified_media") else part)
+                    for part in (verdict.parts or ())))
+        _notice = ""
     if (not _notice and retrieval_outcome is not None
             and not getattr(retrieval_outcome, "refs_collected", 0)
             and getattr(retrieval_outcome, "search_text", "")

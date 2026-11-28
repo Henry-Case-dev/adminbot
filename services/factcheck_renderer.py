@@ -43,6 +43,8 @@ from urllib.parse import urlsplit
 from aiogram.exceptions import TelegramBadRequest
 
 from services.factcheck_orchestrator import (
+    EXECUTION_PARTIAL,
+    EXECUTION_TECHNICAL_UNVERIFIED,
     CheckedVerdict,
     FactcheckPresentation,
 )
@@ -102,6 +104,24 @@ _SOURCE_KIND_LABELS = {
     "chat": "сообщение чата",
 }
 
+#: FCT-023 (S4 U3): форма публикации — отдельная ось от source_kind.
+#: Русские подписи владельца (§3.7 контракта S4): научная статья, препринт,
+#: пресс-релиз, пересказ, авторская интерпретация. Неизвестное — без подписи
+#: (renderer не выдумывает тип публикации).
+_PUBLICATION_KIND_LABELS = {
+    "preprint": "препринт",
+    "journal_article": "научная статья",
+    "press_release": "пресс-релиз",
+    "secondary_report": "пересказ",
+    "interpretation": "авторская интерпретация",
+}
+
+#: FCT-023 (S4 U3, D2): пресс-релиз и авторская интерпретация не выглядят
+#: «доказательством напрямую» — рядом с подписью честная пометка. Роль/сила
+#: уже понижены evidence-слоем (U1); здесь только публичная формулировка.
+_NON_DIRECT_PUBLICATION_KINDS = frozenset({"press_release", "interpretation"})
+_NON_DIRECT_PUBLICATION_NOTE = "не прямое доказательство"
+
 #: FC-PERCLAIM/FC-RENDER: короткие подписи вердикта части при разборе.
 _PART_LABELS = {
     "supported": "подтверждается",
@@ -114,10 +134,15 @@ _PART_LABELS = {
 #: иначе сбой поиска читается как отсутствие фактов (§ 4 задания).
 _TECHNICAL_PART_LABELS = {
     "provider_error": "поиск не завершён: технический сбой",
+    "provider_timeout": "поиск не завершён: таймаут",
+    "rate_limit": "поиск не завершён: лимит запросов",
     "deadline_exceeded": "поиск не завершён: лимит времени",
+    "resource_limit": "поиск не завершён: лимит ресурсов",
+    "source_unreadable": "источник недоступен",
     "source_extract_failed": "источник не удалось открыть",
     "search_not_started": "пункт не проверялся",
     "claim_unidentified": "пункт не опознан",
+    "cancelled": "проверка отменена",
 }
 
 #: Технический заголовок по преобладающему техническому исходу частей.
@@ -127,6 +152,44 @@ _TECHNICAL_STATUS_HEADLINE = {
     "source_extract_failed":
         "Проверка не завершена: материалы не удалось разобрать",
 }
+
+#: FCT-602/603/193 (S4 U3): `execution_status=technical_unverified` — отдельная
+#: ось вердикта, её реальная причина (`execution_cause`) называется по-русски.
+#: Никаких внутренних ID/кодов/имён провайдеров: только человеческая причина.
+_EXECUTION_TECHNICAL_HEADLINE = {
+    "provider_error": "Проверка не завершена: поиск недоступен",
+    "provider_timeout": "Проверка не завершена: поиск не ответил вовремя",
+    "rate_limit": "Проверка не завершена: превышен лимит запросов",
+    "deadline_exceeded": "Проверка не завершена: истёк лимит времени",
+    "resource_limit": "Проверка не завершена: исчерпан лимит проверки",
+    "source_unreadable": "Проверка не завершена: источники не удалось прочитать",
+    "source_extract_failed":
+        "Проверка не завершена: материалы не удалось разобрать",
+    "cancelled": "Проверка не завершена: проверка отменена",
+    "claim_unidentified": "Проверка не завершена: тезис не удалось выделить",
+}
+_EXECUTION_TECHNICAL_FALLBACK = "Проверка не завершена: техническая ошибка"
+
+#: FCT-602 (S4 U3): `execution_status=partial` — подтверждённые части остаются,
+#: но рядом короткая человеческая оговорка о неполноте (причина — без ID).
+_PARTIAL_CAUSE_NOTICE = {
+    "provider_error": "поисковые сервисы не ответили",
+    "provider_timeout": "поиск не ответил вовремя",
+    "rate_limit": "поисковый сервис ограничил частоту запросов",
+    "deadline_exceeded": "истёк лимит времени проверки",
+    "resource_limit": "исчерпан лимит проверки",
+    "source_unreadable": "часть источников не удалось прочитать",
+    "source_extract_failed": "часть материалов не удалось разобрать",
+    "cancelled": "проверка была остановлена",
+    "claim_unidentified": "часть тезисов не удалось выделить",
+}
+_PARTIAL_NOTICE = "Проверено частично: часть пунктов осталась без проверки"
+_PARTIAL_NOTICE_SUFFIX = " — это не опровержение."
+
+#: FCT-702 (S4 U3): оговорка непроверенного изображения — только у затронутой
+#: части (caption/OCR), а не у всей публикации.
+_MEDIA_PART_NOTE = ("изображение не проверено — оговорка относится только "
+                    "к этому пункту")
 
 #: §3.1/§4 (ASAP-FC-EVIDENCE-STYLE-02): показываются ВСЕ проверенные части
 #: составной новости. ASAP-FC-VOICE-01 / A (§5 контракта): предел числа
@@ -241,6 +304,17 @@ def headline_code(verdict: CheckedVerdict | None) -> str:
     невозможно по построению (одни и те же предикаты)."""
     if verdict is None:
         return ""
+    execution_status = str(getattr(verdict, "execution_status", "") or "")
+    execution_cause = str(getattr(verdict, "execution_cause", "") or "")
+    if execution_status == EXECUTION_TECHNICAL_UNVERIFIED:
+        reason = str(verdict.reason_code or "")
+        if reason in _TECHNICAL_HEADLINE:
+            return f"technical:{reason}"
+        return f"technical:execution:{execution_cause or 'unknown'}"
+    if execution_status == EXECUTION_PARTIAL:
+        # partial: содержательный заголовок + оговорка (см. `_content`).
+        factual = str(verdict.factual_verdict or "")
+        return f"verdict:{factual}" if factual in _VERDICT_HEADLINE else ""
     reason = str(verdict.reason_code or "")
     if reason in _TECHNICAL_HEADLINE:
         return f"technical:{reason}"
@@ -263,12 +337,30 @@ def _content(presentation: FactcheckPresentation,
     ограничения отдельной концовкой. P0-FACTCHECK-CORRECTIVE (§7.4):
     обязательная композиция тела (принудительный список 2–4 пунктов)
     снята — тело вербализатора проходит как есть."""
-    technical = (_TECHNICAL_HEADLINE.get(str(verdict.reason_code or ""))
-                 if verdict is not None else None)
-    if technical is None and verdict is not None:
-        # Reviewer F3: технический сбой не называется «недостатком данных»
-        # и когда reason-код прогона пуст (часть упала, часть ответила).
-        technical = _technical_headline_from_parts(verdict)
+    technical = None
+    execution_status = (str(getattr(verdict, "execution_status", "") or "")
+                        if verdict is not None else "")
+    execution_cause = (str(getattr(verdict, "execution_cause", "") or "")
+                       if verdict is not None else "")
+    if execution_status == EXECUTION_TECHNICAL_UNVERIFIED:
+        # FCT-603 (S4 U3): структурный технический статус сильнее прочих
+        # источников заголовка — технический сбой никогда не подаётся как
+        # содержательное «Недостаточно данных для проверки». Точный
+        # существующий reason-код (реестр) сохраняет приоритет; иначе —
+        # человеческая причина исполнения (`execution_cause`).
+        technical = (_TECHNICAL_HEADLINE.get(str(verdict.reason_code or ""))
+                     or _EXECUTION_TECHNICAL_HEADLINE.get(execution_cause)
+                     or _EXECUTION_TECHNICAL_FALLBACK)
+    elif execution_status != EXECUTION_PARTIAL:
+        # FCT-602 (S4 U3): при `partial` подтверждённые части не прячутся за
+        # техническим заголовком — он остаётся содержательным, а неполнота
+        # называется короткой оговоркой ниже.
+        technical = (_TECHNICAL_HEADLINE.get(str(verdict.reason_code or ""))
+                     if verdict is not None else None)
+        if technical is None and verdict is not None:
+            # Reviewer F3: технический сбой не называется «недостатком данных»
+            # и когда reason-код прогона пуст (часть упала, часть ответила).
+            technical = _technical_headline_from_parts(verdict)
     headline = technical or (_VERDICT_HEADLINE.get(verdict.factual_verdict)
                              if verdict is not None else None)
     links = _safe_links(presentation.links)
@@ -298,9 +390,20 @@ def _content(presentation: FactcheckPresentation,
     # (заголовок + абзац + концовка = три одинаковых сообщения — снято).
     technical_notice = _TECHNICAL_NOTICE.get(str(
         verdict.reason_code or "")) if verdict is not None else None
-    if technical_notice and technical_notice not in notice and not technical:
+    if technical_notice and technical_notice not in notice and not technical \
+            and execution_status != EXECUTION_PARTIAL:
         notice = f"{notice} {technical_notice}".strip() if notice \
             else technical_notice
+    if execution_status == EXECUTION_PARTIAL:
+        # FCT-602 (S4 U3): короткая и конкретная оговорка о неполноте;
+        # причина — человеческая, без внутренних ID/кодов.
+        cause_phrase = _PARTIAL_CAUSE_NOTICE.get(execution_cause, "")
+        partial_notice = (_PARTIAL_NOTICE
+                          + (f" ({cause_phrase})" if cause_phrase else "")
+                          + _PARTIAL_NOTICE_SUFFIX)
+        if partial_notice not in notice:
+            notice = f"{notice} {partial_notice}".strip() if notice \
+                else partial_notice
     if not links and not notice and verdict is not None \
             and verdict.evidence.refs:
         notice = _NO_LINKS_NOTICE
@@ -370,6 +473,48 @@ def _refs_by_id(verdict: CheckedVerdict | None) -> dict:
     return {ref.evidence_id: ref for ref in verdict.evidence.refs if ref.url}
 
 
+def _publication_kind_by_url(verdict: CheckedVerdict | None) -> dict:
+    """FCT-023 (S4 U3): URL → publication_kind из coverage текущего прогона.
+
+    Источник — только уже установленные ClaimEvidence (ось U1); новых
+    запросов/классификаций здесь нет. EvidenceRef этой оси не несёт, поэтому
+    подпись берётся у claim-покрытия, а не угадывается по тексту.
+    """
+    out: dict = {}
+    if verdict is None:
+        return out
+    for cov in (getattr(verdict, "claims", ()) or ()):
+        for ev in (getattr(cov, "evidence", ()) or ()):
+            url = str(getattr(ev, "url", "") or "")
+            kind = str(getattr(ev, "publication_kind", "") or "")
+            if url and kind in _PUBLICATION_KIND_LABELS \
+                    and url not in out:
+                out[url] = kind
+    return out
+
+
+def _source_suffix(source_kind: str, publication_kind: str = "") -> str:
+    """« — пересказ, пресс-релиз — не прямое доказательство» (S4 U3).
+
+    Подписи не выдумывают ссылок и не меняют роль evidence: публичная
+    формулировка формы публикации. Для пресс-релиза/интерпретации рядом
+    честная пометка — они не выглядят прямым доказательством.
+    """
+    bits: list[str] = []
+    source_label = _SOURCE_KIND_LABELS.get(str(source_kind or ""), "")
+    if source_label:
+        bits.append(source_label)
+    publication_label = _PUBLICATION_KIND_LABELS.get(
+        str(publication_kind or ""), "")
+    if publication_label and publication_label != source_label:
+        if publication_kind in _NON_DIRECT_PUBLICATION_KINDS:
+            bits.append(f"{publication_label} — "
+                        f"{_NON_DIRECT_PUBLICATION_NOTE}")
+        else:
+            bits.append(publication_label)
+    return f" — {', '.join(bits)}" if bits else ""
+
+
 def _part_bindings(verdict: CheckedVerdict | None) -> list:
     """FC-RENDER (§3.6): (текст части, вердикт части, [EvidenceRef], gap) —
     разбор ключевых утверждений с цитатами, привязанными к каждому.
@@ -407,29 +552,32 @@ def _part_bindings(verdict: CheckedVerdict | None) -> list:
         seen_texts.add(key)
         out.append((text, str(part.get("factual_verdict") or ""), part_refs,
                     str(part.get("gap_note") or ""),
-                    str(part.get("status_detail") or "")))
+                    str(part.get("status_detail") or ""),
+                    bool(part.get("unverified_media")),
+                    str(part.get("media_note") or "")))
     return out
 
 
 def _sources_rows(verdict: CheckedVerdict | None, links, *,
-                  bound_urls: set, esc, esc_attr, html_mode: bool
+                  bound_urls: set, esc, esc_attr, html_mode: bool,
+                  pub_by_url: dict | None = None
                   ) -> list[str]:
     """Строки «Источники:» с ролью каждого источника (FC-RENDER §3.6:
     никаких доменов без объяснения); ссылки, уже привязанные к частям,
-    во втором списке не повторяются."""
+    во втором списке не повторяются. FCT-023 (S4 U3): к роли добавляется
+    подпись формы публикации из уже установленного evidence."""
     kind_by_url: dict = {}
     if verdict is not None and verdict.evidence is not None:
         for ref in verdict.evidence.refs:
             if ref.url and ref.url not in kind_by_url:
-                kind_by_url[ref.url] = _SOURCE_KIND_LABELS.get(
-                    ref.source_kind, "")
+                kind_by_url[ref.url] = str(ref.source_kind or "")
     rows: list[str] = []
     for url in links:
         if url in bound_urls:
             continue
-        kind = kind_by_url.get(url, "")
+        publication_kind = (pub_by_url or {}).get(url, "")
         label = _safe_host(url) or "источник"
-        suffix = f" — {kind}" if kind else ""
+        suffix = _source_suffix(kind_by_url.get(url, ""), publication_kind)
         if html_mode:
             rows.append(f"{len(rows) + 1}. <a href=\"{esc_attr(url)}\">"
                         f"{esc(label)}</a>{esc(suffix)}")
@@ -472,10 +620,20 @@ def _serialize(presentation: FactcheckPresentation,
     # фактически нет (пустое/вырожденное тело). Так проверенный вердикт,
     # покрытие тезисов и валидированные ссылки не теряются на сбое речевой
     # фазы, но и не дублируют сказанное в обычном ответе.
-    bindings = [] if body_text else _part_bindings(verdict)
+    #
+    # FCT-702 (S4 U3): часть с непроверенным изображением показывается ВСЕГДА —
+    # оговорка принадлежит именно этой части, а не всей публикации, поэтому
+    # подтверждённое текстом тело не прячет её.
+    bindings_all = _part_bindings(verdict)
+    if body_text:
+        bindings = [b for b in bindings_all if b[5]]
+    else:
+        bindings = bindings_all
+    pub_by_url = _publication_kind_by_url(verdict)
     if bindings:
         lines: list[str] = []
-        for text, part_verdict, part_refs, gap_note, status_detail in bindings:
+        for (text, part_verdict, part_refs, gap_note, status_detail,
+             media_unverified, media_note) in bindings:
             # Reviewer F3: технический исход части называется техническим —
             # «данных недостаточно» остаётся только для реального отсутствия
             # подходящих источников/недоказанного числа.
@@ -484,8 +642,8 @@ def _serialize(presentation: FactcheckPresentation,
             cites = []
             for ref in part_refs:
                 host = _safe_host(ref.url) or "источник"
-                kind = _SOURCE_KIND_LABELS.get(str(ref.source_kind or ""), "")
-                suffix = f" — {kind}" if kind else ""
+                suffix = _source_suffix(ref.source_kind,
+                                        pub_by_url.get(ref.url, ""))
                 if html_mode:
                     cites.append(f"<a href=\"{esc_attr(ref.url)}\">"
                                  f"{esc(host)}</a>{esc(suffix)}")
@@ -504,20 +662,28 @@ def _serialize(presentation: FactcheckPresentation,
                 gap = ""
             gap_part = (f" ({esc(gap)})" if html_mode else f" ({gap})") \
                 if gap else ""
+            # FCT-702 (S4 U3): оговорка ровно у этой части; если оркестратор
+            # передал фактическую причину материала — показываем её.
+            media_text = media_note or _MEDIA_PART_NOTE
+            media_part = (f" ({esc(media_text)})" if html_mode
+                          else f" ({media_text})") if media_unverified else ""
             body_line = esc(trimmed) if html_mode else trimmed
             if cites_text:
-                line = f"{body_line}{label_part}{gap_part}: {cites_text}"
+                line = (f"{body_line}{label_part}{gap_part}{media_part}: "
+                        f"{cites_text}")
             else:
                 # P0-FACTCHECK: часть без источника остаётся видимой и
                 # честно помечена (не «факт без ссылки» и не выброшена).
-                line = (f"{body_line}{label_part}{gap_part} "
+                line = (f"{body_line}{label_part}{gap_part}{media_part} "
                         f"(проверяемой ссылки нет)")
             lines.append("• " + line)
         # §5: «…и ещё N: не показаны» удалено — тезисы не теряются молча.
         blocks.append("По утверждениям:\n" + "\n".join(lines))
-    bound_urls = {ref.url for _t, _v, refs, _g, _s in bindings for ref in refs}
+    bound_urls = {ref.url for _t, _v, refs, _g, _s, _m, _n in bindings
+                  for ref in refs}
     rows = _sources_rows(verdict, links, bound_urls=bound_urls,
-                         esc=esc, esc_attr=esc_attr, html_mode=html_mode)
+                         esc=esc, esc_attr=esc_attr, html_mode=html_mode,
+                         pub_by_url=pub_by_url)
     if rows:
         blocks.append("Источники:\n" + "\n".join(rows))
     if notice:

@@ -856,7 +856,7 @@ _JOURNAL_HOST_RE = re.compile(
     r"academic\.oup\.com|cambridge\.org/core|jstor\.org)",
     re.IGNORECASE)
 _JOURNAL_PATH_RE = re.compile(
-    r"/(?:doi|pmc|pubmed|abstract|full|pdf|articles?|records?|"
+    r"/(?:doi|pmc|pubmed|abstract|full|pdf|records?|"
     r"content/[^/]+/)/", re.IGNORECASE)
 _PRESS_HOST_RE = re.compile(
     r"(eurekalert\.org|prnewswire\.com|businesswire\.com|globenewswire\.com|"
