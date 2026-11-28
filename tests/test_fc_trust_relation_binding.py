@@ -130,7 +130,9 @@ class TestYearConflict:
 
     def test_year_inside_url_is_not_a_passage_year(self):
         """Год из адреса пассажа — не утверждение источника."""
-        rel = _relevance(PASSAGE_2025 + " https://eco.example/2024/report")
+        passage = ("ЭкоПром снизила выбросы на 12% по данным отчёта "
+                   "https://eco.example/2024/report")
+        rel = _relevance(passage)
         assert rel.role == sa.EVIDENCE_ROLE_SUPPORTS
         assert "time:year_conflict" not in rel.basis
 
