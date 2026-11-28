@@ -9,4 +9,4 @@ reply candidate-only: none
 context batch: identical=True candidate=1 baseline=1
 
 New suite: baseline 10 failed/5 passed (raw/baseline-new-suite-red.txt),
-candidate 15 passed (raw/candidate-new-suite.txt).
+candidate 16 passed (raw/candidate-new-suite.txt).

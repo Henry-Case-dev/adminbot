@@ -1,2 +1,2 @@
-15 passed in 14.06s
+16 passed in 12.04s
 [exit=0]

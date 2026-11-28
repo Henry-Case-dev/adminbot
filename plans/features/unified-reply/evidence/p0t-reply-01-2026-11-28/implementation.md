@@ -84,7 +84,7 @@ deferred-media шов `resume_deferred_evidence` (C3 диагноза).
 
 | Прогон | Кандидат | База 74ef57ef4 |
 |---|---|---|
-| новый файл `tests/test_p0t_reply_target.py` | **15 passed** (`raw/candidate-new-suite.txt`) | **10 failed / 5 passed** (`raw/baseline-new-suite-red.txt`) — контрактные кейсы красные на базе |
+| новый файл `tests/test_p0t_reply_target.py` | **16 passed** (`raw/candidate-new-suite.txt` после R1-01) | **10 failed / 5 passed** на 15 тестах до R1-01 (`raw/baseline-new-suite-red.txt`); добавленный service-level кейс на базе красный по построению — это же доказывает мутация `with_ids=False` (R1-01) |
 | пины (16 файлов: canon/sha12/метки/rollback/fixture/expression) | **354 passed, 5 failed** (`raw/candidate-pins.txt`) | **350 passed, 9 failed** (`raw/baseline-pytest.txt`); candidate-only падений = 0, 4 baseline-падения закрыты осознанным обновлением пинов |
 | Direct/OK-батч (22 файла: asap7/8, decision, p0b, epic33/37, direct_chat*, mca23, bgs02, rlr…) | **920 passed, 16 failed** (`raw/candidate-batch-direct.txt`) | **16 failed / 4 passed**, набор идентичен (`raw/baseline-batch-direct-pair.txt`) |
 | reply-батч (24 файла: addtr, image, tool_calling, ur_f, asap5_w3, native_reply, ur/unified…) | **651 passed, 15 failed** (`raw/candidate-batch-reply.txt`) | **15 failed** тем же набором (`raw/baseline-batch-reply-pair.txt` + `…-others.txt`) |
@@ -156,3 +156,37 @@ Baseline на 74ef57ef4 (до правок) для пинового набора
    `reply_to` один и тот же).
 5. Хвост `[msg:id]` при экстремальном усечении секции: `clip_body` сохраняет голову,
    поэтому префикс переживает кап; отдельный стресс-тест не добавлялся.
+
+## 7. R1-01 (ревью, LOW IN_SCOPE) — service-level проверка `with_ids=True`
+
+Находка: контекст-тест проверял билдер напрямую, поэтому мутация
+`with_ids=True → False` на seam'е сервиса не ломала ни один тест.
+
+Добавлен **один** кейс
+`tests/test_p0t_reply_target.py::test_service_actually_sends_with_ids_and_p0_refs`:
+исполняется боевой путь `DirectChatService.handle` → `_plan_direct_l1` →
+`build_l1_context` → LLM-стадия `l1_planner` (fake LLM перехватывает payload),
+и проверяется, что:
+* L1-стадия реально вызвана, payload — ровно `system` + `user`;
+* в `user`-payload есть `[msg:<id строки окна>]` (id берётся из БД, кандидаты —
+  фото/обложка; аллокатор может оставить не все строки, поэтому достаточно
+  любой из них);
+* в секции `[СООБЩЕНИЕ]` есть `[msg:<id триггера>]` — P0-сообщение исключено из
+  окна и получает префикс только при `with_ids=True`.
+
+Мутация (без правки продукта в коммите): `raw/r1_01_mutation.py` подменяет ровно
+один anchor (`with_ids=True` + следующая строка `trigger_message_id=…`) на
+`False`, прогоняет кейс и восстанавливает файл из бэкапа в `finally`.
+`raw/r1-01-with-ids-mutation.txt`:
+
+```
+anchor_count=1
+MUTATION with_ids=False: exit=1 -> RED (good)
+FAILED …::test_service_actually_sends_with_ids_and_p0_refs
+product_restored_equal_HEAD=True
+RESTORED suite: exit=0
+16 passed in 12.27s
+```
+
+Итог: новых тестов в файле **16**; продукт `services/*` этим дополнением не
+менялся (`git diff --quiet cb387ee88 HEAD -- services` → rc 0).

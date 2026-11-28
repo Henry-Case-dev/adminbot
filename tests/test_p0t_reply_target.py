@@ -105,11 +105,14 @@ class _LLM:
         self.l2_text = l2
         self.l1_error = l1_error
         self.calls: list[str] = []
+        # R1-01: фактический payload L1-стадии Direct-сервиса (system+user).
+        self.l1_messages: list = []
 
     async def generate(self, messages, temperature=None, chat_id=None,
                        module=None, step=None, correlation_id=None, **kwargs):
         self.calls.append(str(step))
         if step == "l1_planner":
+            self.l1_messages = [dict(m) for m in (messages or ())]
             if self.l1_error is not None:
                 raise self.l1_error
             return self.l1_reply
@@ -400,6 +403,41 @@ def test_initiative_context_keeps_no_p0_prefix():
         preallocated=False, budget_tokens=4000)
     message_section = text.split("[СООБЩЕНИЕ]", 1)[1].split("\n\n", 1)[0]
     assert message_section.strip() == "повод наблюдателя"
+
+
+@pytest.mark.asyncio
+async def test_service_actually_sends_with_ids_and_p0_refs(tmp_path,
+                                                           monkeypatch):
+    """R1-01: `with_ids=True` реально доезжает через сервис, а не только в билдер.
+
+    Исполняется боевой путь `DirectChatService.handle` → `_plan_direct_l1` →
+    `build_l1_context` → LLM-стадия `l1_planner`. Перехваченный payload
+    обязан содержать id строки окна И id триггера (P0-секция): без
+    `with_ids=True` на seam'е ни одного `[msg:]` там не будет.
+    """
+    db, audio_row, photo_row = await _seed_media_window(tmp_path)
+    cursor = await db.db.execute(
+        "SELECT id FROM smart_messages WHERE tg_message_id = 504")
+    cover_row = int((await cursor.fetchone())[0])
+    await db.close()
+    _svc, _bot, _db2, msg = await _run(
+        tmp_path, monkeypatch, plan=_plan(delivery="chat"),
+        answer="ответ по существу")
+    messages = _svc.llm.l1_messages
+    assert messages, "L1-стадия не вызвана — путь не исполнен"
+    assert [m.get("role") for m in messages] == ["system", "user"]
+    user_payload = str(messages[1].get("content") or "")
+    # окно размечено id (тот же диалект, что у инициативы); аллокатор может
+    # оставить не все строки, поэтому достаточно хотя бы одной из них.
+    window_ids = [photo_row, cover_row]
+    present = [rid for rid in window_ids if f"[msg:{rid}]" in user_payload]
+    assert present, (window_ids, user_payload[:400])
+    # P0-сообщение (триггер) исключено из окна, но его id назван в секции
+    message_section = user_payload.split("[СООБЩЕНИЕ]", 1)[1].split(
+        "\n\n", 1)[0]
+    assert f"[msg:{audio_row}]" in message_section, message_section
+    assert f"[msg:{audio_row}]" in user_payload
+    assert msg.message_id == TRIGGER_TG
 
 
 # ═══ предикат «план — решение модели» ══════════════════════════════════════

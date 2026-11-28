@@ -16,6 +16,9 @@
   - `candidate-batch-context.txt` / `baseline-batch-context.txt` — контекст/бюджеты L1;
   - `verify-canon.txt` — печати/метки/`FACTORY_SET`, дельта R3→R4, known-canon, лестница;
   - `regression-set-compare.txt` — машинная сверка наборов падений candidate vs base;
+  - `r1_01_mutation.py` / `r1-01-with-ids-mutation.txt` — R1-01: мутация
+    `with_ids=True→False` на seam'е сервиса (RED) и восстановление (GREEN);
+  - `review-r1.md` — независимое ревью кандидата `cb387ee88` (Reviewer, байт-в-байт);
   - `mutations.py` / `regen_evidence.py` — воспроизводимые генераторы evidence (не тесты).
 
 Формат pytest-артефактов — только строки `FAILED/ERROR` + итог, без трейсбеков
