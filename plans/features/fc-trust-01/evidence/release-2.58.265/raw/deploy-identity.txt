@@ -1,0 +1,32 @@
+Deploy 2.58.265 — identity and unit (read-only re-verification after restart)
+observed 2026-11-28T00:04Z..00:10Z UTC
+
+head=55178d5bd1c7f21f2c4966195df7cb7a93096503
+dirty=0
+unit=1154684 0 Sat 2026-11-28 00:03:23 UTC active running
+  (MainPID=1154684, NRestarts=0, ExecMainStartTimestamp=2026-11-28 00:03:23 UTC)
+procs=1
+import=2.58.265
+blob 8db1e41fece0684978cbd35c90920c67fa459b66 services/factcheck_orchestrator.py
+blob e06c6afb9c83c39ac93b35fafebec70b5987aef2 services/factcheck_service.py
+blob db1e73341020ad3f0f632e285f6dbbf9fb3c7fd3 services/factcheck_planner.py
+blob c9b0f4cae07474ea143644331905082858775937 tests/test_fc_trust_verdict.py
+blob aa443043e1ab8dc9b172f8f220d3fb1acff1f225 tests/test_evol_fc_evidence_style.py
+blob 569a4b91e3941a9730053315ad95ea9131fc726a tests/test_factcheck_fc_r1_fix.py
+blob 82298d04a82ddf435bd2462306eec1c8c7a37c49 tests/test_factcheck_orchestrator_cfg06.py
+blob 0f43bb08032b8dad7fc81c6d56915033eab96e26 tests/test_factcheck_service.py
+
+perms:
+-rw-r--r-- adminbot adminbot config/settings.py
+-rw-r--r-- adminbot adminbot services/factcheck_orchestrator.py
+-rw-r--r-- adminbot adminbot tests/test_fc_trust_verdict.py
+unreadable output lines: none
+perms_checked
+
+deploy session (started 2026-11-28T00:02:22Z):
+old_head=c67683dd68dc4e2e3d48bff06c6568b3448cbc20
+dirty_before=0
+fetched=55178d5bd1c7f21f2c4966195df7cb7a93096503
+dirty_after=0
+changed_paths=54
+manifest deployed_at=2026-11-28T00:02:23.554971Z

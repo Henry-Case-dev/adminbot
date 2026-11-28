@@ -1,0 +1,19 @@
+Release 2.58.265 — deployed-module smoke in prod venv (no network, no user messages)
+2026-11-28T00:12Z, user adminbot, cwd /var/www/admin_bot
+
+fields_ok True unknown '' evidence
+statuses 4 causes 9
+partial-> insufficient_evidence
+conflicting-> mixed
+confirmed-> supported
+
+Meaning:
+- CheckedVerdict exposes execution_status (default "unknown"), execution_cause (default ""),
+  proof_basis (default "evidence") — additive compatibility with old constructors.
+- EXECUTION_STATUSES count 4; EXECUTION_CAUSES count 9.
+- P0 fix live on prod: CLAIM_OUTCOME_PARTIAL -> insufficient_evidence (no false "mixed");
+  conflicting still -> mixed; confirmed still -> supported.
+
+Probe note: first attempt used string key "partial" and raised KeyError in the probe itself
+(mapping keys are CLAIM_OUTCOME_* constants), not in product code; corrected probe above is
+the recorded result.

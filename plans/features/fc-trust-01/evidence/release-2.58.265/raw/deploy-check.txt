@@ -1,0 +1,30 @@
+Release 2.58.265 — post-deploy checks (prod, read-only), 2026-11-28T00:04:14Z
+
+version sources:
+APP_VERSION = "2.58.265"            (config/settings.py)
+{"status":"ok","version":"2.58.265"}  (http://127.0.0.1:8000/healthz)
+{"status":"ok","version":"2.58.265"}  (https://admin-bot.duckdns.org/healthz)
+
+web:
+web_root_http=200
+appjs_http=200
+b8f63355495c388a4240f9a96a0bebc3f1a99af663a7883ddfc4ab352a13c78a  web/api/routes.py
+3631e82de2a82b506b63d13914902678e31a28d1aa1abb7d41c79501c4b0282a  web/app.js
+app_js_size=2739459
+served=3631e82de2a82b506b63d13914902678e31a28d1aa1abb7d41c79501c4b0282a  -
+
+schema:
+user_version=49
+
+manifest (.deploy/release.json):
+{"deployed_at": "2026-11-28T00:02:23.554971Z", "deployed_sha": "55178d5bd1c7f21f2c4966195df7cb7a93096503", "deployer": "devops", "dirty_tracked": false, "effect": "deploy", "previous_sha": "c67683dd68dc4e2e3d48bff06c6568b3448cbc20", "previous_version": "2.58.264", "schema": 1, "version": "2.58.265"}
+
+settings (PostgreSQL bot_settings, read-only):
+rows=558
+md5=5cf6fe370bb3a3c52a1f9efc0e66328e
+maxupd=2026-11-27 21:48:55.892740+00:00
+prompts=29
+
+Note: md5 computed by python over (key=value) rows; previous release used a SQL md5 expression,
+so hashes are not directly comparable. Unchanged: rowcount 558, prompts 29, max(updated_at),
+no new seeds (services/param_catalog.py unchanged).

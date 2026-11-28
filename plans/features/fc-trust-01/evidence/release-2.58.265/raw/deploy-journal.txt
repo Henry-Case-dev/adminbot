@@ -1,0 +1,36 @@
+Journal window 2026-11-28T00:03:23Z -> 00:17:49Z (14.4 min), host prod, unit admin_bot
+
+journal_lines=805
+ERROR=2
+WARNING=4
+Traceback=1
+KeyError=0
+AttributeError=0
+TypeError=0
+execution_status_lines=0
+claim_coverage_events=0
+
+ERROR lines:
+Nov 28 00:08:27 ... services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=fetch status=error reason=sources_unavailable problem...
+Nov 28 00:08:27 ... services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=refresh status=fetch_error reason=wikipedia count=0 v...
+
+factcheck error-ish lines: (none)
+
+Traceback context (the only one):
+Nov 28 00:17:23 ... services.initiative_observer - WARNING - [b01] opportunity eval failed | chat=-1002661910336
+Nov 28 00:17:23 ... Traceback (most recent call last):
+  File "/var/www/admin_bot/services/initiative_observer.py", line 2975, in _evaluate_window
+    raw = await asyncio.wait_for(
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+    return await fut
+  File "/var/www/admin_bot/services/llm_client.py", line 2368, in generate
+    completion = await self.generate_with_metadata(
+=> LLM timeout in initiative observer; not the factcheck track.
+
+Previous window comparison (23:01:09 -> 00:03:22, 3954 lines, same 2.58.264 code):
+opp_failed=0 traceback=11
+=> Traceback class is pre-existing; current window has 1.
+
+Post-restart transient:
+public /web/ at +5s after restart = 502 (backend starting); at 00:04:14 local+public /healthz 200,
+/web/ 200, /web/app.js 200. No persistent 5xx.

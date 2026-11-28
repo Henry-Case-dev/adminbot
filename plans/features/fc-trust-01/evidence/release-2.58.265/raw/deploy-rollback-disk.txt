@@ -1,0 +1,30 @@
+Release 2.58.265 — rollback dry-run and disk (prod, 2026-11-28T00:17:53Z)
+
+== ROLLBACK DRY-RUN (not executed) ==
+{
+  "deployed_at": "2026-11-28T00:17:53.252517Z",
+  "deployed_sha": "c67683dd68dc4e2e3d48bff06c6568b3448cbc20",
+  "dirty_tracked": false,
+  "effect": "rollback",
+  "previous_sha": "55178d5bd1c7f21f2c4966195df7cb7a93096503",
+  "previous_version": "2.58.265",
+  "schema": 1,
+  "version": "2.58.264"
+}
+rollback_dryrun_rc=0
+worktrees=1
+
+== DISK ==
+before: 99G 55G used 38-40G avail 59%
+audit top:
+  predeploy-258258-20261127T115028Z.db bytes=6816780288 category=deploy_backup
+  predeploy-258257-20261127T072559Z.db bytes=6766456832 category=deploy_backup
+  local_database_20261127.db bytes=6308028416 category=db_backup
+  local_database_20261128.db bytes=5587439616 category=db_backup
+forecast: bytes_per_day=2152152521 projected_30d=64564575658 (60.1 GiB) files=11 span_days=11.843
+disk cleanup: APPLY deleted=1 bytes_freed=6308028416 (5.9 GiB) skipped=0 errors=0
+  db_backup: count=1 bytes=6308028416
+after: /dev/vda1 99G 50G used 44G avail 54%
+
+== CLEANUP ==
+tmp_ab265_left=0 (after removing /tmp/ab265_window.sh); /tmp/rb265 removed; git worktrees=1
