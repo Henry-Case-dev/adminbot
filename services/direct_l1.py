@@ -841,6 +841,21 @@ def reply_binding_requested(plan) -> bool:
         return False
 
 
+def plan_delivery_is_semantic(plan) -> bool:
+    """P0T-REPLY-01 (28.11.2026): план — РЕШЕНИЕ модели о доставке.
+
+    Отличает осмысленный план от детерминированного fallback'а: только план
+    с ``source`` из закрытого набора решений модели ("llm" | "repair")
+    является решением о форме доставки. Пустой/неизвестный source →
+    ``False`` (консервативный паритет: доставка по прежнему правилу).
+    Это НЕ выбор цели и НЕ резолвер: предикат ничего не подставляет и
+    работает на том же объекте плана, что и :func:`reply_binding_requested`."""
+    try:
+        return str(getattr(plan, "source", "") or "") in ("llm", "repair")
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+
+
 def normalize_l1_plan(data) -> L1Plan | None:
     """Нормализация L1 JSON → :class:`L1Plan` (§1.3).
 
@@ -2526,11 +2541,42 @@ def build_l1_context(*, query, current_question: str = "",
         sections: list[tuple[str, str]] = []
         budget = int(budget_tokens) if budget_tokens is not None \
             else l1_context_tokens()
+        raw_window = normalize_window_rows(window)
+        # ── P0T-REPLY-01 (28.11.2026, owner §190/192): P0-сообщения
+        # (триггер хода и сообщение, на которое отвечает человек) исключены
+        # из окна и подаются отдельными секциями СООБЩЕНИЕ/ОТВЕТ НА, поэтому
+        # без `[msg:N]` модель не может назвать их целью reply. Разметка —
+        # тот же диалект, что у окна (`[msg:<smart_messages.id>]`), и только
+        # при `with_ids=True` (Direct-L1). id берётся из уже загруженного
+        # окна bounded-сканом; не найден → префикса нет (fail-open: цель не
+        # выдумывается, второго запроса в БД на каждый ход нет). Это данные,
+        # а не инструкция — бюджеты инструкций не затрагиваются.
+        p0_row_ids: dict[str, int] = {}
+        if with_ids:
+            for _slot, _tg_id in (("current", trigger_message_id),
+                                  ("reply", reply_to_message_id)):
+                for _row in raw_window:
+                    if not _row_matches_message_id(_row, _tg_id):
+                        continue
+                    try:
+                        _row_id = _row.get("id")
+                        _row_id = int(_row_id) if _row_id is not None else None
+                    except (TypeError, ValueError):
+                        _row_id = None
+                    if _row_id is not None and _row_id > 0:
+                        p0_row_ids[_slot] = _row_id
+                    break
         current = str(current_question or query or "").strip()
         if current:
+            _current_ref = p0_row_ids.get("current")
+            if _current_ref is not None:
+                current = f"[msg:{_current_ref}] {current}"
             sections.append(("СООБЩЕНИЕ", current))
         if str(reply_block or "").strip():
             _reply_body = str(reply_block).strip()
+            _reply_ref = p0_row_ids.get("reply")
+            if _reply_ref is not None:
+                _reply_body = f"[msg:{_reply_ref}] {_reply_body}"
             if not preallocated:
                 _reply_body = clip_body(_reply_body,
                                         reply_block_chars(budget))
@@ -2558,7 +2604,6 @@ def build_l1_context(*, query, current_question: str = "",
                          else L1_WINDOW_MESSAGES)
         _line_cap = (window_line_chars(window, budget_tokens=budget)
                      if line_chars is None else int(line_chars))
-        raw_window = normalize_window_rows(window)
         # Секции ПОСЛЕ окна: их порядок не меняется; окно вставляется на
         # своё место после выбора (preallocated) либо рендерится сразу
         # (legacy). Так fixed-tokens считаются один раз без окна.
@@ -3898,6 +3943,7 @@ __all__ = [
     "FAILURE_MODE_FAILED", "FAILURE_MODES",
     "L1_DELIVERY_MODES", "EXECUTION_MODES", "normalize_l1_plan",
     "parse_l1_plan", "reply_binding_requested", "L1_PROFILE_SECTION",
+    "plan_delivery_is_semantic",
     "build_repair_messages", "confidence_bucket", "direct_l1_enabled",
     "l1_fallback_enabled", "l1_context_tokens", "l1_timeout_seconds",
     "l1_max_output_tokens", "l1_temperature", "resolve_l1_model",

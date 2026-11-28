@@ -196,10 +196,12 @@ def test_l1_prev_p0cs2_is_previous_active_bytes():
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR3) == "ef61a9dd6798"
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR4) == "8d172f40241d"
     # P0-GOAL-MEDIA (25.11.2026): слепок EVR6 — прежние активные байты
-    # (619290834387), активная ревизия P0GM — правило 7 (продукт vs материал)
-    # + поле final_goal + абзацы цели/медиа (ce6931304b24).
+    # (619290834387), ревизия P0GM — правило 7 (продукт vs материал)
+    # + поле final_goal + абзацы цели/медиа (ce6931304b24);
+    # P0T-REPLY-01: активные байты R4 — 64a80fb8c4ff.
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR6) == "619290834387"
-    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "ce6931304b24"
+    assert _sha12(cp.PREV_DIRECT_L1_PLANNER_P0GM) == "ce6931304b24"
+    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "64a80fb8c4ff"
     # усиление не отменило прежние ветки
     assert "response_act=research" in prev2
     # ступень вперёд и цель отката указывают на новый слепок
@@ -222,45 +224,51 @@ def test_l1_prev_p0cs2_is_previous_active_bytes():
     # байты EVR3, ниже — прежний стек. RLR-03.3: затем верхняя ступень —
     # снятие поля preserve_source_facts → байты EVR4, ось поиска ниже.
     # VMQ-MEM-TIME (§2): ступень снятия memory_scope — байты EVR5; P0-GOAL-MEDIA
-    # (25.11.2026): верхняя ступень снимает ревизию P0GM → байты EVR6, ниже —
+    # (25.11.2026): ступень снимает ревизию P0GM → байты EVR6, ниже —
     # прежний стек (правило 7 и поле memory_scope остаются в EVR6).
+    # P0T-REPLY-01 (28.11.2026): верхняя ступень снимает ТОЛЬКО секцию участия
+    # R4 → байты прода 2.58.273 (P0GM); далее P0GM → EVR6.
     assert pm.ROLLBACK_MIGRATIONS[
         "prompts.direct_l1_planner_system_prompt"][0] == (
             cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
-            cp.PREV_DIRECT_L1_PLANNER_EVR6)
+            cp.PREV_DIRECT_L1_PLANNER_P0GM)
     assert pm.ROLLBACK_MIGRATIONS[
         "prompts.direct_l1_planner_system_prompt"][1] == (
+            cp.PREV_DIRECT_L1_PLANNER_P0GM,
+            cp.PREV_DIRECT_L1_PLANNER_EVR6)
+    assert pm.ROLLBACK_MIGRATIONS[
+        "prompts.direct_l1_planner_system_prompt"][2] == (
             cp.PREV_DIRECT_L1_PLANNER_EVR6,
             cp.PREV_DIRECT_L1_PLANNER_EVR5)
     assert pm.ROLLBACK_MIGRATIONS[
-        "prompts.direct_l1_planner_system_prompt"][2] == (
+        "prompts.direct_l1_planner_system_prompt"][3] == (
             cp.PREV_DIRECT_L1_PLANNER_EVR5,
             cp.PREV_DIRECT_L1_PLANNER_EVR4)
     assert pm.ROLLBACK_MIGRATIONS[
-        "prompts.direct_l1_planner_system_prompt"][3] == (
+        "prompts.direct_l1_planner_system_prompt"][4] == (
             cp.PREV_DIRECT_L1_PLANNER_EVR4,
             cp.PREV_DIRECT_L1_PLANNER_EVR3)
     assert pm.ROLLBACK_MIGRATIONS[
-        "prompts.direct_l1_planner_system_prompt"][4] == (
+        "prompts.direct_l1_planner_system_prompt"][5] == (
             cp.PREV_DIRECT_L1_PLANNER_EVR3,
             cp.PREV_DIRECT_L1_PLANNER_EVR2)
     assert pm.ROLLBACK_MIGRATIONS[
-        "prompts.direct_l1_planner_system_prompt"][5] == (
+        "prompts.direct_l1_planner_system_prompt"][6] == (
             cp.PREV_DIRECT_L1_PLANNER_EVR2,
             cp.PREV_DIRECT_L1_PLANNER_EVR1)
     assert pm.ROLLBACK_MIGRATIONS[
-        "prompts.direct_l1_planner_system_prompt"][6] == (
+        "prompts.direct_l1_planner_system_prompt"][7] == (
             cp.PREV_DIRECT_L1_PLANNER_EVR1,
             cp.PREV_DIRECT_L1_PLANNER_EVR0)
     assert pm.ROLLBACK_MIGRATIONS[
-        "prompts.direct_l1_planner_system_prompt"][7] == (
+        "prompts.direct_l1_planner_system_prompt"][8] == (
             cp.PREV_DIRECT_L1_PLANNER_EVR0, prev6)
     assert pm.ROLLBACK_MIGRATIONS[
-        "prompts.direct_l1_planner_system_prompt"][8] == (prev6, prev5)
+        "prompts.direct_l1_planner_system_prompt"][9] == (prev6, prev5)
     assert pm.ROLLBACK_MIGRATIONS[
-        "prompts.direct_l1_planner_system_prompt"][9] == (prev5, prev4)
+        "prompts.direct_l1_planner_system_prompt"][10] == (prev5, prev4)
     assert pm.ROLLBACK_MIGRATIONS[
-        "prompts.direct_l1_planner_system_prompt"][10] == (prev4, prev3)
+        "prompts.direct_l1_planner_system_prompt"][11] == (prev4, prev3)
 
 
 # ── 3. Payload: research 1×1, answer 0×0, без дублей ────────────────────────

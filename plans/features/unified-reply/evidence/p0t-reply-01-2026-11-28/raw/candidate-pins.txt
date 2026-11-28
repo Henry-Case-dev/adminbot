@@ -1,0 +1,7 @@
+FAILED tests/test_asap2_clar_contract.py::test_33_composer_on_off_payload_identical_and_clean
+FAILED tests/test_asap2_clar_contract.py::test_24_truncated_window_and_branch_are_honest
+FAILED tests/test_asap_fc_voice_l1_decision_profile.py::test_direct_service_l1_payload_gets_profile_from_turn_frame
+FAILED tests/test_soul1_composer_parity_off.py::test_p1_l2_writer_detailed_matches_recorded_dump
+FAILED tests/test_soul1_composer_parity_off.py::test_off_path_is_default_and_does_not_consult_composer
+5 failed, 354 passed in 14.89s
+[exit=1]

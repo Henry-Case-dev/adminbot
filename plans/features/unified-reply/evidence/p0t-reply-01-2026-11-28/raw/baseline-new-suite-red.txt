@@ -1,0 +1,12 @@
+FAILED tests/test_p0t_reply_target.py::test_plan_target_photo_in_audio_window
+FAILED tests/test_p0t_reply_target.py::test_plan_target_chunked_reply_only_first_chunk
+FAILED tests/test_p0t_reply_target.py::test_delivery_chat_means_no_reply - As...
+FAILED tests/test_p0t_reply_target.py::test_delivery_absent_means_no_reply - ...
+FAILED tests/test_p0t_reply_target.py::test_missing_target_is_plain_send_not_trigger
+FAILED tests/test_p0t_reply_target.py::test_foreign_chat_target_is_plain_send
+FAILED tests/test_p0t_reply_target.py::test_stale_target_is_plain_send - Asse...
+FAILED tests/test_p0t_reply_target.py::test_addressee_mismatch_is_plain_send
+FAILED tests/test_p0t_reply_target.py::test_direct_l1_context_marks_window_and_p0_ids
+FAILED tests/test_p0t_reply_target.py::test_plan_delivery_is_semantic_only_model_decisions
+10 failed, 5 passed in 12.71s
+[exit=1]

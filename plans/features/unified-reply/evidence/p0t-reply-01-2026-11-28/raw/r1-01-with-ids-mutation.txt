@@ -1,0 +1,8 @@
+anchor_count=1
+MUTATION with_ids=False: exit=1 -> RED (good)
+FAILED tests/test_p0t_reply_target.py::test_service_actually_sends_with_ids_and_p0_refs
+1 failed in 6.56s
+product_restored_equal_HEAD=True
+RESTORED suite: exit=0
+16 passed in 12.27s
+

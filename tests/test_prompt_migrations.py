@@ -62,6 +62,7 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_EVR4,
     PREV_DIRECT_L1_PLANNER_EVR5,
     PREV_DIRECT_L1_PLANNER_EVR6,
+    PREV_DIRECT_L1_PLANNER_P0GM,
     PREV_R8_CHAT_SYSTEM_PROMPT,
     PREV_R9_CHAT_SYSTEM_PROMPT,
     PREV_R1022_CHAT_SYSTEM_PROMPT,
@@ -349,7 +350,11 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # P0-GOAL-MEDIA (25.11.2026, P0 §2): первый откат снимает ревизию P0GM
     # (правило 7 «конечный результат vs материал», поле final_goal, абзацы
     # цели/медиа) → байты EVR6 (PREV_DIRECT_L1_PLANNER_EVR6, 619290834387).
-    "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_EVR6,
+    # P0T-REPLY-01 (28.11.2026, owner §190/192): первый откат снимает ТОЛЬКО
+    # секцию участия R4 (область Direct + источник цели «окно или сообщение
+    # текущего хода») → байты прода 2.58.273 (PREV_DIRECT_L1_PLANNER_P0GM,
+    # ce6931304b24); стек ступеней цел.
+    "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_P0GM,
     # ASAP W1 (P0-F «точечно»): откат → прод-канон 2.58.110 (с identity).
     # ASAP-FC-VOICE-01 / A (02.11.2026): первый откат снимает ТОЛЬКО новый
     # канон голоса → байты прода 2.58.148 (PREV_FACTCHECK_VERBALIZER_VOICE01).
@@ -971,10 +976,12 @@ class TestMca23Migration:
         # RLR-03.3 (REMOVE-LEGACY-REPHRASING v2.0, 05.11.2026): L1-планер —
         # ревизия EVR5 (619290834387, поле preserve_source_facts); L2-канон
         # не менялся.
+        # P0T-REPLY-01 (28.11.2026): активные байты L1 — ревизия R4
+        # (64a80fb8c4ff); целевые байты отката на 2.58.113 не изменились.
         cache = FakeCache(values={l1_key: DIRECT_L1_PLANNER_SYSTEM_PROMPT,
                                   l2_key: DIRECT_VERBALIZER_SYSTEM_PROMPT})
         assert (sha12(cache.values[l1_key]), sha12(cache.values[l2_key])) == \
-            ("ce6931304b24", "44736968bc76")
+            ("64a80fb8c4ff", "44736968bc76")
 
         # лестница снята: любые вызовы — отказ без записи
         assert await rollback_prompt_canons(cache) == {}

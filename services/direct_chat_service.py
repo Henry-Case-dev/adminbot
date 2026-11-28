@@ -8048,8 +8048,28 @@ class DirectChatService:
                      or response_plan.structure == "report")
                 and len(answer) >= _extent.RICH_MIN_ANSWER_CHARS
                 and not getattr(tool_ctx, "lore_compiled", False))
+            # ── P0T-REPLY-01 (28.11.2026, owner §190/192): цель reply —
+            # решение L1 по смыслу ответа, а не событие, запустившее
+            # генерацию. Никакого выбора в коде: цель приходит ТОЛЬКО из
+            # плана (`reply_binding_requested`) и проверяется существующим
+            # `_validate_plan_target`. План модели (llm/repair) без
+            # delivery=reply → без привязки (отсутствие решения ≠ reply).
+            # Недоступная цель → обычная отправка БЕЗ перепривязки к
+            # триггеру (это воссоздало бы дефект) и БЕЗ отмены (молчание на
+            # прямое обращение запрещено). l1_plan=None / fallback —
+            # байт-паритет: reply на триггер.
+            _reply_target = getattr(message, "message_id", None)
+            if l1_plan is not None and _l1.plan_delivery_is_semantic(l1_plan):
+                _reply_target = None
+                if _l1.reply_binding_requested(l1_plan):
+                    _reply_target, _binding_code = await _validate_plan_target(
+                        self.db, chat_id, l1_plan, mode="reply")
+                    if _reply_target is None:
+                        logger.info(
+                            "[direct] reply target unavailable — plain send | "
+                            "chat=%s | code=%s", chat_id, _binding_code)
             sent_id = await self._send_direct_answer(
-                bot, chat_id, answer, message.message_id,
+                bot, chat_id, answer, _reply_target,
                 lore=bool(getattr(tool_ctx, "lore_compiled", False)),
                 deep_research=(response_mode == "deep_research"),
                 rich=_rich_wanted,
@@ -9159,6 +9179,12 @@ class DirectChatService:
                 message, extra_markers=extra_media_markers),
             reply_block=_l1_reply_text,
             window=window, line_chars=0,
+            # P0T-REPLY-01 (owner §190/192): Direct-L1 получает окно с тем же
+            # идентифицирующим диалектом, что инициатива ([msg:N]/[user:UID]) —
+            # без него модель не может назвать корректную цель reply. P0-
+            # сообщения (триггер/цитируемое) получают тот же префикс
+            # `[msg:id]` внутри своих секций (`build_l1_context`).
+            with_ids=True,
             trigger_message_id=getattr(message, "message_id", None),
             reply_to_message_id=_replied_message_id(message),
             preallocated=True, out_status=_l1_status,

@@ -78,6 +78,7 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_EVR4,
     PREV_DIRECT_L1_PLANNER_EVR5,
     PREV_DIRECT_L1_PLANNER_EVR6,
+    PREV_DIRECT_L1_PLANNER_P0GM,
     PREV_CHAT_W2_SYSTEM_PROMPT,
     CORE_REAL_EVENTS_PARAGRAPH,
     CORE_FREE_SPEECH_PARAGRAPH,
@@ -270,6 +271,14 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # ace6246bd360 (deploy-миграция 07:26) — на рестарте уедет на новый
     # канон этой ступенью.
     "prompts.direct_l1_planner_system_prompt": [
+        # P0T-REPLY-01 (28.11.2026, owner §190/192): байты прода 2.58.273
+        # (ревизия P0GM: правило 7 «конечный результат vs материал»,
+        # `final_goal`, абзацы цели/медиа) ведут на ревизию R4 — секция
+        # «ВЫБОР УЧАСТИЯ» больше не ограничена инициативой и называет
+        # источником цели предоставленный контекст (окно или сообщение
+        # текущего хода). Только точное совпадение байт; кастом владельца
+        # ступень не трогает.
+        (PREV_DIRECT_L1_PLANNER_P0GM, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         # P0-GOAL-MEDIA (25.11.2026, P0 §2; P0I-GOAL-01/02, P0R-MEDIA-01/02):
         # байты ревизии EVR6 (поле memory_scope) ведут на ревизию P0GM —
         # правило 7 различает конечный результат и материал, добавлено одно
@@ -609,10 +618,14 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # в правиле 4 — на активные байты ред.5 (PREV_..._PA5W2 = канон W1);
     # стек прежних ступеней цел (ADR-1013-3).
     "prompts.direct_l1_planner_system_prompt": [
-        # верхняя ступень (P0-GOAL-MEDIA): активный канон P0GM → байты EVR6
+        # верхняя ступень (P0T-REPLY-01): активный канон R4 → байты прода
+        # 2.58.273 (ревизия P0GM: секция участия R3, т.е. доставка снова
+        # ограничена инициативой); ниже — та же цепочка, что была в базе.
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_P0GM),
+        # ступень (P0-GOAL-MEDIA): байты P0GM → байты EVR6
         # (поле `memory_scope`, прежнее правило 7, без `final_goal` и абзацев
         # цели); ниже — та же цепочка, что была в базе.
-        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_EVR6),
+        (PREV_DIRECT_L1_PLANNER_P0GM, PREV_DIRECT_L1_PLANNER_EVR6),
         # ступень 0 (VMQ-MEM-TIME): байты EVR6 → байты EVR5 (поле
         # `preserve_source_facts`, без поля `memory_scope`)
         (PREV_DIRECT_L1_PLANNER_EVR6, PREV_DIRECT_L1_PLANNER_EVR5),

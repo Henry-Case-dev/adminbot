@@ -209,7 +209,12 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # операцией). Прежние байты — PREV_DIRECT_L1_PLANNER_EVR6. Правила 1-6 и
     # 8-9, секции участия/уточнений/продолжения/задачи/внешних утверждений/
     # фазы/профиля/оси/памяти и тексты владельца не менялись.
-    "direct.base.l1_planner": "l1-planner-final-goal",
+    # P0T-REPLY-01 (28.11.2026, owner §190/192): ревизия R4 — секция «ВЫБОР
+    # УЧАСТИЯ» больше не ограничена инициативой и называет источником цели
+    # предоставленный контекст (окно или сообщение текущего хода), а не только
+    # строки окна. Прежние байты — PREV_DIRECT_L1_PLANNER_P0GM (прод 2.58.273).
+    # Правила/схема и прочие секции байт-в-байт.
+    "direct.base.l1_planner": "l1-planner-delivery-scope",
     # Режимы вербализатора (легаси-совместимость)
     "verbilizer.mode.casual": "mode-r1023",
     "verbilizer.mode.serious": "mode-r1023",
@@ -422,8 +427,12 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
     "direct.base.l2_writer": ("l2-writer-self-correction-rca1",
                               "44736968bc76"),
     "direct.base.synthesizer": ("synthesizer-r1023", "6bae7eb26bc3"),
-    "direct.base.l1_planner": ("l1-planner-final-goal",
-                               "ce6931304b24"),
+    # P0T-REPLY-01 (28.11.2026, owner §190/192): секция «ВЫБОР УЧАСТИЯ»
+    # получила область Direct и источник цели «окно или сообщение текущего
+    # хода» (метка l1-planner-delivery-scope). Печать содержимого обновлена
+    # вместе с текстом в том же коммите.
+    "direct.base.l1_planner": ("l1-planner-delivery-scope",
+                               "64a80fb8c4ff"),
     "verbilizer.mode.casual": ("mode-r1023", "60feacddfea8"),
     "verbilizer.mode.serious": ("mode-r1023", "0ffb292caf70"),
     "verbilizer.mode.deep_research": ("mode-no-meta-lexical", "81721f7406a9"),
@@ -3066,7 +3075,14 @@ def factory_set_fingerprint() -> str:
 #: (прод 2.58.272) — печать ``5baf6afaf2d8``, метка
 #: ``temporal-analyst-fc04-corrective``; прочие каноны байт-в-байт.
 #: Было ``10efa51a8dae``, стало ``bd06a8a1a782``.
-FACTORY_SET_SHA256_12 = "bd06a8a1a782"
+#: P0T-REPLY-01 (28.11.2026, owner §190/192): changed = 1 —
+#: ``direct.base.l1_planner``: секция «ВЫБОР УЧАСТИЯ» больше не ограничена
+#: инициативой и называет источником цели предоставленный контекст (окно или
+#: сообщение текущего хода), а не только строки окна (метка
+#: ``l1-planner-delivery-scope``, печать ``64a80fb8c4ff``); правила, схема и
+#: прочие каноны, включая тексты владельца, байт-в-байт.
+#: Было ``bd06a8a1a782``, стало ``1c03efc3e98b``.
+FACTORY_SET_SHA256_12 = "1c03efc3e98b"
 
 
 

@@ -1,0 +1,17 @@
+seal_integrity: {}
+label: l1-planner-delivery-scope
+seal: ('l1-planner-delivery-scope', '64a80fb8c4ff')
+sealed_revision: fac:a2ecf415ff6e
+factory_set: 1c03efc3e98b const: 1c03efc3e98b
+sha12 active: 64a80fb8c4ff len: 21617
+sha12 prev P0GM: ce6931304b24 len: 21605
+delta chars: 12
+delta == exactly one section swap: True
+R4 != R3: True
+R4 delta chars: 12
+is_known_canon(active): True
+is_known_canon(P0GM): True
+migration P0GM->active: True
+rollback head: True
+no new PG keys: 17
+prev chain shas: {'PREV_DIRECT_L1_PLANNER_EVR6': '619290834387', 'PREV_DIRECT_L1_PLANNER_EVR5': '2354a5cc57c4', 'PREV_DIRECT_L1_PLANNER_EVR4': '8d172f40241d', 'PREV_DIRECT_L1_PLANNER_EVR3': 'ef61a9dd6798', 'PREV_DIRECT_L1_PLANNER_EVR2': '09f3d533d173', 'PREV_DIRECT_L1_PLANNER_EVR1': 'eb496e938c49', 'PREV_DIRECT_L1_PLANNER_EVR0': '14743d288ea3'}

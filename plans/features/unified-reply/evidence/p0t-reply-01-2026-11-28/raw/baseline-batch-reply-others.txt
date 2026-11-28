@@ -1,0 +1,6 @@
+FAILED tests/test_image_generation_round1023.py::TestToolSchema::test_generate_image_is_ninth
+FAILED tests/test_image_generation_round1023.py::TestToolSchema::test_active_tools_gate
+FAILED tests/test_image_generation_round1023.py::TestPreGateIntegration::test_direct_chat_image_off_eight_tools
+FAILED tests/test_ur_f_inspector_step1.py::test_identical_quotes_credit_only_the_surviving_item
+4 failed, 7 passed in 6.54s
+[exit=1]

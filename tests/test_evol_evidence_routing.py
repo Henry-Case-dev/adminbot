@@ -2229,11 +2229,15 @@ def test_wave6_canon_revision_seal_and_rollback_target():
     # Метка ревизии P0GM (P0-GOAL-MEDIA, 25.11.2026): правило 7 «конечный
     # результат vs материал» + поле final_goal + абзацы цели/медиа; прежняя
     # метка l1-planner-memory-scope осталась в слепке EVR6.
-    assert label == "l1-planner-final-goal"
+    # P0T-REPLY-01 (28.11.2026): метка ревизии R4 — секция участия больше не
+    # ограничена инициативой и называет источник цели «окно или сообщение
+    # текущего хода»; прежняя метка l1-planner-final-goal — в слепке P0GM.
+    assert label == "l1-planner-delivery-scope"
     assert pr.sha12(pr.factory_text(block)) == seal
     assert pr.seal_integrity() == {}
     assert pr.sha12(cp.PREV_DIRECT_L1_PLANNER_EVR6) == "619290834387"
-    assert pr.sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "ce6931304b24"
+    assert pr.sha12(cp.PREV_DIRECT_L1_PLANNER_P0GM) == "ce6931304b24"
+    assert pr.sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "64a80fb8c4ff"
     assert pr.sha12(cp.PREV_DIRECT_L1_PLANNER_EVR5) == "2354a5cc57c4"
     assert pr.sha12(cp.PREV_DIRECT_L1_PLANNER_EVR4) == "8d172f40241d"
     assert pr.sha12(cp.PREV_DIRECT_L1_PLANNER_EVR3) == "ef61a9dd6798"
@@ -2252,6 +2256,8 @@ def test_wave6_canon_revision_seal_and_rollback_target():
     rollback = pm.ROLLBACK_MIGRATIONS[
         "prompts.direct_l1_planner_system_prompt"]
     assert (cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
+            cp.PREV_DIRECT_L1_PLANNER_P0GM) in rollback
+    assert (cp.PREV_DIRECT_L1_PLANNER_P0GM,
             cp.PREV_DIRECT_L1_PLANNER_EVR6) in rollback
     assert (cp.PREV_DIRECT_L1_PLANNER_EVR6,
             cp.PREV_DIRECT_L1_PLANNER_EVR5) in rollback

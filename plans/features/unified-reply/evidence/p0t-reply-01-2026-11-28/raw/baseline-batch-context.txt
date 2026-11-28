@@ -1,0 +1,3 @@
+FAILED tests/test_direct_context_scenarios_asap3.py::TestStaleSummary::test_lag400_middle_topk_under_pressure
+1 failed in 6.29s
+[exit=1]
