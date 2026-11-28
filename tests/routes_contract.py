@@ -7,12 +7,20 @@
 контракт НЕ ломают — именно это устраняет механический re-pin полного
 sha256 файла.
 
-Манифест (``tests/fixtures/routes_contract.json``) — объявленный контракт:
+Манифест (``tests/fixtures/routes_contract.json``, schema 2) — объявленный
+контракт:
   * ``path`` + ``methods`` — фактический набор маршрутов routes.py;
   * ``init_data`` — маршрут требует Telegram initData (``get_tma_user``);
-  * ``checks`` — нормализованный набор проверок доступа внутри обработчика
-    (RBAC-зависимости и явные guard-вызовы, для ``requires_permission`` —
-    вместе с запрошенным правом).
+  * ``direct_checks`` — проверки доступа в самом обработчике (тело +
+    сигнатура: RBAC-зависимости и явные guard-вызовы, для
+    ``requires_permission``/``requires_recovery``/``match_permission`` —
+    вместе с запрошенным правом);
+  * ``helper_checks`` — проверки, достижимые через module-level хелперы
+    (до двух уровней вызовов от обработчика).
+
+``direct_checks`` и ``helper_checks`` сравниваются **независимо**: удаление
+прямого guard'а всегда меняет ``direct_checks``, даже если одноимённый guard
+остался в хелпере (F-BAR-08). Наборы могут пересекаться по имени.
 
 Изменение манифеста — осознанное объявление нового контракта, а не
 следствие любой правки файла.
@@ -38,7 +46,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 ROUTES_PATH = ROOT / "web" / "api" / "routes.py"
 MANIFEST_PATH = ROOT / "tests" / "fixtures" / "routes_contract.json"
-MANIFEST_SCHEMA = 1
+MANIFEST_SCHEMA = 2
 MANIFEST_SOURCE = "web/api/routes.py"
 
 # Явные guard-имена, которые не выводятся эвристикой ниже (или приходят как
@@ -144,19 +152,50 @@ def _call_const_args(node: ast.Call) -> list[str]:
     return out
 
 
-def _source_checks(fn: ast.AST, module_funcs: dict[str, ast.AST] | None = None) -> list[str]:
-    """Проверки доступа в теле обработчика и его сигнатуре.
+def _own_nodes(fn: ast.AST):
+    """Узлы тела обработчика БЕЗ вложенных функций (они — helper-уровень)."""
+    stack = list(ast.iter_child_nodes(fn))
+    while stack:
+        node = stack.pop()
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            continue
+        yield node
+        stack.extend(ast.iter_child_nodes(node))
 
-    ``module_funcs`` (только для маршрутов): ровно на один уровень
-    раскрываются вызовы module-level хелперов этого модуля — например,
-    ``_post_config_global``. Так guard внутри общего хелпера не становится
-    невидимым контракту. Глубже не идём: контракт остаётся маршрутным, а не
-    графом всего модуля.
+
+def _nested_functions(fn: ast.AST) -> list[ast.AST]:
+    """Непосредственно вложенные def'ы внутри обработчика/хелпера."""
+    out: list[ast.AST] = []
+    stack = list(ast.iter_child_nodes(fn))
+    while stack:
+        node = stack.pop()
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            out.append(node)
+            continue
+        if isinstance(node, ast.Lambda):
+            continue
+        stack.extend(ast.iter_child_nodes(node))
+    return out
+
+
+_PERMISSION_ARG_CALLS = frozenset({
+    "requires_permission",
+    "requires_recovery",
+    "match_permission",   # alias requires_permission (F-BAR-09)
+})
+
+
+def _source_checks(fn: ast.AST) -> list[str]:
+    """Прямые проверки доступа в теле обработчика и его сигнатуре.
+
+    Без раскрытия вложенных функций и module-level хелперов: helper-уровень
+    считается отдельно (``_helper_checks``) и сравнивается независимо —
+    иначе одноимённый guard в хелпере маскирует удаление прямого (F-BAR-08).
     """
     checks: set[str] = set()
     called: set[str] = set()
-    helpers: set[str] = set()
-    for node in ast.walk(fn):
+    nodes = list(_own_nodes(fn))
+    for node in nodes:
         if not isinstance(node, ast.Call):
             continue
         name = _call_name(node)
@@ -164,27 +203,71 @@ def _source_checks(fn: ast.AST, module_funcs: dict[str, ast.AST] | None = None) 
             continue
         called.add(name)
         if is_guard_call_name(name):
-            if name in ("requires_permission", "requires_recovery"):
+            if name in _PERMISSION_ARG_CALLS:
                 args = _call_const_args(node)
                 if args:
                     checks.add("%s:%s" % (name, args[0]))
                     continue
             checks.add(name)
-        elif module_funcs and name in module_funcs:
-            helpers.add(name)
     # Guard, переданный по ссылке (callback): ``recheck=_recheck_meme_rights``.
-    for node in ast.walk(fn):
+    for node in nodes:
         if (isinstance(node, ast.Name)
                 and isinstance(node.ctx, ast.Load)
                 and node.id not in called
                 and _is_guard_callback_name(node.id)):
             checks.add(node.id)
-    if module_funcs:
-        for helper in sorted(helpers):
+    return sorted(checks)
+
+
+def _called_helpers(fn: ast.AST, module_funcs: dict[str, ast.AST]) -> list[str]:
+    """Module-level хелперы, вызываемые из обработчика (own body)."""
+    called: set[str] = set()
+    helpers: set[str] = set()
+    for node in _own_nodes(fn):
+        if not isinstance(node, ast.Call):
+            continue
+        name = _call_name(node)
+        if name is None:
+            continue
+        called.add(name)
+        if (name in module_funcs and not is_guard_call_name(name)
+                and module_funcs[name] is not fn):
+            helpers.add(name)
+    # Хелпер, переданный по ссылке (``recheck=_recheck_meme_rights``), —
+    # это guard-callback, он уже учтён как прямой guard; сюда не идёт.
+    return sorted(helpers)
+
+
+def _helper_checks(fn: ast.AST, module_funcs: dict[str, ast.AST],
+                   max_depth: int = 2) -> list[str]:
+    """Проверки доступа, достижимые через helper-уровень.
+
+    Helper-уровень: вложенные функции самого обработчика + module-level
+    хелперы, вызываемые из обработчика, до 2 уровней. Может пересекаться с
+    ``_source_checks(fn)`` по имени: наборы сравниваются независимо, поэтому
+    удаление прямого guard'а всегда меняет ``direct_checks`` даже при наличии
+    того же имени в хелпере (F-BAR-08). Глубина 2 нужна для цепочек вида
+    ``_persona_can_edit`` → ``_persona_has_edit_action`` (F-BAR-09).
+    """
+    checks: set[str] = set()
+    visited: set[str] = set()
+    frontier: list[tuple[ast.AST, int]] = [(fn, 0)]
+    while frontier:
+        current, level = frontier.pop()
+        for nested in _nested_functions(current):
+            checks.update(_source_checks(nested))
+            if level + 1 < max_depth:
+                frontier.append((nested, level + 1))
+        for helper in _called_helpers(current, module_funcs):
+            if helper in visited:
+                continue
+            visited.add(helper)
             target = module_funcs.get(helper)
-            if target is None or target is fn or is_guard_call_name(helper):
+            if target is None:
                 continue
             checks.update(_source_checks(target))
+            if level + 1 < max_depth:
+                frontier.append((target, level + 1))
     return sorted(checks)
 
 
@@ -309,13 +392,15 @@ def collect_routes() -> list[dict]:
         assert fn is not None, (
             "маршрут %s %r зарегистрирован без AST-декоратора api_router: "
             "проверки доступа нечем проверить" % (route.path, methods))
-        checks = set(_source_checks(fn, module_funcs))
-        checks.update(name for name in deps if is_guard_call_name(name))
+        direct = set(_source_checks(fn))
+        direct.update(name for name in deps if is_guard_call_name(name))
+        helper = set(_helper_checks(fn, module_funcs))
         manifest.append({
             "path": route.path,
             "methods": methods,
             "init_data": "get_tma_user" in deps,
-            "checks": sorted(checks),
+            "direct_checks": sorted(direct),
+            "helper_checks": sorted(helper),
         })
     # Дубль на уровне живого роутера (включая пересечение методов).
     assert_routes_unique(manifest, "зарегистрированные маршруты FastAPI")
@@ -330,6 +415,12 @@ def load_manifest() -> dict:
 def public_routes(manifest: list[dict] | None = None) -> set[str]:
     rows = manifest if manifest is not None else load_manifest()["routes"]
     return {row["path"] for row in rows if not row["init_data"]}
+
+
+def route_checks(row: dict) -> list[str]:
+    """Объединение прямых и helper-проверок строки манифеста (чтение/UI)."""
+    return sorted(set(row.get("direct_checks", []))
+                  | set(row.get("helper_checks", [])))
 
 
 def assert_routes_contract_intact() -> None:
@@ -350,9 +441,12 @@ def assert_routes_contract_intact() -> None:
         assert exp["init_data"] == act["init_data"], (
             "изменена auth-модель %s %s: init_data %r -> %r"
             % (key[0], key[1], exp["init_data"], act["init_data"]))
-        assert exp["checks"] == act["checks"], (
-            "изменены проверки прав %s %s: %r -> %r"
-            % (key[0], key[1], exp["checks"], act["checks"]))
+        assert exp["direct_checks"] == act["direct_checks"], (
+            "изменены прямые проверки прав %s %s: %r -> %r"
+            % (key[0], key[1], exp["direct_checks"], act["direct_checks"]))
+        assert exp["helper_checks"] == act["helper_checks"], (
+            "изменены проверки прав в хелперах %s %s: %r -> %r"
+            % (key[0], key[1], exp["helper_checks"], act["helper_checks"]))
     # Инвариант: без initData — только явно публичные маршруты.
     non_public_without_auth = sorted(
         r["path"] for r in actual if not r["init_data"])

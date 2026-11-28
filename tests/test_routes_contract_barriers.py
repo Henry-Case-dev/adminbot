@@ -1,10 +1,14 @@
-"""Самопроверка контракта маршрутов (corrective r1: F-BAR-01/02/03).
+"""Самопроверка контракта маршрутов (corrective r1/r2/r3: F-BAR-01/02/03/07/08/09).
 
-Проверяем именно свойства нового механизма:
+Проверяем именно свойства механизма:
   * дубль ``(path, methods)`` и два AST-декоратора с одним ключом ловятся
     (сценарий ревьюера M5: ``get_admins_shadow`` без RBAC перед оригиналом);
   * guard-эвристика видит inline-проверки, названные по соглашениям
-    ``_require*``/``_assert*``/``*_guard``/``*_rights``/``*_admin``;
+    ``_require*``/``_assert*``/``*_guard``/``*_rights``/``*_admin``/``^can_``;
+  * ``direct_checks`` и ``helper_checks`` разделены: прямой guard нельзя
+    замаскировать одноимённым guard'ом в хелпере (F-BAR-08);
+  * аргумент ``match_permission`` фиксируется как у ``requires_permission``
+    (F-BAR-09);
   * манифест действительно фиксирует эти проверки у живых маршрутов;
   * CLI ``python -m tests.routes_contract --check`` и рендер/эмиссия
     детерминированы (байт-идентичны).
@@ -19,12 +23,13 @@ import pytest
 from tests import routes_contract as rc
 
 
-def _row(path: str, methods, checks=(), init_data: bool = True) -> dict:
+def _row(path: str, methods, direct=(), helper=(), init_data: bool = True) -> dict:
     return {
         "path": path,
         "methods": list(methods),
         "init_data": init_data,
-        "checks": list(checks),
+        "direct_checks": list(direct),
+        "helper_checks": list(helper),
     }
 
 
@@ -159,21 +164,26 @@ class TestGuardHeuristic:
     def test_manifest_records_former_inline_guards(self):
         # F-BAR-02: раньше эти вызовы были невидимы контракту (M6 проходил
         # зелёным). Теперь они обязаны быть в объявленном манифесте.
-        declared = {(row["path"], tuple(row["methods"])): row["checks"]
+        declared = {(row["path"], tuple(row["methods"])): row
                     for row in rc.load_manifest()["routes"]}
-        assert "_prompt_hidden_admin" in declared[("/prompts/catalog", ("GET",))]
-        assert "_meme_template_guard" in declared[("/config", ("POST",))]
-        assert "_random_selector_guard" in declared[("/config", ("POST",))]
-        assert "_recheck_config_chat_rights" in declared[("/config", ("POST",))]
-        assert "_meme_template_guard" in declared[
-            ("/initiative/meme-settings", ("POST",))]
-        assert "_recheck_meme_rights" in declared[
-            ("/initiative/meme-settings", ("POST",))]
+        assert "_prompt_hidden_admin" in rc.route_checks(
+            declared[("/prompts/catalog", ("GET",))])
+        assert "_meme_template_guard" in rc.route_checks(
+            declared[("/config", ("POST",))])
+        assert "_random_selector_guard" in rc.route_checks(
+            declared[("/config", ("POST",))])
+        assert "_recheck_config_chat_rights" in rc.route_checks(
+            declared[("/config", ("POST",))])
+        assert "_meme_template_guard" in rc.route_checks(
+            declared[("/initiative/meme-settings", ("POST",))])
+        assert "_recheck_meme_rights" in rc.route_checks(
+            declared[("/initiative/meme-settings", ("POST",))])
 
     def test_manifest_records_chat_isolation_checks(self):
         # F-BAR-07: 7 маршрутов, где чат-изоляция держится на
-        # access_srv.can_access_chat, обязаны это фиксировать в контракте.
-        declared = {(row["path"], tuple(row["methods"])): row["checks"]
+        # access_srv.can_access_chat, обязаны держать её в ПРЯМЫХ проверках
+        # handler'а (иначе X1b/X1d/X1e маскируются хелпером, F-BAR-08).
+        declared = {(row["path"], tuple(row["methods"])): row
                     for row in rc.load_manifest()["routes"]}
         for key in [
             ("/config/time", ("GET",)),
@@ -184,16 +194,103 @@ class TestGuardHeuristic:
             ("/config/overrides-map", ("GET",)),
             ("/status", ("GET",)),
         ]:
-            assert "can_access_chat" in declared[key], key
+            assert "can_access_chat" in declared[key]["direct_checks"], key
+
+    def test_manifest_separates_direct_guard_with_same_name_in_helper(self):
+        # F-BAR-08: именно эти пары маскировались set-union'ом в r2.
+        declared = {(row["path"], tuple(row["methods"])): row
+                    for row in rc.load_manifest()["routes"]}
+        for key in [
+            ("/direct/turn-diagnostics", ("GET",)),
+            ("/config", ("GET",)),
+            ("/config", ("POST",)),
+        ]:
+            assert "can_access_chat" in declared[key]["direct_checks"], key
+            assert "can_access_chat" in declared[key]["helper_checks"], key
 
     def test_manifest_records_analogous_access_helpers(self):
-        declared = {(row["path"], tuple(row["methods"])): row["checks"]
+        declared = {(row["path"], tuple(row["methods"])): row
                     for row in rc.load_manifest()["routes"]}
-        assert "gate_authorization" in declared[("/config", ("GET",))]
-        assert "guard_admin_lockout" in declared[("/admins", ("POST",))]
-        assert "guard_last_wildcard" in declared[("/roles", ("POST",))]
-        assert "validate_permissions" in declared[("/roles", ("POST",))]
-        assert "match_permission" in declared[("/roles/tree", ("GET",))]
+        assert "gate_authorization" in rc.route_checks(
+            declared[("/config", ("GET",))])
+        assert "guard_admin_lockout" in rc.route_checks(
+            declared[("/admins", ("POST",))])
+        assert "guard_last_wildcard" in rc.route_checks(
+            declared[("/roles", ("POST",))])
+        assert "validate_permissions" in rc.route_checks(
+            declared[("/roles", ("POST",))])
+        assert "match_permission" in rc.route_checks(
+            declared[("/roles/tree", ("GET",))])
+
+    def test_match_permission_argument_is_recorded(self):
+        # F-BAR-09: alias requires_permission не должен терять аргумент.
+        import ast as _ast
+
+        fn = _ast.parse(
+            "async def handler(perms):\n"
+            "    return match_permission(perms, 'edit_persona')\n"
+        ).body[0]
+        assert rc._source_checks(fn) == ["match_permission:edit_persona"]
+        declared = {(row["path"], tuple(row["methods"])): row
+                    for row in rc.load_manifest()["routes"]}
+        for key in [
+            ("/persona", ("PUT",)),
+            ("/persona", ("DELETE",)),
+            ("/persona/rules/{rule_id}/pause", ("POST",)),
+            ("/persona/rules/{rule_id}/resume", ("POST",)),
+        ]:
+            assert "match_permission:edit_persona" in rc.route_checks(
+                declared[key]), key
+
+
+class TestDirectVsHelperChecks:
+    def test_direct_guard_removal_is_visible_despite_same_helper_guard(self):
+        # Синтетический X1b/X1d/X1e: в handler'е и в вызываемом хелпере —
+        # одноимённый guard. Наборы сравниваются независимо, поэтому снятие
+        # ПРЯМОГО вызова меняет direct_checks.
+        import ast as _ast
+
+        source = (
+            "async def _guard_helper(ctx, chat_id):\n"
+            "    if not access_srv.can_access_chat(ctx, chat_id):\n"
+            "        raise HTTPException(status_code=403)\n"
+            "\n"
+            "async def handler(ctx, chat_id):\n"
+            "    if not access_srv.can_access_chat(ctx, chat_id):\n"
+            "        raise HTTPException(status_code=403)\n"
+            "    await _guard_helper(ctx, chat_id)\n"
+        )
+        tree = _ast.parse(source)
+        funcs = {node.name: node for node in tree.body}
+        handler = funcs["handler"]
+        direct = rc._source_checks(handler)
+        helper = rc._helper_checks(handler, funcs)
+        assert "can_access_chat" in direct
+        assert "can_access_chat" in helper
+
+        source_without_direct = (
+            "async def _guard_helper(ctx, chat_id):\n"
+            "    if not access_srv.can_access_chat(ctx, chat_id):\n"
+            "        raise HTTPException(status_code=403)\n"
+            "\n"
+            "async def handler(ctx, chat_id):\n"
+            "    await _guard_helper(ctx, chat_id)\n"
+        )
+        tree2 = _ast.parse(source_without_direct)
+        funcs2 = {node.name: node for node in tree2.body}
+        handler2 = funcs2["handler"]
+        assert "can_access_chat" not in rc._source_checks(handler2)
+        assert "can_access_chat" in rc._helper_checks(handler2, funcs2)
+
+    def test_manifest_schema_separates_checks(self):
+        manifest = rc.load_manifest()
+        assert manifest["schema"] == 2
+        for row in manifest["routes"]:
+            assert "checks" not in row, row["path"]
+            assert row["direct_checks"] == sorted(row["direct_checks"])
+            assert row["helper_checks"] == sorted(row["helper_checks"])
+            assert rc.route_checks(row) == sorted(
+                set(row["direct_checks"]) | set(row["helper_checks"]))
 
 
 class TestManifestEmission:

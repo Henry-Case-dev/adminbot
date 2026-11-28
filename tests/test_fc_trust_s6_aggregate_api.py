@@ -238,14 +238,15 @@ class TestRoutesPin:
         # GET /api/factcheck/temporal/aggregate с global-admin проверкой.
         from tests.routes_contract import assert_routes_contract_intact
         assert_routes_contract_intact()
-        from tests.routes_contract import load_manifest
+        from tests.routes_contract import load_manifest, route_checks
         rows = [r for r in load_manifest()["routes"]
                 if r["path"] == "/factcheck/temporal/aggregate"]
         assert len(rows) == 1
         assert rows[0]["methods"] == ["GET"]
         assert rows[0]["init_data"] is True
-        assert "requires_global_admin" in rows[0]["checks"] or \
-            "_ctx_global_admin" in rows[0]["checks"]
+        checks = route_checks(rows[0])
+        assert "requires_global_admin" in checks or \
+            "_ctx_global_admin" in checks
 
 
 class TestUiStructure:
