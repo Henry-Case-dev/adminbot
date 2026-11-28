@@ -1,0 +1,21 @@
+== ROLLBACK TARGET VERSION ==
+RB_VERSION_AST=2.58.273
+RB_BLOB=a99c70c916de15c5326fd1627ed1d654017729be
+== ANTICLICHE WIKIPEDIA ERROR: PRE-EXISTING ON 2.58.273? ==
+PRE_PERIOD_ERROR_COUNT=23
+PRE_PERIOD_LAST=Nov 28 10:10:51 vps159032-gqg python[1325247]: 2026-11-28 10:10:51,841 - services.anticliche_worker - INFO - [anticliche] refresh | status=fetch_error | count=0
+POST_PERIOD_ERROR_COUNT=1
+== THROTTLE / COOLDOWN STATE (read-only) ==
+THROTTLE_TABLES=['throttle_state']
+TABLE throttle_state rows=126 cols=['scope', 'chat_id', 'user_id', 'burst_left', 'last_ts']
+USER_VERSION=50
+INTEGRITY_QUICK=ok
+== MANIFEST ON DISK ==
+MANIFEST={"deployed_at": "2026-11-28T10:41:12.568353Z", "deployed_sha": "731a7e51cdb747fb3c0507ec80b885e4217766b0", "dirty_tracked": false, "effect": "deploy", "previous_sha": "74ef57ef469220627207603ae133da308f37866f", "previous_version": "2.58.273", "release_branch": "release/2.58.274", "schema": 1, "version": "2.58.274"}
+GIT=731a7e51cdb747fb3c0507ec80b885e4217766b0 refs/heads/release/2.58.274 TREE=16d79f701767a932bf942c1b49a21650915559bd DIRTY=0
+UNIT=active NRESTS=0 MAINPID=1335602
+HEALTHZ_LOCAL={"status":"ok","version":"2.58.274"}
+HEALTHZ_PUBLIC={"status":"ok","version":"2.58.274"}
+DISK=/dev/vda1        99G   51G   44G  54% /
+TMP_LEFTOVERS=0
+== DONE ==

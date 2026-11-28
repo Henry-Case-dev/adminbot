@@ -1,0 +1,124 @@
+PY=/var/www/admin_bot/venv/bin/python
+PY_VERSION=Python 3.12.3
+== PRE ==
+PRE_HEAD=74ef57ef469220627207603ae133da308f37866f
+PRE_REF=refs/heads/release/2.58.273
+PRE_TREE=2d0918e7c13fef5e61ed260355499eecca785f21
+PRE_MANIFEST={"deployed_at": "2026-11-28T10:05:45.701083Z", "deployed_sha": "74ef57ef469220627207603ae133da308f37866f", "dirty_tracked": false, "effect": "deploy", "previous_sha": "a2195fe3f9289d75461f27c7278d52779e2b812a", "previous_version": "2.58.272", "release_branch": "release/2.58.273", "schema": 1, "version": "2.58.273"}
+PRE_DIRTY_TRACKED=0
+PRE_UNTRACKED=0
+PRE_UNIT=active NRESTS=0
+PRE_VER=2.58.273
+PRE_DISK=/dev/vda1        99G   51G   44G  54% / PRE_AVAIL_KB=45230852
+== PRE DB/STATE FINGERPRINT ==
+SETTINGS_ROWS=558
+SETTINGS_MD5_KV=6f6d6624f5f676a1f26dc4be75128aed
+SETTINGS_MAXUPD=2026-11-27 21:48:55.892740+00:00
+PROMPTS_KEYS=29
+PROMPT_KEYS_EMPTY=0
+HOT_FLAG=present:true
+SQLITE_USER_VERSION=50
+== FETCH / CHECKOUT ==
+REMOTE_SHA=731a7e51cdb747fb3c0507ec80b885e4217766b0
+NEW_HEAD=731a7e51cdb747fb3c0507ec80b885e4217766b0
+NEW_REF=refs/heads/release/2.58.274
+NEW_TREE=16d79f701767a932bf942c1b49a21650915559bd
+POST_CHECKOUT_DIRTY_TRACKED=0
+== PRODUCT FILE SHA256 AFTER CHECKOUT ==
+6046df0c2f777446a0d4016608de2c4f19a69cfc04976629fa1f76793ee92a5b  handlers/factcheck.py
+0a4d0ee071114696dee1ed7ce3f904896b04c046a9fdfa965dd9680d885c6cf2  services/persistent_throttling.py
+9021fe9ee546f5ccedbdf8f89fe23b69c7a75912d4afcd400bbb22a5c465dc03  services/smartmodule_throttling.py
+fd9671393a022e4f0a29c6074d315cc0c16209b631b994ec7d22c5e6724dcab7  tests/test_fc_trust_s4_reliability.py
+5c20750a0a273651600a2baf1fe0a74a842585742af1e1a846cf1f8ecff79bdf  web/api/routes.py
+20e87aa86fd888114ba706282021a4fcb10331e2672c0aec12d8b61f04b28e74  web/app.js
+b8570e5deb8136756dba402719d9530d6e3ff4ed17a45f18ed0d99b001323907  web/index.html
+1505fe26504b156109ae2169f5cfbe1e72a4a0a6cf0072a0022f1d8367467d7a  config/settings.py
+FACTCHECK_MATCH=yes
+PTHROTTLE_MATCH=yes
+STHROTTLE_MATCH=yes
+TEST_S4_MATCH=yes
+ROUTES_MATCH=yes
+APPJS_MATCH=yes
+INDEX_MATCH=yes
+[release-manifest] wrote .deploy/release.json | sha=731a7e51cdb747fb3c0507ec80b885e4217766b0 version=2.58.274 effect=deploy deployed_at=2026-11-28T10:41:12.568353Z
+MANIFEST={"deployed_at": "2026-11-28T10:41:12.568353Z", "deployed_sha": "731a7e51cdb747fb3c0507ec80b885e4217766b0", "dirty_tracked": false, "effect": "deploy", "previous_sha": "74ef57ef469220627207603ae133da308f37866f", "previous_version": "2.58.273", "release_branch": "release/2.58.274", "schema": 1, "version": "2.58.274"}
+== RESTART ==
+RESTART_MARK=2026-11-28T10:41:13Z
+LOCAL_HEALTHZ_HTTP=200
+LOCAL_HEALTHZ={"status":"ok","version":"2.58.274"}
+PUBLIC_HEALTHZ_HTTP=200
+PUBLIC_HEALTHZ={"status":"ok","version":"2.58.274"}
+UNIT=active NRESTS=0 MAINPID=1335602 BOTPROCS=1 SINCE=Sat 2026-11-28 10:41:14 UTC
+== VERSION (three sources) ==
+VER_AST=2.58.274
+VER_IMPORT=2.58.274
+VER_MANIFEST=2.58.274
+== POST DB/STATE FINGERPRINT ==
+SETTINGS_ROWS=558
+SETTINGS_MD5_KV=6f6d6624f5f676a1f26dc4be75128aed
+SETTINGS_MAXUPD=2026-11-27 21:48:55.892740+00:00
+PROMPTS_KEYS=29
+PROMPT_KEYS_EMPTY=0
+HOT_FLAG=present:true
+SQLITE_USER_VERSION=50
+== QUICK_CHECK ==
+QUICK_CHECK=ok elapsed=276.7s
+USER_VERSION_AFTER=50
+== JOURNAL (first window, 5s after restart) ==
+JOURNAL_LINES=510
+J_TRACEBACK=0
+J_SQL_ERR=0
+J_CRITICAL=0
+J_402_403=0
+J_STARTED=0
+J_ERROR_SAMPLE=Nov 28 10:41:34 vps159032-gqg python[1335602]: 2026-11-28 10:41:34,716 - services.mca_events - INFO - mca_event=vision_capability_probe | ts=1795862494 | event_name=vision_capability_probe | outcome=success | level=INFO | stage=dedicated | component=vision.media | model=nvidia/nemotron-3.5-super-vl:free | error_json={"capability": "ok", "detail": ""}|Nov 28 10:41:52 vps159032-gqg python[1335602]: 2026-11-28 10:41:52,620 - services.mca_events - INFO - mca_event=vision_adapt | ts=1795862512 | event_name=vision_adapt | outcome=success | level=INFO | component=vision.media | stage=optimize | chat_id=-1002661910336 | error_json={"strategy": "optimize", "reason": "pixels_over", "calls": 1, "error": "", "cause": null, "endpoint": "https://openrouter.ai/api/v1", "model": "nvidia/nemotron-3.5-super-vl:free", "route_source": "dedicated", "config_revision": "a3ed06b38a021513", "structured_output": true, "reasoning_mode": "auto", "output_limit": 4096, "attempts": 1, "finish_reason": "stop", "output_tokens": 2617, "reasoning_tokens": 2105, "content_present": true, "transport_success": true, "schema_valid": true, "analysis_ready": true}|Nov 28 10:43:59 vps159032-gqg python[1335602]: 2026-11-28 10:43:59,336 - services.mca_events - INFO - mca_event=vision_adapt | ts=1795862639 | event_name=vision_adapt | outcome=success | level=INFO | component=vision.media | stage=original | chat_id=-1002661910336 | error_json={"strategy": "original", "reason": "fits", "calls": 1, "error": "", "cause": null, "endpoint": "https://openrouter.ai/api/v1", "model": "nvidia/nemotron-3.5-super-vl:free", "route_source": "dedicated", "config_revision": "a3ed06b38a021513", "structured_output": true, "reasoning_mode": "auto", "output_limit": 4096, "attempts": 1, "finish_reason": "stop", "output_tokens": 1733, "reasoning_tokens": 426, "content_present": true, "transport_success": true, "schema_valid": true, "analysis_ready": true}|
+NRESTS_T0=0
+== DISK ==
+/dev/vda1        99G   51G   44G  54% /
+  top: predeploy-258258-20261127T115028Z.db bytes=6816780288 category=deploy_backup
+  top: predeploy-258257-20261127T072559Z.db bytes=6766456832 category=deploy_backup
+  top: local_database_20261128.db bytes=5587439616 category=db_backup
+  top: facts_20261127.txt bytes=8381769 category=facts_export
+  top: predeploy-258234-pg-20261122T075222Z.dump bytes=107847 category=other
+  top: config-tables-2.58.205.json.gz bytes=92356 category=other
+  top: rollback_a33a636d87a686444f3b83874a34b505.jsonl bytes=16048 category=jsonl_retention
+  top: rollback_986658c776e0510b3c25d151a6b07131.jsonl bytes=7143 category=jsonl_retention
+  top: rollback_6b040f01453aee38032e941e0860f8c9.jsonl bytes=5074 category=jsonl_retention
+  top: cancelled_a33a636d87a686444f3b83874a34b505.jsonl bytes=2821 category=jsonl_retention
+  forecast: bytes_per_day=1561966390 projected_30d=46858991710 (43.6 GiB) files=10 immutable_bytes=0 span_days=12.279
+  forecast_method: sum_sizes_of_files_modified_within_window / max(MIN_FORECAST_SPAN_DAYS, observed_span)
+disk cleanup: APPLY deleted=0 bytes_freed=0 (0.0 B) skipped=0 errors=0
+/dev/vda1        99G   51G   44G  54% /
+== ROLLBACK DRY-RUN (74ef57ef469220627207603ae133da308f37866f) ==
+Traceback (most recent call last):
+  File "<stdin>", line 4, in <module>
+  File "/usr/lib/python3.12/ast.py", line 52, in parse
+    return compile(source, filename, mode, flags,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<unknown>", line 1
+    ﻿import logging
+    ^
+SyntaxError: invalid non-printable character U+FEFF
+RB_VERSION=
+{  "deployed_at": "2026-11-28T10:46:06.966740Z",  "deployed_sha": "74ef57ef469220627207603ae133da308f37866f",  "dirty_tracked": false,  "effect": "rollback",  "previous_sha": null,  "previous_version": null,  "schema": 1,  "version": "2.58.273"}
+RB_RC=0
+RB_WORKTREE_LEFT=0
+== SETTLE WINDOW (6 min, no restart storm) ==
+SETTLE_AT=2026-11-28T10:52:07Z
+SETTLE_UNIT=active NRESTS=0 MAINPID=1335602 BOTPROCS=1
+SETTLE_LOCAL_HEALTHZ_HTTP=200
+SETTLE_LOCAL_HEALTHZ={"status":"ok","version":"2.58.274"}
+SETTLE_PUBLIC_HEALTHZ_HTTP=200
+SETTLE_PUBLIC_HEALTHZ={"status":"ok","version":"2.58.274"}
+J2_LINES=903
+J2_TRACEBACK=0
+J2_SQL_ERR=0
+J2_CRITICAL=0
+J2_402_403=0
+J2_ERROR_SAMPLE=Nov 28 10:41:34 vps159032-gqg python[1335602]: 2026-11-28 10:41:34,716 - services.mca_events - INFO - mca_event=vision_capability_probe | ts=1795862494 | event_name=vision_capability_probe | outcome=success | level=INFO | stage=dedicated | component=vision.media | model=nvidia/nemotron-3.5-super-vl:free | error_json={"capability": "ok", "detail": ""}|Nov 28 10:41:52 vps159032-gqg python[1335602]: 2026-11-28 10:41:52,620 - services.mca_events - INFO - mca_event=vision_adapt | ts=1795862512 | event_name=vision_adapt | outcome=success | level=INFO | component=vision.media | stage=optimize | chat_id=-1002661910336 | error_json={"strategy": "optimize", "reason": "pixels_over", "calls": 1, "error": "", "cause": null, "endpoint": "https://openrouter.ai/api/v1", "model": "nvidia/nemotron-3.5-super-vl:free", "route_source": "dedicated", "config_revision": "a3ed06b38a021513", "structured_output": true, "reasoning_mode": "auto", "output_limit": 4096, "attempts": 1, "finish_reason": "stop", "output_tokens": 2617, "reasoning_tokens": 2105, "content_present": true, "transport_success": true, "schema_valid": true, "analysis_ready": true}|Nov 28 10:43:59 vps159032-gqg python[1335602]: 2026-11-28 10:43:59,336 - services.mca_events - INFO - mca_event=vision_adapt | ts=1795862639 | event_name=vision_adapt | outcome=success | level=INFO | component=vision.media | stage=original | chat_id=-1002661910336 | error_json={"strategy": "original", "reason": "fits", "calls": 1, "error": "", "cause": null, "endpoint": "https://openrouter.ai/api/v1", "model": "nvidia/nemotron-3.5-super-vl:free", "route_source": "dedicated", "config_revision": "a3ed06b38a021513", "structured_output": true, "reasoning_mode": "auto", "output_limit": 4096, "attempts": 1, "finish_reason": "stop", "output_tokens": 1733, "reasoning_tokens": 426, "content_present": true, "transport_success": true, "schema_valid": true, "analysis_ready": true}|Nov 28 10:46:18 vps159032-gqg python[1335602]: 2026-11-28 10:46:18,627 - services.mca_events - INFO - mca_event=anticliche_source_checked | ts=1795862778 | event_name=anticliche_source_checked | outcome=success | level=INFO | component=anticliche | stage=source_check | status=available | operation_id=29f42ca43cf4480a | attempt=1 | entity_ids=["local/manual"] | source_ref_json={"source_id": "local/manual", "transport": "local", "http": null, "revision": "", "changed": true, "unchanged": false, "content_status": "not_applicable", "docs_fetched": 0, "docs_parsed": 0, "bytes": 0, "chars": 0, "error_code": "", "manual": false} | duration_ms=0|Nov 28 10:46:18 vps159032-gqg python[1335602]: 2026-11-28 10:46:18,629 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=fetch status=error reason=sources_unavailable problems=0 version=11|Nov 28 10:46:18 vps159032-gqg python[1335602]: 2026-11-28 10:46:18,633 - services.anticliche_worker - INFO - [anticliche] refresh | status=fetch_error | count=0 | source=wikipedia|Nov 28 10:46:18 vps159032-gqg python[1335602]: 2026-11-28 10:46:18,633 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=refresh status=fetch_error reason=wikipedia count=0 version=11 next_run_time=2026-12-05 16:43:44.932713+05:00|Nov 28 10:48:12 vps159032-gqg python[1335602]: 2026-11-28 10:48:12,255 - services.mca_events - INFO - mca_event=vision_adapt | ts=1795862892 | event_name=vision_adapt | outcome=success | level=INFO | component=vision.media | stage=original | chat_id=-1002661910336 | error_json={"strategy": "original", "reason": "fits", "calls": 1, "error": "", "cause": null, "endpoint": "https://openrouter.ai/api/v1", "model": "nvidia/nemotron-3.5-super-vl:free", "route_source": "dedicated", "config_revision": "a3ed06b38a021513", "structured_output": true, "reasoning_mode": "auto", "output_limit": 8192, "attempts": 2, "finish_reason": "stop", "output_tokens": 1508, "reasoning_tokens": 1435, "content_present": true, "transport_success": true, "schema_valid": true, "analysis_ready": true, "strategy_changes": ["output_limit_raised"]}|
+J2_THROTTLE=0
+FINAL_DISK=/dev/vda1        99G   51G   44G  54% /
+== FINAL GIT ==
+HEAD=731a7e51cdb747fb3c0507ec80b885e4217766b0 REF=refs/heads/release/2.58.274 TREE=16d79f701767a932bf942c1b49a21650915559bd DIRTY_TRACKED=0 WORKTREES=1
+TMP_LEFTOVERS=0
+== DONE ==
