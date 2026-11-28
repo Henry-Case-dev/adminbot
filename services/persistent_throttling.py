@@ -163,10 +163,10 @@ class PersistentCooldownTracker:
         платную проверку. Чтение и занятие здесь идут в ОДНОЙ
         single-writer-транзакции, поэтому второй дубль видит занятый слот.
         Ошибка БД — прежний fail-open: `(True, 0.0)` (лимитер не роняет ход)."""
-        now = time.time()
         cooldown = float(self._cooldown)
 
         async def _body(conn):
+            now = time.time()   # внутри транзакции: ожидание lock не «старит» слот
             cursor = await conn.execute(
                 "SELECT last_ts FROM throttle_state "
                 "WHERE scope = ? AND chat_id = ? AND user_id = ?",
