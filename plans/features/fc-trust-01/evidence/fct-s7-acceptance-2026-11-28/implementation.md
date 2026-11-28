@@ -43,7 +43,7 @@ sha256 `140530ccafd79ae39a42108b130c6407c39eaf43fdaf2ae185192cb6eaebf34e`,
 | Прогон | Результат | Raw |
 |---|---|---|
 | 19 collected (12 det + 7 live) | **12 passed, 7 skipped** (3.96 s), повторы GREEN | `raw/green-acceptance.txt` |
-| Семейство fc_trust (10 файлов) | **165 passed, 7 skipped** (12.97 s) | `raw/green-family.txt` |
+| Семейство fc_trust — **9 файлов** (acceptance + target + verdict + s4_evidence + render + s5_writer + s6_aggregates + s6_aggregate_api + s6_run_link; БЕЗ retrieval и s1_contract) | **165 passed, 7 skipped** (12.97 s) | `raw/green-family.txt` |
 | Соседи: retrieval + admission + s1-contract | **118 passed, 1 failed** — падение в `test_evol_fc_admission.py` **предсуществующее на базе** (см. §5) | `raw/green-neighbors.txt` |
 | Предсуществующее падение отдельно на базе `c3c0e1cb3` | **1 failed** (тот же тест, без файла S7) | `raw/preexisting-admission-failure-at-base.txt` |
 
@@ -156,3 +156,139 @@ Reviewer'ом) — обязательства Reviewer'а, не кодируют
 - Продуктовые файлы не изменены; `git status` содержит только новый тест и
   этот evidence-каталог. Рабочее дерево S7 зарегистрировано
   `workflow_housekeeping.py` (`worktree-path` + `register-worktree`).
+
+---
+
+# RV-S7-01..08 — исправления по ревью r1 (раунд 2), 28.11.2026
+
+Этот раздел **заменяет числа и перечень покрытия** из §1–§8 выше: §1–§8
+описывают раунд 1 и оставлены как история. Новые прогоны — `raw/rv2-*`;
+прошлые raw-файлы не переписаны.
+
+Кандидат раунда 2: ветка `feat/fct-s7-acceptance-harness-2026-11-28`,
+tip — коммит этого исправления (см. handoff/`git log -1`), база
+`c3c0e1cb3`. Продуктовые файлы не менялись (все мутации откачены).
+
+## RV-S7-01 (High) — настоящий `run_factcheck`
+
+Исправлено: вход приёмки переведён на
+`factcheck_orchestrator.run_factcheck(req, service=…, db=…, bot=capture)` для
+оркестраторных сценариев:
+
+- **сц.2 (FCT-152)** — envelope-ветка: двойник `check_claim_envelope` получает
+  реальный `retrieval` и вызывает продуктовый `merge_claim_coverage`;
+  пер-частная медиа-оговорка исполняется шагом `_run_inner` (1936–1953), а не
+  тестом. Дублирующий шаг удалён из тестовых хелперов.
+- **сц.6 (FCT-157/159/020)** — доставка через `run_factcheck` (legacy-ветка),
+  проверяется фактически отправленный текст.
+- **сц.8 (FCT-162/163/164/021)** — `run_factcheck` envelope: реальный merge
+  внутри двойника LLM-границы, реальные заголовки/доставка.
+- **сц.9 (FCT-167)** — `run_factcheck` legacy: технический заголовок и
+  `rate_limit` различаются в фактически доставленном тексте.
+- **сц.12 (FCT-177)** — два `run_factcheck` одновременно (см. RV-S7-03).
+
+Тавтологичный ассерт `presentation.notice == ""` удалён. Остальные сценарии
+(target-анкоры, роли/покрытие одной стадии, канон промптов) по-прежнему
+вызывают продуктовые стадии напрямую — это явно указано в docstring каждого
+теста.
+
+Проверка: **мутация A** `services/factcheck_orchestrator.py` `if _media_parts:`
+→ `if False and _media_parts:` даёт **RED** на сц.2
+(`assert '<i>' not in text`), файл откачен — `raw/rv2-red-mutation-a-media-step.txt`.
+
+## RV-S7-02 (High) — FCT-160 дискриминирован
+
+Исправлено: в сц.7 добавлен кейс **одного и того же числа `658` с разной
+единицей** (`658 млрд` против `658 миллионов`) и положительный контроль
+(`658 млрд` против `658 млрд`). Ответ обязан различаться: несовместимая
+единица → `conflicting_evidence`/не `supports`, совпадающая → `confirmed`.
+
+Проверка: **мутация B** `search_aggregator._unit_classes` → `return set()`
+даёт **RED** на сц.7, файл откачен — `raw/rv2-red-mutation-b-units.txt`.
+Контроль C (`causal_missing=False`) остаётся **RED** на сц.7 —
+`raw/rv2-red-control-c-causal.txt`.
+
+## RV-S7-03 (Medium) — FCT-177 на реальном общем состоянии
+
+Исправлено: вместо двух независимых агрегаторов/подставленного `chat_id` —
+два одновременных `run_factcheck` в разных чатах на **общем** реальном
+`ChatConcurrencyPool`, общем `FakeCache` и общей durable-БД. Проверяется:
+раздельные сообщения в каждом capture-bot (нет чужих ссылок), два слота пула
+по чатам, две run-строки с разными `chat_id/claim_text/correlation_id`.
+
+## RV-S7-04 (Medium) — FCT-165/FCT-166
+
+Исправлено:
+
+- **FCT-165**: первая базовая выдача — *неподходящий* сниппет (не
+  доказательство), уточняющий запрос (purpose=`refine`) находит
+  первоисточник; в трассе части видны `base` и `refine` попытки.
+- **FCT-166**: каскад проверяется **реальным `SearchAggregator`**: уровень
+  Tavily отвечает пусто, уровень Exa находит материал; в трассе части
+  `provider=exa`, `outcome=ok`.
+
+## RV-S7-05 (Medium) — именованные кейсы
+
+Исправлено:
+
+- **FCT-020/159/001** — кейс «изображение о тестостероне + Reddit о датировке
+  фотографии» воспроизведён: статья не `supports/qualifies`, не в ссылках.
+- **FCT-150** — «Миронов, 10.11.2026»: forward-канал, дата публикации
+  `2026-11-10` (provider) отделена от периода тезиса 2027; `USD/RUB` из OCR и
+  ник участника не попадают в запросы/evidence.
+- **FCT-151** — тот же пост **без изображения**: текст/план/поиск не
+  ухудшаются.
+
+## RV-S7-06 (Low-Medium) — live-тесты исполняемы
+
+Заглушки `raise AssertionError` удалены. Тела live-тестов выполняют реальные
+вызовы: `SearchAggregator` + `SafeFetcher` на свежем утверждении, реальный
+`FactCheckService` + `run_factcheck`, чтение развёрнутой БД
+(`mca_bot_outputs`), read-only `/healthz` прода. При снятии skip они падают
+или проходят по фактической причине (нет ключей/сети/БД), а не по
+`raise NotImplementedError`. Процессный мутационный прогон Reviewer'а
+(`test_live_s7_12_reviewer_mutation_process`) — честный `pytest.skip` с
+причиной «process: выполняется Reviewer'ом».
+
+## RV-S7-07 (Low) — состав семейства
+
+Исправлено: семейство — **9 файлов** (acceptance + target + verdict +
+s4_evidence + render + s5_writer + s6_aggregates + s6_aggregate_api +
+s6_run_link; БЕЗ `test_fc_trust_retrieval.py` и `test_fc_trust_s1_contract.py`).
+Точная команда и результат: `raw/rv2-green-family-9files.txt` — **165 passed,
+7 skipped**.
+
+## RV-S7-08 (Low) — `acceptance.md` в ветке
+
+Исправлено: в ветку добавлены `acceptance.md`
+(sha256 `208dc68a35d189ab73544eec20476fd23d44b7672e414769615c642d603c2e3e`)
+и `acceptance.md.sha256`; ссылка теста/документа разрешается внутри кандидата.
+
+## Фактические прогоны раунда 2
+
+| Прогон | Результат | Raw |
+|---|---|---|
+| Харнесс, 19 collected | **12 passed, 7 skipped** (3.98 s) | `raw/rv2-green-acceptance.txt` |
+| Семейство 9 файлов | **165 passed, 7 skipped** (14.53 s) | `raw/rv2-green-family-9files.txt` |
+| Соседи (retrieval + admission + s1_contract) | **118 passed, 1 failed** (предсуществующее, см. §5) | `raw/rv2-green-neighbors.txt` |
+| Мутация A (медиа-шаг выключен) | **1 failed** на сц.2 | `raw/rv2-red-mutation-a-media-step.txt` |
+| Мутация B (единицы игнорируются) | **1 failed** на сц.7 | `raw/rv2-red-mutation-b-units.txt` |
+| Контроль C (причинность) | **1 failed** на сц.7 | `raw/rv2-red-control-c-causal.txt` |
+| После откатов | **12 passed, 7 skipped**; `git diff` — только тест | `raw/rv2-green-after-mutations.txt` |
+
+## Что осталось непокрытым после правок (честно)
+
+| Строка | Остаток |
+|---|---|
+| FCT-140 | процесс Reviewer'а (подбор новых формулировок) — не кодируется |
+| FCT-174 | канон/граница — детерминированно; живая проза/стиль — только live |
+| FCT-175 | только live (реальный SearchAggregator и ключи) |
+| FCT-176 | READY_FOR_LIVE: граница ссылок детерминирована; факт отправки — после деплоя |
+| FCT-169 | структурная часть (будущий `valid_from`); проза «не выдано за состоявшееся» — live Writer |
+| FCT-150 (часть) | «принятие ≠ предложение» зависит от FCT-113 (нет смыслового производителя `decision_status`); анкоры/дата/ник/USD — покрыты |
+| FCT-022, FCT-101–106, FCT-701 | RFL: только live replay реальных Telegram-входов |
+| FCT-503, FCT-504, FCT-604, FCT-1002 | только live (прод-конфигурация/паритет) |
+| FCT-179 | техническая часть — детерминированно; мутация Reviewer'а — процесс |
+| FCT-180 | техническая часть (мутационная чувствительность) — есть; полный регресс direct/vision/summary/search и оценка качества — Reviewer/релиз |
+
+Ни одна строка не переведена в VERIFIED этим юнитом.
