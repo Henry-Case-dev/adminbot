@@ -1,0 +1,90 @@
+﻿== MANIFEST WRITE ==
+[release-manifest] wrote .deploy/release.json | sha=438ad790eb998d1af6d6731be4392ea1d6179b4e version=2.58.270 effect=deploy deployed_at=2026-11-28T06:17:51.700219Z
+manifest_rc=0
+{"deployed_at": "2026-11-28T06:17:51.700219Z", "deployed_sha": "438ad790eb998d1af6d6731be4392ea1d6179b4e", "deployer": "devops", "dirty_tracked": false, "effect": "deploy", "previous_sha": "6d97c02d8a4830c5824cc9c39db311373f953b6d", "previous_version": "2.58.269", "schema": 1, "version": "2.58.270"}
+
+== IDENTITY ==
+Sat Nov 28 06:17:51 AM UTC 2026
+head=438ad790eb998d1af6d6731be4392ea1d6179b4e
+branch=HEAD
+dirty=0
+version=2.58.270
+summary_memory_blob=2fdb657c1f35d34076b6f87a4fd5f1f9a3a636fd
+test_blob=391772ed50efec97d5fe65828dc1bf17b43d76a7
+summary_memory_sha256=e93a4aac299051c5183050f31b34aea03fb02dc777312e98bea1d4c476985485
+test_sha256=d209eb3e1054b938fa6eab63b19f45906e4c786e5ce517fc2ad612cfeabab4b2
+routes_sha256=b8f63355495c388a4240f9a96a0bebc3f1a99af663a7883ddfc4ab352a13c78a
+appjs_disk_sha256=3631e82de2a82b506b63d13914902678e31a28d1aa1abb7d41c79501c4b0282a
+appjs_disk_size=2739459
+appjs_served_sha256=3631e82de2a82b506b63d13914902678e31a28d1aa1abb7d41c79501c4b0282a
+appjs_served_size=2739459
+== HEALTH (T+~8min) ==
+local_http=200 t=0.001276
+{"status":"ok","version":"2.58.270"}
+public_http=200 t=0.069785
+{"status":"ok","version":"2.58.270"}
+MainPID=1258470
+NRestarts=0
+ExecMainStartTimestamp=Sat 2026-11-28 06:09:31 UTC
+ActiveEnterTimestamp=Sat 2026-11-28 06:09:31 UTC
+procs=1
+== LOOP LAG / DEEP since restart ==
+deep_markers=1
+Nov 28 06:09:34 vps159032-gqg python[1258470]: 2026-11-28 06:09:34,665 - services.config_migrations - INFO - [deep_sleep_migration] skip: ╨▓╤Л╨║╨╗╤О╤З╨╡╨╜╨╛ (╨▓
+to_thread/mmr errors=0
+to_thread/mmr lines:
+Nov 28 06:17:40 vps159032-gqg python[1258470]: 2026-11-28 06:17:40,041 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[
+Nov 28 06:17:45 vps159032-gqg python[1258470]: 2026-11-28 06:17:45,040 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: i
+Nov 28 06:17:45 vps159032-gqg python[1258470]: 2026-11-28 06:17:45,041 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[
+Nov 28 06:17:50 vps159032-gqg python[1258470]: 2026-11-28 06:17:50,041 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: i
+Nov 28 06:17:50 vps159032-gqg python[1258470]: 2026-11-28 06:17:50,041 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[
+== ROLLBACK DRY-RUN ==
+HEAD is now at 6d97c02d8 docs(release): 2.58.269 assembly evidence - S6-U1 schema v50 from candidate fa3cb0391, byte-identical 7 files, bump 29/34, additive DDL + rollback SQL, routes b8f63355
+{
+  "deployed_at": "2026-11-28T06:17:55.511148Z",
+  "deployed_sha": "6d97c02d8a4830c5824cc9c39db311373f953b6d",
+  "dirty_tracked": false,
+  "effect": "rollback",
+  "previous_sha": "438ad790eb998d1af6d6731be4392ea1d6179b4e",
+  "previous_version": "2.58.270",
+  "schema": 1,
+  "version": "2.58.269"
+}
+rollback_dryrun_rc=0
+worktrees=1
+== DISK ==
+/dev/vda1        99G   51G   44G  54% /
+  top: predeploy-258234-pg-20261122T075222Z.dump bytes=107847 category=other
+  top: config-tables-2.58.205.json.gz bytes=92356 category=other
+  top: rollback_a33a636d87a686444f3b83874a34b505.jsonl bytes=16048 category=jsonl_retention
+  top: rollback_986658c776e0510b3c25d151a6b07131.jsonl bytes=7143 category=jsonl_retention
+  top: rollback_6b040f01453aee38032e941e0860f8c9.jsonl bytes=5074 category=jsonl_retention
+  top: cancelled_a33a636d87a686444f3b83874a34b505.jsonl bytes=2821 category=jsonl_retention
+  forecast: bytes_per_day=1586016858 projected_30d=47580505763 (44.3 GiB) files=10 immutable_bytes=0 span_days=12.093
+  forecast_method: sum_sizes_of_files_modified_within_window / max(MIN_FORECAST_SPAN_DAYS, observed_span)
+disk cleanup: APPLY deleted=0 bytes_freed=0 (0.0 B) skipped=0 errors=0
+/dev/vda1        99G   51G   44G  54% /
+deploy_backups=/var/www/admin_bot/backups/predeploy-258258-20261127T115028Z.db /var/www/admin_bot/backups/predeploy-258257-20261127T072559Z.db 
+== SLEEP 240s THEN T+~13min CHECKS ==
+== HEALTH (T+~13min) ==
+Sat Nov 28 06:21:55 AM UTC 2026
+local_http=200 t=0.005481
+{"status":"ok","version":"2.58.270"}
+public_http=200 t=0.089800
+{"status":"ok","version":"2.58.270"}
+== JOURNAL WINDOW since 06:09:31 ==
+window_lines=905 errors=2 tracebacks=0 http5xx=0 loop_lag_lines=1
+-- error lines --
+Nov 28 06:14:34 vps159032-gqg python[1258470]: 2026-11-28 06:14:34,848 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=fetch status=error reas
+Nov 28 06:14:34 vps159032-gqg python[1258470]: 2026-11-28 06:14:34,851 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=refresh status=fetch_er
+lag values:
+unit:
+MainPID=1258470
+NRestarts=0
+ActiveEnterTimestamp=Sat 2026-11-28 06:09:31 UTC
+== FINAL ==
+{"deployed_at": "2026-11-28T06:17:51.700219Z", "deployed_sha": "438ad790eb998d1af6d6731be4392ea1d6179b4e", "deployer": "devops", "dirty_tracked": false, "effect": "deploy", "previous_sha": "6d97c02d8a4830c5824cc9c39db311373f953b6d", "previous_version": "2.58.269", "schema": 1, "version": "2.58.270"}
+ab270_changed.txt
+oc_post270.sh
+== POST DONE ==
+SCRIPT_RC=0

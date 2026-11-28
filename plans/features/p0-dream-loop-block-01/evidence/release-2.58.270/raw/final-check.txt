@@ -1,0 +1,22 @@
+﻿== LOOP LAG LINES since restart ==
+Nov 28 06:09:34 vps159032-gqg python[1258470]: 2026-11-28 06:09:34,668 - services.loop_lag_watchdog - INFO - [loop_lag] watchdog started | warn_s=5.000 tick_s=1.000 min_interval_s=60.000
+== MMR BUDGET MARKERS ==
+0
+== DREAM WORKER LINES ==
+Nov 28 06:09:34 vps159032-gqg python[1258470]: 2026-11-28 06:09:34,825 - services.dream_worker - INFO - DreamWorker job registered (enabled resolved per-tick) | tick_minutes=60 (ap
+Nov 28 06:09:34 vps159032-gqg python[1258470]: 2026-11-28 06:09:34,825 - services.dream_worker - INFO - DeepSleep job registered (enabled resolved per-tick) | tick_minutes=60 (appl
+== FINAL STATE ==
+Sat Nov 28 06:22:14 AM UTC 2026
+head=438ad790eb998d1af6d6731be4392ea1d6179b4e dirty=0 version=2.58.270
+active
+MainPID=1258470
+NRestarts=0
+ActiveEnterTimestamp=Sat 2026-11-28 06:09:31 UTC
+local_http=200 t=0.001282
+public_http=200 t=0.085769
+== TMP CLEANUP ==
+oc_fin.sh
+== WORKTREES ==
+/var/www/admin_bot  438ad790e (detached HEAD)
+== DONE ==
+SCRIPT_RC=0

@@ -1,0 +1,18 @@
+﻿== TIME ==
+Sat Nov 28 06:01:47 AM UTC 2026
+== HOST ==
+ 06:01:47 up 16 days, 10:15,  1 user,  load average: 0.37, 0.20, 0.37
+2
+== DIR ==
+6d97c02d8a4830c5824cc9c39db311373f953b6d
+2026-11-28 15:57:22 +1200 docs(release): 2.58.269 assembly evidence - S6-U1 schema v50 from candidate fa3cb039
+dirty_count=0
+branch=HEAD
+== VERSION ==
+APP_VERSION = "2.58.269"   # (27.11.2026): 2.58.254 - MAC-S4-172 (egress, MOD-ACL-UX-01 M1): ╤Б╨╡╨║╤А╨╡╤В╤Л ╨╜╨╡ ╤Г╤Е╨╛╨┤╤П╤В ╨╜╨╕ ╨▓ ╤З╨░╤В, ╨╜╨╕ ╨▓ ╤В╨╡╨╗╨╡╨╝╨╡╤В╤А╨╕╤О - ╨▓╤Б╨╡ ╨╕╤Б╤Е╨╛╨┤╤П╤Й╨╕╨╡ ╤ …[truncated from 78883]
+== MANIFEST ==
+{"deployed_at": "2026-11-28T04:07:43.509788Z", "deployed_sha": "6d97c02d8a4830c5824cc9c39db311373f953b6d", "deployer": "devops", "dirty_tracked": false, "effect": "deploy", "previous_sha": "e46aa06967 …[truncated from 300]
+== DEEP/MMR ACTIVITY (last 20 min, real markers) ==
+count=0
+== LOOP LAG last 20 min (max) ==
+== RECON DONE ==

@@ -1,0 +1,67 @@
+﻿== PRE STATE ==
+Sat Nov 28 06:03:20 AM UTC 2026
+pre_head=6d97c02d8a4830c5824cc9c39db311373f953b6d
+pre_dirty=0
+APP_VERSION = "2.58.269"   # (27.11.2026): 2.
+MainPID=1247689
+NRestarts=0
+User=adminbot
+Group=
+ActiveEnterTimestamp=Sat 2026-11-28 05:33:30 UTC
+-- sqlite user_version --
+db=local_database.db user_version=50 quick_check=ok
+db=pre_migration_20261128_040748.db user_version=49 quick_check=ok
+-- pg settings pre --
+rows=558 md5=50887d362fe93bf7646beae77cce32c6 maxupd=2026-11-27 21:48:55.892740+00:00 prompts=29
+-- journal mark pre --
+2026-11-28T06:09:27Z
+pre_mark=2026-11-28T06:09:27Z
+== FETCH/CHECKOUT ==
+From https://github.com/Henry-Case-dev/adminbot
+ * branch                release/2.58.270 -> FETCH_HEAD
+ * [new branch]          release/2.58.270 -> origin/release/2.58.270
+Previous HEAD position was 6d97c02d8 docs(release): 2.58.269 assembly evidence - S6-U1 schema v50 from candidate fa3cb0391, byte-identical 7 files, bump 29/34, additive DDL + rollback SQL, routes b8f63355
+HEAD is now at 438ad790e docs(release): 2.58.270 committed blob identity + raw sums
+new_head=438ad790eb998d1af6d6731be4392ea1d6179b4e
+head_is_expected=yes
+dirty_after_checkout=0
+version_after=APP_VERSION = "2.58.270"   # (
+== PERMS ==
+changed_paths=51
+unreadable_for_service_user=0 (sudo_n_rc=0)
+adminbot:adminbot 644 services/summary_memory.py
+adminbot:adminbot 644 tests/p0_dream_loop/test_no_event_loop_block.py
+== IMPORT CHECK (as root; service user ownership verified above) ==
+IMPORT_OK 2.58.270 offloop= True budget_s= 5.0 mmr_unchanged= True
+import_rc=0
+== RESTART ==
+restart_rc=0 restart_seconds=2
+active
+MainPID=1258470
+NRestarts=0
+ExecMainStartTimestamp=Sat 2026-11-28 06:09:31 UTC
+ActiveEnterTimestamp=Sat 2026-11-28 06:09:31 UTC
+procs=1
+== POST IMMEDIATE ==
+Sat Nov 28 06:09:37 AM UTC 2026
+-- healthz local --
+http=200 time=0.229839
+{"status":"ok","version":"2.58.270"}
+-- healthz public --
+http=200 time=0.045998
+{"status":"ok","version":"2.58.270"}
+-- version from python --
+2.58.270
+-- user_version after --
+db=local_database.db user_version=50 quick_check=ok
+db=pre_migration_20261128_040748.db user_version=49 quick_check=ok
+-- pg settings post --
+rows=558 md5=50887d362fe93bf7646beae77cce32c6 maxupd=2026-11-27 21:48:55.892740+00:00 prompts=29
+-- journal first 45s errors --
+err_count_noncclic=2
+-- startup line --
+Nov 28 06:09:29 vps159032-gqg python[1247689]: 2026-11-28 06:09:29,981 - web.app - INFO - [webapp] lifespan finished
+Nov 28 06:09:35 vps159032-gqg python[1258470]: 2026-11-28 06:09:35,172 - __main__ - INFO - Bot started, listening for messages...
+Nov 28 06:09:35 vps159032-gqg python[1258470]: 2026-11-28 06:09:35,579 - web.app - INFO - [webapp] lifespan started | pg_available=True
+== DEPLOY DONE ==
+SCRIPT_RC=0
