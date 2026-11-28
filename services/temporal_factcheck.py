@@ -1643,3 +1643,239 @@ async def record_delivery_stage(db, *, correlation_id: str | None,
         logger.warning("[temporal] delivery stage append failed",
                        exc_info=True)
         return False
+
+
+# ── FCT-S6 U2: агрегаты сохранённых прогонов (read-only, без API/UI) ────────
+# Источник — ТОЛЬКО уже сохранённые строки: `mca_factcheck_runs`,
+# `mca_factcheck_evidence` и терминальные события `factcheck_claims`
+# (execution_status/cause живут в entity_ids события; run-таблица их не
+# дублирует). Никаких новых таблиц/DDL/флагов. Отсутствующий сигнал — None,
+# а не выдуманный ноль.
+
+_AGGREGATE_EVENT = "factcheck_claims"
+_AGGREGATE_EXECUTION_STATUSES = ("complete", "partial",
+                                 "technical_unverified", "unknown")
+
+
+def _agg_mapping(value) -> dict:
+    """sqlite3.Row/dict → dict (чистая нормализация для агрегатора)."""
+    if isinstance(value, dict):
+        return value
+    try:
+        return {key: value[key] for key in value.keys()}
+    except Exception:
+        try:
+            return dict(value)
+        except Exception:
+            return {}
+
+
+def _agg_json_object(raw) -> dict:
+    if isinstance(raw, dict):
+        return raw
+    if not raw:
+        return {}
+    try:
+        value = json.loads(str(raw))
+    except (TypeError, ValueError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _agg_trace_items(raw) -> list:
+    if isinstance(raw, (list, tuple)):
+        return list(raw)
+    if not raw:
+        return []
+    try:
+        value = json.loads(str(raw))
+    except (TypeError, ValueError):
+        return []
+    return list(value) if isinstance(value, (list, tuple)) else []
+
+
+def aggregate_factcheck_snapshots(runs, evidence_rows=(), event_rows=(), *,
+                                  limit: int | None = None,
+                                  truncated: bool = False) -> dict:
+    """FCT-S6 U2: чистый детерминированный агрегат по снимкам хранилища.
+
+    Без I/O и побочных эффектов: принимает уже прочитанные строки. `limit`
+    применяется к переданному порядку (вызывающий отдаёт newest-first);
+    `truncated` фиксирует, что за границей остались записи.
+
+    Доли — по фактическим строкам, без округления и без выдуманных метрик:
+
+    * ``execution_status``/``execution_cause`` — из событий `factcheck_claims`
+      по `pipeline_run_id` (= `mca_factcheck_runs.correlation_id`); нет ни
+      одного события с сигналом → ``None``; прогон без события при известных
+      статусах честно попадает в ``unknown``;
+    * ``snippet_only_share`` — доля evidence с ``opened=0`` среди строк с
+      известным ``opened`` (NULL-строки старой схемы не считаются);
+    * ``date_unknown_share`` — доля evidence без `published_at`;
+    * ``verdict_mismatch_share`` — доля прогонов с ``verdict/corrected`` в
+      `stage_trace` среди прогонов, где стадия verdict вообще записана;
+    * ``entity_collision_share``/``media_partial_share`` — ``None``: в
+      durable run/evidence такого поля нет, подставлять догадку запрещено.
+    """
+    run_list = [_agg_mapping(row) for row in (runs or ())]
+    truncated = bool(truncated)
+    if limit is not None and len(run_list) > int(limit):
+        truncated = True
+        run_list = run_list[:max(0, int(limit))]
+    run_ids = {str(row.get("run_id")) for row in run_list
+               if row.get("run_id") is not None}
+    evidence = [_agg_mapping(row) for row in (evidence_rows or ())]
+    evidence = [row for row in evidence
+                if str(row.get("run_id")) in run_ids]
+    events = [_agg_mapping(row) for row in (event_rows or ())]
+
+    status_by_run: dict[str, str] = {}
+    cause_by_run: dict[str, str] = {}
+    status_signal = False
+    cause_signal = False
+    for event in events:
+        if str(event.get("event_name") or "") != _AGGREGATE_EVENT:
+            continue
+        payload = _agg_json_object(event.get("entity_ids"))
+        pipeline_id = str(event.get("pipeline_run_id") or "")
+        status = str(payload.get("execution_status") or "")
+        if status:
+            status_signal = True
+            status_by_run.setdefault(pipeline_id, status)
+        cause = str(payload.get("execution_cause") or "")
+        if cause:
+            cause_signal = True
+            cause_by_run.setdefault(pipeline_id, cause)
+
+    correlation_by_run = {
+        str(row.get("run_id")): str(row.get("correlation_id") or "")
+        for row in run_list}
+    execution_status = None
+    if status_signal:
+        distribution = {name: 0 for name in _AGGREGATE_EXECUTION_STATUSES}
+        for correlation_id in correlation_by_run.values():
+            status = status_by_run.get(correlation_id) or "unknown"
+            if status not in distribution:
+                status = "unknown"
+            distribution[status] += 1
+        execution_status = {name: count for name, count in distribution.items()
+                            if count}
+    execution_cause = None
+    if cause_signal:
+        causes: dict[str, int] = {}
+        for correlation_id in correlation_by_run.values():
+            cause = cause_by_run.get(correlation_id)
+            if cause:
+                causes[cause] = causes.get(cause, 0) + 1
+        execution_cause = causes or None
+
+    opened_known = [row for row in evidence
+                    if row.get("opened") is not None]
+    snippet_only_share = (
+        sum(1 for row in opened_known if not int(row.get("opened") or 0))
+        / len(opened_known)) if opened_known else None
+    date_unknown_share = (
+        sum(1 for row in evidence
+            if row.get("published_at") in (None, "")) / len(evidence)
+    ) if evidence else None
+
+    verdict_runs = 0
+    verdict_mismatch = 0
+    for row in run_list:
+        outcomes = [str(item.get("outcome") or "")
+                    for item in _agg_trace_items(row.get("stage_trace"))
+                    if isinstance(item, dict)
+                    and str(item.get("stage") or "") == "verdict"]
+        if not outcomes:
+            continue
+        verdict_runs += 1
+        if "corrected" in outcomes:
+            verdict_mismatch += 1
+    verdict_mismatch_share = (
+        verdict_mismatch / verdict_runs) if verdict_runs else None
+
+    return {
+        "runs": len(run_list),
+        "evidence_rows": len(evidence),
+        "execution_status": execution_status,
+        "execution_cause": execution_cause,
+        "snippet_only_share": snippet_only_share,
+        "date_unknown_share": date_unknown_share,
+        "entity_collision_share": None,
+        "media_partial_share": None,
+        "verdict_mismatch_share": verdict_mismatch_share,
+        "limit": limit,
+        "truncated": truncated,
+    }
+
+
+def _agg_chunks(values: list, size: int = 400):
+    for start in range(0, len(values), size):
+        yield values[start:start + size]
+
+
+async def summarize_factcheck_aggregates(db, *, since_ts: int | None = None,
+                                         until_ts: int | None = None,
+                                         limit: int = 500) -> dict:
+    """FCT-S6 U2: read-only сводка по сохранённым прогонам за период.
+
+    Ограничение: `limit` прогонов (1..5000, newest-first) + период по
+    `created_at`. Side-effect-free: только SELECT; ошибка чтения событий не
+    рвёт агрегат (сигнал честно отсутствует → None). Подключение к API/UI —
+    отдельный шаг (в этом юните не делается)."""
+    limit = max(1, min(int(limit or 500), 5000))
+    period = {"since": since_ts, "until": until_ts}
+    if db is None:
+        result = aggregate_factcheck_snapshots([], limit=limit)
+        result["period"] = period
+        return result
+    conn = getattr(db, "db", db)
+    where: list[str] = []
+    params: list = []
+    if since_ts is not None:
+        where.append("created_at >= ?")
+        params.append(int(since_ts))
+    if until_ts is not None:
+        where.append("created_at <= ?")
+        params.append(int(until_ts))
+    sql = ("SELECT * FROM mca_factcheck_runs "
+           + (f"WHERE {' AND '.join(where)} " if where else "")
+           + "ORDER BY created_at DESC, run_id DESC LIMIT ?")
+    params.append(limit + 1)
+    cursor = await conn.execute(sql, tuple(params))
+    runs = [dict(row) for row in await cursor.fetchall()]
+    truncated = len(runs) > limit
+    runs = runs[:limit]
+
+    evidence: list[dict] = []
+    run_ids = [str(row["run_id"]) for row in runs if row.get("run_id")]
+    for chunk in _agg_chunks(run_ids):
+        placeholders = ",".join("?" for _ in chunk)
+        cursor = await conn.execute(
+            "SELECT run_id, opened, published_at FROM mca_factcheck_evidence "
+            f"WHERE run_id IN ({placeholders})", tuple(chunk))
+        evidence.extend(dict(row) for row in await cursor.fetchall())
+
+    events: list[dict] = []
+    correlation_ids = [str(row.get("correlation_id")) for row in runs
+                       if row.get("correlation_id")]
+    for chunk in _agg_chunks(correlation_ids):
+        placeholders = ",".join("?" for _ in chunk)
+        try:
+            cursor = await conn.execute(
+                "SELECT event_name, pipeline_run_id, entity_ids "
+                "FROM mca_events WHERE event_name = ? "
+                f"AND pipeline_run_id IN ({placeholders})",
+                (_AGGREGATE_EVENT, *chunk))
+            events.extend(dict(row) for row in await cursor.fetchall())
+        except Exception:
+            logger.warning(
+                "[temporal] aggregate: factcheck_claims events read failed — "
+                "signal absent", exc_info=True)
+            events = []
+            break
+
+    result = aggregate_factcheck_snapshots(
+        runs, evidence, events, limit=limit, truncated=truncated)
+    result["period"] = period
+    return result
