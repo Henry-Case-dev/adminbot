@@ -1,0 +1,26 @@
+head=1e7707033a475532c208f20c373d07d325f9efa8
+dirty_tracked=False
+branch=release/2.58.272
+
+92bb8a7274007a863bd07c7ed635feee70db4d51  web/api/routes.py
+8d3c535e6c7f9668f41ee27f889e9c47b187ecef  web/app.js
+90499d81cd93a26935f733985636050011193767  web/index.html
+c40ed631881b5c06be60ef5c805d2f9c763a7f32  config/settings.py
+5f1870e3ee07c9039f7e10f85c7f3889851f3623  services/factcheck_orchestrator.py
+64bb06c05fc7067b2630951c2b407d5455e631fb  services/factcheck_prompts.py
+2a74fbbdb7c0a75e9194da5dd3b0d36bbf65e22e  tests/test_fc_trust_s6_aggregate_api.py
+dee8b9ddc1ba910671b507293550de278340aa97  tests/test_mca23_planned_vs_actual.py
+bc76ccefd3820d7d13286f6dfc9ca2040f1a0337  tests/test_round1025_f8_registry.py
+0dc8ac3a3940722bf5a0e2e6921fde1217e2aefd  tests/fixtures/round1025/f8_baseline.json
+
+evidence-only delta since assembly commit:
+.../evidence/release-2.58.272/assembly.md          | 133 +++++
+ .../evidence/release-2.58.272/raw/_identity.py     | 141 +++++
+ .../evidence/release-2.58.272/raw/identity.txt     | 170 ++++++
+ .../evidence/release-2.58.272/raw/import-check.txt | Bin 0 -> 390 bytes
+ .../release-2.58.272/raw/manifest-dryrun.txt       | Bin 0 -> 610 bytes
+ .../release-2.58.272/raw/registry-check.txt        | Bin 0 -> 230 bytes
+ .../release-2.58.272/raw/tests-base-parity.txt     | 622 +++++++++++++++++++++
+ .../evidence/release-2.58.272/raw/tests-bumped.txt | Bin 0 -> 103598 bytes
+ .../release-2.58.272/raw/tests-mandated.txt        | Bin 0 -> 2248 bytes
+ 9 files changed, 1066 insertions(+)
