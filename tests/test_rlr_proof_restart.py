@@ -206,16 +206,22 @@ async def test_marker_is_written_before_delivery_not_after(tmp_path,
     svc = _wire(monkeypatch, cache=cache, llm=llm, l1=True)
     user = _user()
     observed: list = []
+    # P0T-REPLY-01: план этого кейса не просит delivery=reply, поэтому
+    # доставка идёт без привязки (reply_to=None). Маркер R-08.20 ключуется
+    # ТРИГГЕРОМ хода, а не целью reply: оракул обязан проверять его по
+    # trigger_id, иначе проверка «маркер записан ДО доставки» зависела бы от
+    # формы привязки, а не от порядка записи.
+    trigger_id = 1411
 
     async def _send(bot, chat_id, answer, reply_to=None, **kwargs):
         observed.append(await check_update_seen(
-            cache, chat_id, reply_to, revision=1, user_id=user.id))
+            cache, chat_id, trigger_id, revision=1, user_id=user.id))
         return 777
 
     svc._send_direct_answer = AsyncMock(side_effect=_send)
     try:
         await svc.handle(_bot(), _message(text="проверь порядок",
-                                         message_id=1411), user)
+                                         message_id=trigger_id), user)
         assert observed == [True], observed
     finally:
         await cache.close()

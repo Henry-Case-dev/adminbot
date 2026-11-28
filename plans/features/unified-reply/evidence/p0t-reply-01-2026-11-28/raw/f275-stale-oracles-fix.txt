@@ -1,0 +1,28 @@
+# F-275-01/F-275-02 ? stale test oracles fixed (product untouched)
+
+## Candidate 1353a5131+fix (branch feat/p0t-reply-01-2026-11-28)
+
+pytest tests/test_direct_l1_corrective_r1.py::test_l1_rules_positive_criteria_present        tests/test_rlr_proof_restart.py::test_marker_is_written_before_delivery_not_after
+-> 2 passed in 6.37s
+
+pytest tests/test_direct_l1_corrective_r1.py
+-> 1 failed, 11 passed
+   FAILED test_build_l1_context_bot_replies_caps_and_limit  (pre-existing:
+   ??????? ? ?? 2.58.273, ? ?? base-venv 2.58.274/2.58.275: DevOps
+   release-2.58.275/raw/base-venv-batch-canon-rest.txt)
+
+pytest tests/test_rlr_proof_restart.py
+-> 4 passed
+
+pytest tests/test_p0t_reply_target.py
+-> 16 passed
+
+## Prod base 2.58.274 (detached worktree at 731a7e51c, ?????? ????-?????)
+
+pytest tests/test_direct_l1_corrective_r1.py::test_l1_rules_positive_criteria_present        tests/test_rlr_proof_restart.py::test_marker_is_written_before_delivery_not_after
+-> 2 passed in 9.24s
+
+Temp worktree removed (git worktree remove, ??? --force); ? ?????? worktree ???.
+
+## Product identity
+git diff --quiet cb387ee88 HEAD -- services -> rc 0 (????? ??????? fix)

@@ -130,7 +130,12 @@ def test_l1_rules_positive_criteria_present():
         ' "memory_scope": "auto"}', 1) \
         + _DIRECT_L1_MEMORY_SCOPE_EVR6
     assert cp.PREV_DIRECT_L1_PLANNER_EVR6 == evr6_canon
-    assert DIRECT_L1_PLANNER_SYSTEM_PROMPT == (
+    # P0-GOAL-MEDIA: активные байты = EVR6 + редакция правил P0GM + final_goal
+    # и абзацы цели/медиа (слепок PREV_DIRECT_L1_PLANNER_P0GM).
+    # P0T-REPLY-01 (28.11.2026): активный канон = P0GM с РОВНО одной заменой
+    # секции участия R3 → R4; реконструкция обязана включать эту замену, иначе
+    # пин валидирует байты прода 2.58.273, а не активный канон.
+    p0gm_canon = (
         evr6_canon
         .replace(cp._DIRECT_L1_PLANNER_RULES_PA5W2,
                  cp._DIRECT_L1_PLANNER_RULES_P0GM)
@@ -138,6 +143,9 @@ def test_l1_rules_positive_criteria_present():
                  ' "memory_scope": "auto",\n "final_goal": ""}', 1)
         + cp._DIRECT_L1_FINAL_GOAL_P0GM
         + cp._DIRECT_L1_MEDIA_ACTIONS_P0GM)
+    assert cp.PREV_DIRECT_L1_PLANNER_P0GM == p0gm_canon
+    assert DIRECT_L1_PLANNER_SYSTEM_PROMPT == p0gm_canon.replace(
+        cp._DIRECT_L1_PARTICIPATION_R3, cp._DIRECT_L1_PARTICIPATION_R4)
     assert '"action": "reply|react|silent"' in new_canon
 
 
