@@ -109,7 +109,11 @@ ROUTES_SHA256_F11 = (
     # 5 write-маршрутов ACL только для effective global admin + S2-инварианты
     # назначенных админов и per-app lock; Δ routes=0, DDL=0. Канон пина —
     # tests/test_round1025_f8_registry.py (L-F11S-1).
-    "b8f63355495c388a4240f9a96a0bebc3f1a99af663a7883ddfc4ab352a13c78a")
+    # FCT-S6 U3 (28.11.2026): осознанный re-pin вместе с каноном
+    # tests/test_round1025_f8_registry.py — добавлен ровно один endpoint
+    # GET /api/factcheck/temporal/aggregate; других правок routes.py нет.
+    # Канон пина — f8_registry (L-F11S-1).
+    "5c20750a0a273651600a2baf1fe0a74a842585742af1e1a846cf1f8ecff79bdf")
 
 
 @pytest.fixture(autouse=True)

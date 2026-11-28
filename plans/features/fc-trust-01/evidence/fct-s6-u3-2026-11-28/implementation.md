@@ -110,3 +110,42 @@ UI 2, factory 2, routes-pin 1).
 
 `red-base-3a78484b9.txt`, `green-api.txt`, `green-mandated.txt`,
 `green-broad.txt`.
+
+---
+
+## RV-S6U3-01 (review r1, IN_SCOPE) — второй пин `test_mca23`
+
+**Причина:** осознанный re-pin `routes.py` был обновлён в каноне
+`tests/test_round1025_f8_registry.py` и новом тесте, но не в существующем
+guard `tests/test_mca23_planned_vs_actual.py::TestResponseEndpoints::
+test_routes_pin_untouched` — там оставался старый `b8f63355…`; на кандидате
+guard падал.
+
+**Фикс (минимальный):** обновлена захардкоженная константа только в
+`tests/test_mca23_planned_vs_actual.py`:
+`b8f63355…` → **`5c20750a0a273651600a2baf1fe0a74a842585742af1e1a846cf1f8ecff79bdf`**
+(фактический sha256 `web/api/routes.py`, перепроверен). Выбран вариант
+«обновить константу», а не dedup-импорт канона, чтобы guard оставался
+независимой копией и на базе доказуемо падал при другом sha; канон —
+`f8_registry`. `routes.py` не менялся (`5c20750a…`).
+
+* Тестовый файл sha256: **`a155eb35e6737f1bf9c72c2e09ec8097f60ce189d4c73639baa37d72c2e32510`**
+* diff — одна константа + комментарий (см. `git diff`/raw).
+
+**Проверка guard на базе (доказывает, что пин реально сторожит):**
+на чистом `3a78484b9` с этим обновлённым тестовым файлом
+`test_routes_pin_untouched` **падает**: ожидается `5c20750a…`, фактический
+sha базы — `b8f63355…` (`raw/rv-base-pin-fails.txt`).
+
+**Пять обязательных прогонов на кандидате (`raw/rv-five-per-file.txt`,
+`raw/rv-five-runs.txt`):**
+
+```
+tests/test_mca23_planned_vs_actual.py        => 24 passed
+tests/test_round1025_f8_registry.py          => 29 passed
+tests/test_fc_trust_s6_aggregate_api.py      =>  9 passed
+tests/test_fc_trust_s6_aggregates.py         =>  9 passed
+tests/test_factcheck_p0_fc.py                => 37 passed
+combined                                     => 108 passed, 0 failed
+```
+
