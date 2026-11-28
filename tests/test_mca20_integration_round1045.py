@@ -439,8 +439,8 @@ class TestHandlerPaths:
                             lambda: pool)
         monkeypatch.setattr(fh, "typing_active", lambda bot, chat:
                             _null_ctx())
-        monkeypatch.setattr(fh, "cooldown_remaining",
-                            AsyncMock(return_value=0))
+        monkeypatch.setattr(fh, "cooldown_claim",
+                            AsyncMock(return_value=(True, 0.0)))
         monkeypatch.setattr(fh, "_fetch_chat_context",
                             AsyncMock(return_value=""))
         monkeypatch.setattr(fh, "send_chunked_reply", AsyncMock())

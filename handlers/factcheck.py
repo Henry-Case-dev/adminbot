@@ -10,6 +10,8 @@ Reply-таргеты (контракт R33-3): вердикт, 5.3 (пустой
 троттлинг 5.1 → reply на message.message_id (ВЫЗОВ, D107). Кулдаун
 FACTCHECK_COOLDOWN_SECONDS per (chat, user), независимый (CooldownTracker).
 """
+import asyncio
+import contextvars
 import dataclasses
 import logging
 import random
@@ -28,9 +30,8 @@ from services.chat_params import get_chat_param as _cp_g
 from services.llm_client import LLMBadResponseError, LLMError
 from services.media_group_buffer import get_media_group_caption
 from services.persistent_throttling import (
+    cooldown_claim,
     cooldown_refresh,
-    cooldown_remaining,
-    cooldown_touch,
     make_cooldown,
 )
 from services.search_aggregator import AllSearchEnginesFailedException
@@ -556,6 +557,14 @@ _COOLDOWN_REFUND = "refund"
 _COOLDOWN_REFUND_FAILED = "refund_failed"
 _COOLDOWN_KEPT = "kept"
 
+#: FCT-1001 (S4): занятый слот текущего handler-прогона. Отмена задачи
+#: (`asyncio.CancelledError`) не доставляет вердикт, поэтому пользовательский
+#: лимит не должен остаться израсходованным: публичный wrapper снимает слот.
+#: Контекстная переменная — на задачу, между чатами не пересекается.
+_ACTIVE_SLOT: contextvars.ContextVar = contextvars.ContextVar(
+    "factcheck_active_slot", default=None)
+_CANCELLED_OUTCOME = "cancelled"
+
 
 async def _refund_cooldown(chat_id: int, user_id: int,
                            outcome: str = "early_refusal") -> bool:
@@ -627,6 +636,9 @@ async def _settle_cooldown(chat_id: int, user_id: int, outcome: str | None
     телеметрию: ``refund:<outcome>`` | ``refund_failed:<outcome>`` |
     ``kept:<outcome>``. Отдельного «kept»-пути раньше не было вовсе —
     сохранение слота теперь видно аналитике так же, как снятие."""
+    # Исход зафиксирован: отмена после этого места не должна возвращать слот
+    # (вердикт уже доставлен / решение об исходе принято).
+    _ACTIVE_SLOT.set(None)
     if outcome in _EARLY_OUTCOMES:
         refunded = await _refund_cooldown(chat_id, user_id, str(outcome))
         label = (f"{_COOLDOWN_REFUND}:{outcome}" if refunded
@@ -635,6 +647,20 @@ async def _settle_cooldown(chat_id: int, user_id: int, outcome: str | None
         label = f"{_COOLDOWN_KEPT}:{outcome or 'unknown'}"
     _emit_cooldown_outcome(chat_id, label, outcome)
     return label
+
+
+async def _settle_cancelled(chat_id: int, user_id: int) -> str:
+    """Отмена прогона: слот возвращается (вердикт не доставлен).
+
+    FCT-1001 (S4): отмена — технический исход, а не пользовательский отказ;
+    расходовать полный лимит ей нельзя. Fail-open: сбой снятия виден как
+    ``refund_failed:cancelled`` и не подменяет саму отмену."""
+    refunded = await _refund_cooldown(chat_id, user_id, _CANCELLED_OUTCOME)
+    label = (f"{_COOLDOWN_REFUND}:{_CANCELLED_OUTCOME}" if refunded
+             else f"{_COOLDOWN_REFUND_FAILED}:{_CANCELLED_OUTCOME}")
+    _emit_cooldown_outcome(chat_id, label, _CANCELLED_OUTCOME)
+    return label
+
 
 _FACTCHECK_TRIGGER_RE = re.compile(r"^фактчек\b", re.IGNORECASE)   # слово целиком («фактчекинг» НЕ матчится)
 _HINT_LEAD_RE = re.compile(r"^[\s,:;]+")
@@ -1172,7 +1198,25 @@ async def _transcription_forward_author(chat_id: int,
 
 
 @factcheck_router.message()
-async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
+async def factcheck_handler(message: types.Message, bot: Bot = None):
+    """Публичная точка входа: исполнение + снятие слота при отмене.
+
+    FCT-1001 (S4): отменённая проверка не доставляет вердикт, поэтому занятый
+    ею пользовательский слот возвращается (`_settle_cancelled`). `CancelledError`
+    пробрасывается дальше — семантика asyncio не ломается."""
+    _ACTIVE_SLOT.set(None)
+    try:
+        return await _factcheck_handler_impl(message, bot=bot)
+    except asyncio.CancelledError:
+        slot = _ACTIVE_SLOT.get()
+        _ACTIVE_SLOT.set(None)
+        if slot is not None:
+            await _settle_cancelled(*slot)
+        raise
+
+
+async def _factcheck_handler_impl(message: types.Message,
+                                  bot: Bot = None) -> None:
     if _service is None or bot is None:
         return UNHANDLED
     # MOD-ACL-UX-01 M2.1: master-флаг решается per chat через канонический
@@ -1209,11 +1253,18 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
     # T-619: кулдаун — горячая точка (ConfigCache → settings-фолбек)
     cooldown_refresh(_cooldown, hot.get("limits.factcheck_cooldown_seconds",
                                         settings.FACTCHECK_COOLDOWN_SECONDS))
-    remaining = await cooldown_remaining(_cooldown, message.chat.id, user_id)
-    if remaining > 0:                          # 5.1 → РЕПЛАЙ НА ВЫЗОВ (message.message_id)
+    # FCT-1001 (S4): проверка и занятие слота — ОДНА операция. Раньше
+    # `remaining` и `touch` были раздельными: при персистентном трекере два
+    # одновременных одинаковых запроса оба читали «свободно» и оба запускали
+    # платную проверку (двойной расход). `_ACTIVE_SLOT` — для возврата слота
+    # при отмене задачи.
+    _ACTIVE_SLOT.set((message.chat.id, user_id))
+    claimed, remaining = await cooldown_claim(
+        _cooldown, message.chat.id, user_id)
+    if not claimed:                            # 5.1 → РЕПЛАЙ НА ВЫЗОВ (message.message_id)
+        _ACTIVE_SLOT.set(None)                 # слот принадлежит другому прогону
         await _reply(bot, message.chat.id, throttle_phrase(remaining), message.message_id)
         return                                # консьюм (D107: троттлинг — на вызов)
-    await cooldown_touch(_cooldown, message.chat.id, user_id)  # слот сразу (42.4)
     # P1 (§4.6, review-fix2): свежая просьба по тому же сообщению ВЫТЕСНЯЕТ
     # прежнее отложенное намерение — иначе ответ пришёл бы дважды (сейчас и из
     # sweep'а). Чужие намерения (Direct) не трогаются.

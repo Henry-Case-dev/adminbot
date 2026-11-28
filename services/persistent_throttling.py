@@ -155,6 +155,40 @@ class PersistentCooldownTracker:
                 "persistent throttle: touch failed — fail-open | scope=%s",
                 self._scope, exc_info=True)
 
+    async def claim(self, chat_id: int, user_id: int) -> tuple[bool, float]:
+        """Атомарно проверить и занять слот: `(acquired, remaining)`.
+
+        FCT-1001 (S4): `remaining()` и `touch()` — раздельные операции, и два
+        одновременных одинаковых запроса оба читали «свободно», оба запускали
+        платную проверку. Чтение и занятие здесь идут в ОДНОЙ
+        single-writer-транзакции, поэтому второй дубль видит занятый слот.
+        Ошибка БД — прежний fail-open: `(True, 0.0)` (лимитер не роняет ход)."""
+        now = time.time()
+        cooldown = float(self._cooldown)
+
+        async def _body(conn):
+            cursor = await conn.execute(
+                "SELECT last_ts FROM throttle_state "
+                "WHERE scope = ? AND chat_id = ? AND user_id = ?",
+                (self._scope, chat_id, user_id))
+            row = await cursor.fetchone()
+            if row is not None:
+                remaining = max(0.0, cooldown - (now - row["last_ts"]))
+                if remaining > 0:
+                    return False, remaining
+            await conn.execute(
+                _UPSERT_TOUCH_SQL, (self._scope, chat_id, user_id, now))
+            return True, 0.0
+
+        try:
+            return await _db_write(self._db, _body, op_name="throttle_claim",
+                                   chat_id=chat_id)
+        except Exception:
+            logger.warning(
+                "persistent throttle: claim failed — fail-open | scope=%s",
+                self._scope, exc_info=True)
+            return True, 0.0
+
 
 class PersistentThrottle:
     """Token Bucket (R50-7) в throttle_state: per (chat_id, user_id),
@@ -423,6 +457,27 @@ async def cooldown_touch(tracker, chat_id: int, user_id: int) -> None:
     result = tracker.touch(chat_id, user_id)
     if asyncio.iscoroutine(result):
         await result
+
+
+async def cooldown_claim(tracker, chat_id: int, user_id: int
+                         ) -> tuple[bool, float]:
+    """Хендлер-helper: атомарно занять слот → `(acquired, remaining)`.
+
+    FCT-1001 (S4): единая операция вместо пары `remaining()`+`touch()` —
+    без окна гонки между проверкой и занятием. Трекеры без `claim`
+    (внешние/тестовые DI-двойники) обслуживаются прежней парой вызовов:
+    in-memory `CooldownTracker` синхронен и атомарен в одном шаге цикла."""
+    claim = getattr(tracker, "claim", None)
+    if claim is not None:
+        result = claim(chat_id, user_id)
+        if asyncio.iscoroutine(result):
+            result = await result
+        return result
+    remaining = await cooldown_remaining(tracker, chat_id, user_id)
+    if remaining > 0:
+        return False, remaining
+    await cooldown_touch(tracker, chat_id, user_id)
+    return True, 0.0
 
 
 # ── CFG-02B (§02B.1–§02B.4, ADR-1031-1): частотный лимит генераций ─────────

@@ -152,8 +152,8 @@ def handler_env(monkeypatch):
     pool.try_acquire = AsyncMock(return_value=permit)
     monkeypatch.setattr(fh, "get_smartmodule_concurrency_pool", lambda: pool)
     monkeypatch.setattr(fh, "typing_active", lambda bot, chat: _NullCtx())
-    monkeypatch.setattr(fh, "cooldown_remaining", AsyncMock(return_value=0))
-    monkeypatch.setattr(fh, "cooldown_touch", AsyncMock())
+    monkeypatch.setattr(fh, "cooldown_claim",
+                        AsyncMock(return_value=(True, 0.0)))
     monkeypatch.setattr(fh, "_cp_g", AsyncMock(return_value="contextual"))
     monkeypatch.setattr(fh, "_fetch_context_with_gate",
                         AsyncMock(return_value=("", None)))

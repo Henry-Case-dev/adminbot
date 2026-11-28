@@ -53,6 +53,18 @@ class CooldownTracker:
             self._evict_expired(now)
         self._last[(chat_id, user_id)] = now
 
+    def claim(self, chat_id: int, user_id: int) -> tuple[bool, float]:
+        """Атомарно занять слот: `(acquired, remaining)`.
+
+        FCT-1001 (S4): проверка и занятие — один синхронный шаг (без `await`
+        между `remaining` и `touch`), поэтому два одновременных дубля одного
+        пользователя не проходят оба. `remaining > 0` — слот уже занят."""
+        remaining = self.remaining(chat_id, user_id)
+        if remaining > 0:
+            return False, remaining
+        self.touch(chat_id, user_id)
+        return True, 0.0
+
     def _evict_expired(self, now: float) -> None:
         """Удалить записи с истёкшим кулдауном (они уже не влияют)."""
         expired = [k for k, ts in self._last.items()
