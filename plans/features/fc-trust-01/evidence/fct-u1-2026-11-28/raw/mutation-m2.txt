@@ -1,0 +1,19 @@
+.........F................                                               [100%]
+================================== FAILURES ===================================
+_______ TestYearConflict.test_default_profile_keeps_previous_behaviour ________
+
+self = <tests.test_fc_trust_relation_binding.TestYearConflict object at 0x00000271B72655B0>
+
+    def test_default_profile_keeps_previous_behaviour(self):
+        """╨Я╤А╨╛╤Д╨╕╨╗╤М ╨┐╨╛ ╤Г╨╝╨╛╨╗╤З╨░╨╜╨╕╤О (direct_execution/evidence_policy) ╨╜╨╡ ╨╕╨╖╨╝╨╡╨╜╤С╨╜."""
+        rel = _relevance(PASSAGE_2024, require_anchor=False)
+>       assert rel.role == sa.EVIDENCE_ROLE_SUPPORTS
+E       AssertionError: assert 'qualifies' == 'supports'
+E         
+E         - supports
+E         + qualifies
+
+tests\test_fc_trust_relation_binding.py:140: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_fc_trust_relation_binding.py::TestYearConflict::test_default_profile_keeps_previous_behaviour
+1 failed, 25 passed in 3.61s

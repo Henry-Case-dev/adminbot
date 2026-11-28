@@ -1,0 +1,58 @@
+.............FF....                                                      [100%]
+================================== FAILURES ===================================
+_ TestAnalystSemanticKinds.test_structural_kind_from_model_is_rejected[public_statement_attribution] _
+
+self = <tests.test_fc_trust_assertion_kind.TestAnalystSemanticKinds object at 0x0000017D73E4FE60>
+kind = 'public_statement_attribution'
+caplog = <_pytest.logging.LogCaptureFixture object at 0x0000017D75D93B00>
+
+    @pytest.mark.parametrize("kind", [
+        fsp.ASSERTION_PUBLIC_STATEMENT, fsp.ASSERTION_IMAGE_CONTENT])
+    def test_structural_kind_from_model_is_rejected(self, kind, caplog):
+        """╨б╤В╤А╤Г╨║╤В╤Г╤А╨╜╤Л╨╣ ╤В╨╕╨┐ ╨╝╨╛╨┤╨╡╨╗╤М╤О ╨╜╨╡ ╨▓╤Л╤Б╤В╨░╨▓╨╗╤П╨╡╤В╤Б╤П: ╨┐╨╛╨┐╤Л╤В╨║╨░ тЖТ unknown + ╨╗╨╛╨│.
+    
+        ╨Ш╨╜╨░╤З╨╡ ╨╝╨╛╨┤╨╡╨╗╤М ╨╛╨▒╤Е╨╛╨┤╨╕╨╗╨░ ╨▒╤Л ╨╖╨░╤Й╨╕╤В╤Г ┬л╤Ж╨╕╤В╨░╤В╨░ ╨▒╨╡╨╖ ╨░╤В╤А╨╕╨▒╤Г╤Ж╨╕╨╕ тЖТ unknown тЖТ
+        ╨┐╨╛╨╜╨╕╨╢╨╡╨╜╨╕╨╡┬╗: ╨╛╨▒╤К╤П╨▓╨╕╨▓ ╨░╤В╤А╨╕╨▒╤Г╤Ж╨╕╤О ╤Б╨░╨╝╨░, ╨╛╨╜╨░ ╤Б╨╜╨╕╨╝╨░╨╗╨░ ╨▒╤Л ╨┐╨╛╨╜╨╕╨╢╨╡╨╜╨╕╨╡.
+        """
+        with caplog.at_level(logging.WARNING,
+                             logger="services.temporal_factcheck"):
+            verdict = tf.verdict_from_payload(
+                _payload(kind), _envelope(CLAIM_PLAIN), allowed_refs={"ev-1"})
+>       assert verdict.parts[0]["assertion_kind"] == \
+            fsp.ASSERTION_KIND_UNKNOWN
+E       AssertionError: assert 'public_statement_attribution' == 'unknown'
+E         
+E         - unknown
+E         + public_statement_attribution
+
+tests\test_fc_trust_assertion_kind.py:129: AssertionError
+_ TestAnalystSemanticKinds.test_structural_kind_from_model_is_rejected[image_content] _
+
+self = <tests.test_fc_trust_assertion_kind.TestAnalystSemanticKinds object at 0x0000017D73E4FFB0>
+kind = 'image_content'
+caplog = <_pytest.logging.LogCaptureFixture object at 0x0000017D75DDC710>
+
+    @pytest.mark.parametrize("kind", [
+        fsp.ASSERTION_PUBLIC_STATEMENT, fsp.ASSERTION_IMAGE_CONTENT])
+    def test_structural_kind_from_model_is_rejected(self, kind, caplog):
+        """╨б╤В╤А╤Г╨║╤В╤Г╤А╨╜╤Л╨╣ ╤В╨╕╨┐ ╨╝╨╛╨┤╨╡╨╗╤М╤О ╨╜╨╡ ╨▓╤Л╤Б╤В╨░╨▓╨╗╤П╨╡╤В╤Б╤П: ╨┐╨╛╨┐╤Л╤В╨║╨░ тЖТ unknown + ╨╗╨╛╨│.
+    
+        ╨Ш╨╜╨░╤З╨╡ ╨╝╨╛╨┤╨╡╨╗╤М ╨╛╨▒╤Е╨╛╨┤╨╕╨╗╨░ ╨▒╤Л ╨╖╨░╤Й╨╕╤В╤Г ┬л╤Ж╨╕╤В╨░╤В╨░ ╨▒╨╡╨╖ ╨░╤В╤А╨╕╨▒╤Г╤Ж╨╕╨╕ тЖТ unknown тЖТ
+        ╨┐╨╛╨╜╨╕╨╢╨╡╨╜╨╕╨╡┬╗: ╨╛╨▒╤К╤П╨▓╨╕╨▓ ╨░╤В╤А╨╕╨▒╤Г╤Ж╨╕╤О ╤Б╨░╨╝╨░, ╨╛╨╜╨░ ╤Б╨╜╨╕╨╝╨░╨╗╨░ ╨▒╤Л ╨┐╨╛╨╜╨╕╨╢╨╡╨╜╨╕╨╡.
+        """
+        with caplog.at_level(logging.WARNING,
+                             logger="services.temporal_factcheck"):
+            verdict = tf.verdict_from_payload(
+                _payload(kind), _envelope(CLAIM_PLAIN), allowed_refs={"ev-1"})
+>       assert verdict.parts[0]["assertion_kind"] == \
+            fsp.ASSERTION_KIND_UNKNOWN
+E       AssertionError: assert 'image_content' == 'unknown'
+E         
+E         - unknown
+E         + image_content
+
+tests\test_fc_trust_assertion_kind.py:129: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_fc_trust_assertion_kind.py::TestAnalystSemanticKinds::test_structural_kind_from_model_is_rejected[public_statement_attribution]
+FAILED tests/test_fc_trust_assertion_kind.py::TestAnalystSemanticKinds::test_structural_kind_from_model_is_rejected[image_content]
+2 failed, 17 passed in 3.50s

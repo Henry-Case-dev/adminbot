@@ -1,0 +1,142 @@
+diff --git a/services/temporal_factcheck.py b/services/temporal_factcheck.py
+index 582a2efb4..65ff21fae 100644
+--- a/services/temporal_factcheck.py
++++ b/services/temporal_factcheck.py
+@@ -763,6 +763,90 @@ def _optional_semantic_text(value) -> str:
+     return "" if contains_system_ids(text) else text
+ 
+ 
++# тФАтФА FCT-113/FCT-192 (U1, 28.11.2026): ╨░╨┤╨┤╨╕╤В╨╕╨▓╨╜╤Л╨╡ ╨┐╨╛╨╗╤П ╤З╨░╤Б╤В╨╕ Analyst'╨░ тФАтФАтФАтФАтФАтФАтФА
++# ╨Ю╨▒╨╡ ╨╛╤Б╨╕ ╤Г╨╢╨╡ ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤В. ╨Ч╨┤╨╡╤Б╤М тАФ ╨╡╨┤╨╕╨╜╤Б╤В╨▓╨╡╨╜╨╜╨╛╨╡ ╨╝╨╡╤Б╤В╨╛, ╨│╨┤╨╡ payload ╨╝╨╛╨┤╨╡╨╗╨╕
++# ╨┐╤А╨╕╨▓╨╛╨┤╨╕╤В╤Б╤П ╨║ ╨║╨╛╨╜╤В╤А╨░╨║╤В╤Г ╨┤╨╛ merge-╤Б╤В╨░╨┤╨╕╨╕: ╨╖╨░╨║╤А╤Л╤В╤Л╨╣ ╨╜╨░╨▒╨╛╤А ╤В╨╕╨┐╨░ ╤Г╤В╨▓╨╡╤А╨╢╨┤╨╡╨╜╨╕╤П ╨╕
++# ╤Д╨╛╤А╨╝╨░ ╤Ж╨╕╤В╨░╤В-╨╛╤Б╨╜╨╛╨▓╨░╨╜╨╕╨╣. ╨Э╨╛╨▓╤Л╤Е ╨╖╨╜╨░╤З╨╡╨╜╨╕╨╣/reason-╨║╨╛╨┤╨╛╨▓/╨┐╨╛╨╗╨╡╨╣ ╨▓╨╡╤А╨┤╨╕╨║╤В╨░ ╨╜╨╡╤В.
++
++def _analyst_assertion_kind(value) -> str:
++    """`assertion_kind` ╤З╨░╤Б╤В╨╕ Analyst'╨░ тЖТ ╨╖╨░╨║╤А╤Л╤В╤Л╨╣ ╨╜╨░╨▒╨╛╤А (FCT-113).
++
++    ╨б╨╝╤Л╤Б╨╗╨╛╨▓╤Л╨╡ ╨╖╨╜╨░╤З╨╡╨╜╨╕╤П `decision_status`/`normative_state_on_date` ╤Б╤В╨░╨▓╨╕╤В
++    ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨░╤П ╤Б╤В╨░╨┤╨╕╤П Analyst тАФ ╨╛╨╜╨╕ ╨┐╤А╨╕╨╜╨╕╨╝╨░╤О╤В╤Б╤П. ╨б╤В╤А╤Г╨║╤В╤Г╤А╨╜╤Л╨╡
++    `image_content`/`public_statement_attribution` ╨╛╨┐╤А╨╡╨┤╨╡╨╗╤П╤О╤В╤Б╤П ╨┐╤А╨╛╨▓╨╡╨╜╨░╨╜╤Б╨╛╨╝ ╨╕
++    ╤Б╤В╤А╤Г╨║╤В╤Г╤А╨╜╤Л╨╝ tool'╨╛╨╝, ╨┐╨╛╤Н╤В╨╛╨╝╤Г ╨╝╨╛╨┤╨╡╨╗╤М ╨╕╤Е ╨╜╨╡ ╨┐╨╡╤А╨╡╨╛╨┐╤А╨╡╨┤╨╡╨╗╤П╨╡╤В: ╨┐╨╛╨┐╤Л╤В╨║╨░ тЖТ
++    `unknown` (╨║╨╛╨╜╤Д╨╗╨╕╨║╤В ╨┐╨╕╤И╨╡╤В╤Б╤П ╨▓╤Л╨╖╤Л╨▓╨░╤О╤Й╨╕╨╝ ╨▓ ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╕╨╣ ╨╗╨╛╨│). ╨Э╨╡-╤Б╤В╤А╨╛╨║╨░ ╨╕╨╗╨╕
++    ╨╖╨╜╨░╤З╨╡╨╜╨╕╨╡ ╨▓╨╜╨╡ ╨╜╨░╨▒╨╛╤А╨░ тЖТ `unknown`, ╨▒╨╡╨╖ ╨╕╤Б╨║╨╗╤О╤З╨╡╨╜╨╕╤П. ╨Э╨░╨▒╨╛╤А ╨▒╨╡╤А╤С╤В╤Б╤П ╨╕╨╖
++    ╨┐╨╗╨░╨╜╨╕╤А╨╛╨▓╤Й╨╕╨║╨░: ╨▓╤В╨╛╤А╨╛╨╣ ╨║╨╛╨┐╨╕╨╕ ╨╛╤Б╨╕ ╨╜╨╡╤В (╨╕╨╝╨┐╨╛╤А╤В ╨╗╨╡╨╜╨╕╨▓╤Л╨╣ тАФ planner ╨╕╨╝╨┐╨╛╤А╤В╨╕╤А╤Г╨╡╤В
++    ╤Н╤В╨╛╤В ╨╝╨╛╨┤╤Г╨╗╤М).
++    """
++    from services.factcheck_planner import (
++        ASSERTION_IMAGE_CONTENT, ASSERTION_KIND_UNKNOWN, ASSERTION_KINDS,
++        ASSERTION_PUBLIC_STATEMENT)
++    if isinstance(value, str) and value in ASSERTION_KINDS:
++        if value in (ASSERTION_PUBLIC_STATEMENT, ASSERTION_IMAGE_CONTENT):
++            return ASSERTION_KIND_UNKNOWN
++        return value
++    return ASSERTION_KIND_UNKNOWN
++
++
++def _validated_evidence_quotes(value, allowed_refs=None) -> dict:
++    """`evidence_quotes` ╤З╨░╤Б╤В╨╕ тЖТ {ID ╤В╨╡╨║╤Г╤Й╨╡╨│╨╛ ╨┐╤А╨╛╨│╨╛╨╜╨░: ╨╜╨╡╨┐╤Г╤Б╤В╨░╤П ╤Б╤В╤А╨╛╨║╨░}.
++
++    FCT-192 (U1): ╨┐╤А╨╛╨▓╨╡╤А╤П╨╡╤В╤Б╤П ╤В╨╛╨╗╤М╨║╨╛ ╨д╨Ю╨а╨Ь╨Р ╤Ж╨╕╤В╨░╤В╤Л (╤Б╨╗╨╛╨▓╨░╤А╤М, ID ╨╕╨╖ allowlist
++    ╨▓╤Л╨┤╨╡╤А╨╢╨╡╨║ ╤В╨╡╨║╤Г╤Й╨╡╨│╨╛ ╨┐╤А╨╛╨│╨╛╨╜╨░, ╨╜╨╡╨┐╤Г╤Б╤В╨░╤П ╤Б╤В╤А╨╛╨║╨░). ╨Ф╨╛╤Б╨╗╨╛╨▓╨╜╨╛╤Б╤В╤М ╨╕ ╨▓╤Е╨╛╨╢╨┤╨╡╨╜╨╕╨╡
++    ╤Д╤А╨░╨╖╤Л ╨╕╨╝╨╡╨╜╨╜╨╛ ╨▓ cited-╨┐╨░╤Б╤Б╨░╨╢ ╨┐╤А╨╛╨▓╨╡╤А╤П╨╡╤В merge-╤Б╤В╨░╨┤╨╕╤П тАФ ╨╖╨┤╨╡╤Б╤М ╨╛╨╜╨░ ╨╡╤Й╤С ╨╜╨╡
++    ╨▓╨╕╨┤╨╕╤В ╤В╨╡╨║╤Б╤В╨╛╨▓ ╨▓╤Л╨┤╨╡╤А╨╢╨╡╨║. ╨Э╨╡-╤Б╨╗╨╛╨▓╨░╤А╤М/╤З╤Г╨╢╨╛╨╣ ID/╨╜╨╡-╤Б╤В╤А╨╛╨║╨░/╨┐╤Г╤Б╤В╨░╤П ╤Д╤А╨░╨╖╨░
++    ╨╛╤В╨▒╤А╨░╤Б╤Л╨▓╨░╤О╤В╤Б╤П: ╨▓╤Л╨┤╤Г╨╝╨░╨╜╨╜╤Л╨╣ ID ╨╜╨╡ ╤Б╤В╨░╨╜╨╛╨▓╨╕╤В╤Б╤П ╨╛╤Б╨╜╨╛╨▓╨░╨╜╨╕╨╡╨╝ ╨╜╨╕ ╨╜╨░ ╨╛╨┤╨╜╨╛╨╝ ╤Г╤А╨╛╨▓╨╜╨╡.
++    """
++    if not isinstance(value, dict):
++        return {}
++    quotes: dict[str, str] = {}
++    for key, phrase in value.items():
++        evidence_id = str(key or "")
++        if not evidence_id:
++            continue
++        if allowed_refs is not None and evidence_id not in allowed_refs:
++            logger.debug("[temporal] part evidence_quote for foreign evidence "
++                         "dropped: evidence=%s", evidence_id)
++            continue
++        if not isinstance(phrase, str):
++            continue
++        text = phrase.strip()
++        if text:
++            quotes[evidence_id] = text
++    return quotes
++
++
++def _normalized_analyst_part(part: dict, allowed_refs=None) -> dict:
++    """╨Э╨╛╤А╨╝╨░╨╗╨╕╨╖╨╛╨▓╨░╤В╤М ╨░╨┤╨┤╨╕╤В╨╕╨▓╨╜╤Л╨╡ ╨┐╨╛╨╗╤П ╤З╨░╤Б╤В╨╕ Analyst'╨░ (FCT-113/FCT-192 U1).
++
++    ╨Ю╤Б╤В╨░╨╗╤М╨╜╤Л╨╡ ╨║╨╗╤О╤З╨╕ ╤З╨░╤Б╤В╨╕ ╨╜╨╡ ╨╝╨╡╨╜╤П╤О╤В╤Б╤П; ╨╛╤В╤Б╤Г╤В╤Б╤В╨▓╤Г╤О╤Й╨╡╨╡ ╨┐╨╛╨╗╨╡ ╨╜╨╡ ╨┤╨╛╨▒╨░╨▓╨╗╤П╨╡╤В╤Б╤П
++    (╨╖╨╜╨░╤З╨╡╨╜╨╕╨╡ ╤В╨╕╨┐╨░ ╤Г╤В╨▓╨╡╤А╨╢╨┤╨╡╨╜╨╕╤П ╨▓ `parts[]` ╨╛╨║╨╛╨╜╤З╨░╤В╨╡╨╗╤М╨╜╨╛ ╨┐╤А╨╕╨╝╨╡╨╜╤П╨╡╤В merge ╨┐╨╛
++    ╤Б╤В╤А╤Г╨║╤В╤Г╤А╨╜╨╛╨╝╤Г ╨┐╤А╨╛╨▓╨╡╨╜╨░╨╜╤Б╤Г ╤В╨╡╨╖╨╕╤Б╨░). ╨Ъ╨╛╨╜╤Д╨╗╨╕╨║╤В ╨╝╨╛╨┤╨╡╨╗╨╕ ╤Б╨╛ ╤Б╤В╤А╤Г╨║╤В╤Г╤А╨╜╤Л╨╝ ╤В╨╕╨┐╨╛╨╝
++    ╨┐╨╕╤И╨╡╤В╤Б╤П ╨▓ ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╕╨╣ ╨╗╨╛╨│; ╨╜╨╛╨▓╤Л╤Е reason-╨║╨╛╨┤╨╛╨▓ ╨╜╨╡ ╨▓╨▓╨╛╨┤╨╕╤В╤Б╤П.
++    """
++    result = part
++    if "assertion_kind" in part:
++        raw = part.get("assertion_kind")
++        normalized = _analyst_assertion_kind(raw)
++        if normalized != raw:
++            logger.warning(
++                "[temporal] analyst part assertion_kind rejected: part=%s "
++                "value=%r -> %s (structural type comes from provenance)",
++                str(part.get("part_id") or "?"), raw, normalized)
++        result = {**result, "assertion_kind": normalized}
++    if "evidence_quotes" in part:
++        quotes = _validated_evidence_quotes(part.get("evidence_quotes"),
++                                            allowed_refs)
++        result = dict(result)
++        if quotes:
++            result["evidence_quotes"] = quotes
++        else:
++            result.pop("evidence_quotes", None)
++    return result
++
++
+ def verdict_from_payload(payload: dict, envelope: TemporalClaimEnvelope, *,
+                          fallback_reason: str | None = None,
+                          allowed_refs=None) -> TemporalVerdict:
+@@ -828,6 +912,11 @@ def verdict_from_payload(payload: dict, envelope: TemporalClaimEnvelope, *,
+             or not part_texts.get(p.get("part_id"))
+             else {**p, "text": part_texts[p.get("part_id")]}
+             for p in parts_tuple)
++    # FCT-113/FCT-192 (U1): ╨░╨┤╨┤╨╕╤В╨╕╨▓╨╜╤Л╨╡ ╨┐╨╛╨╗╤П ╤З╨░╤Б╤В╨╕ (`assertion_kind`,
++    # `evidence_quotes`) ╨┐╤А╨╕╨▓╨╛╨┤╤П╤В╤Б╤П ╨║ ╨║╨╛╨╜╤В╤А╨░╨║╤В╤Г ╨╜╨░ ╨╡╨┤╨╕╨╜╤Б╤В╨▓╨╡╨╜╨╜╨╛╨╝ ╨▓╤Е╨╛╨┤╨╡ ╨╝╨╛╨┤╨╡╨╗╨╕.
++    if parts_tuple:
++        parts_tuple = tuple(_normalized_analyst_part(p, allowed_refs)
++                            for p in parts_tuple)
+     # ┬з3.5 (owner 21.10.2026) + FC-04 (05.11.2026): ╨│╨╗╨╛╨▒╨░╨╗╤М╨╜╤Л╨╣ enum ╤Б╨╛╨│╨╗╨░╤Б╨╛╨▓╨░╨╜
+     # ╤Б ╤З╨░╤Б╤В╤П╨╝╨╕; mixed тАФ ╤В╨╛╨╗╤М╨║╨╛ ╨┐╤А╨╕ ╨┤╨▓╤Г╤Е╤Б╤В╨╛╤А╨╛╨╜╨╜╨╡╨╝ ╤Б╨╛╨┤╨╡╤А╨╢╨░╨╜╨╕╨╕; ╤Б╤В╨░╤В╤Г╤Б╤Л ╨╕╨╖
+     # ╤Б╤В╨░╤А╤Л╤Е ╤З╨░╤Б╤В╨╡╨╣ ╨╜╨╡ ╨┐╨╛╨┤╨╜╨╕╨╝╨░╤О╤В╤Б╤П. basis* (╤Д╨╛╤А╨╝╨░╨╗╤М╨╜╤Л╨╣ ╨▓╤Л╨▓╨╛╨┤) ╨╜╨╡ ╨┐╨╛╨╜╨╕╨╢╨░╨╡╤В╤Б╤П.
+@@ -1161,7 +1250,9 @@ TEMPORAL_ANALYST_SYSTEM = (
+     'unknown", "evaluated_period": {"from": <unix|null>, "to": <unix|null>, '
+     '"precision": "day|month|year|interval|unknown"}, "parts": [{"part_id": '
+     '"p1", "factual_verdict": "...", "temporal_status": "...", "note": "...", '
+-    '"evidence_refs": ["ev-1"]}'
++    '"evidence_refs": ["ev-1"], "evidence_quotes": {"ev-1": "<╨┤╨╛╤Б╨╗╨╛╨▓╨╜╨░╤П '
++    '╤Д╤А╨░╨╖╨░ ╨╕╨╖ ╨▓╤Л╨┤╨╡╤А╨╢╨║╨╕>"}, "assertion_kind": "decision_status|'
++    'normative_state_on_date|unknown"}'
+     '], "uncertainty": {"summary": "..."}, '
+     '"inference_gap": "<╤З╤В╨╛ ╨Э╨Х ╤Б╨╗╨╡╨┤╤Г╨╡╤В ╨╕╨╖ ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜╨╜╤Л╤Е ╨┤╨░╨╜╨╜╤Л╤Е, ╨╕╨╗╨╕ null>", '
+     '"counterpoint": "<╤Б╨╕╨╗╤М╨╜╨╡╨╣╤И╨╡╨╡ ╤З╨╡╤Б╤В╨╜╨╛╨╡ ╨║╨╛╨╜╤В╤А╨┐╤А╨╛╤З╤В╨╡╨╜╨╕╨╡, ╨╕╨╗╨╕ null>", '
+@@ -1206,6 +1297,23 @@ TEMPORAL_ANALYST_SYSTEM = (
+     "╤Д╨╛╤А╨╝╨░╨╗╤М╨╜╨╛╨│╨╛ ╨▓╤Л╨▓╨╛╨┤╨░ ╨▒╨╡╨╖ ╨▓╨╜╨╡╤И╨╜╨╕╤Е URL ╨┐╨╛╨╝╨╡╤З╨░╨╣ ╨╛╤Б╨╜╨╛╨▓╨░╨╜╨╕╨╡ ╨▓ uncertainty "
+     "(╨║╨╗╤О╤З basis) тАФ ╨┐╤А╨╕╨╜╤Г╨┤╨╕╤В╨╡╨╗╤М╨╜╨░╤П ┬л╨╜╨╡╨┤╨╛╤Б╤В╨░╤В╨╛╤З╨╜╨╛╤Б╤В╤М┬╗ ╨║ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╜╨╛╨╝╤Г "
+     "╤А╨░╤Б╤З╤С╤В╤Г ╨╜╨╡ ╨┐╤А╨╕╨╝╨╡╨╜╤П╨╡╤В╤Б╤П."
++    # FCT-113 (U1, 28.11.2026): ╨░╨┤╨┤╨╕╤В╨╕╨▓╨╜╨╛╨╡ ╨┐╨╛╨╗╨╡ ╤З╨░╤Б╤В╨╕ тАФ ╤В╨╕╨┐ ╤Г╤В╨▓╨╡╤А╨╢╨┤╨╡╨╜╨╕╤П ╨┐╨╛
++    # ╤Б╨╝╤Л╤Б╨╗╤Г. ╨б╨╝╤Л╤Б╨╗ ╨┤╨░╤С╤В ╤Н╤В╨░ ╨╢╨╡ ╤Б╤В╨░╨┤╨╕╤П; image_content/
++    # public_statement_attribution ╨╛╨┐╤А╨╡╨┤╨╡╨╗╤П╤О╤В╤Б╤П ╨┐╤А╨╛╨▓╨╡╨╜╨░╨╜╤Б╨╛╨╝ ╨╕ ╤Б╤В╤А╤Г╨║╤В╤Г╤А╨╜╤Л╨╝
++    # tool'╨╛╨╝, ╨┐╨╛╤Н╤В╨╛╨╝╤Г ╨╝╨╛╨┤╨╡╨╗╨╕ ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╜╤Л (╨╕╨╜╨░╤З╨╡ ╨╛╨╜╨░ ╨╛╨▒╤Е╨╛╨┤╨╕╨╗╨░ ╨▒╤Л ╨╖╨░╤Й╨╕╤В╤Г
++    # ┬л╤Ж╨╕╤В╨░╤В╨░ ╨▒╨╡╨╖ ╨░╤В╤А╨╕╨▒╤Г╤Ж╨╕╨╕ тЖТ unknown┬╗). ╨б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╕╨╡ ╨┐╤А╨░╨▓╨╕╨╗╨░ ╨╜╨╡ ╤Б╨╛╨║╤А╨░╤Й╨╡╨╜╤Л.
++    " (14) assertion_kind ╤З╨░╤Б╤В╨╕ тАФ ╤В╨╕╨┐ ╤Г╤В╨▓╨╡╤А╨╢╨┤╨╡╨╜╨╕╤П ╨┐╨╛ ╨б╨Ь╨л╨б╨Ы╨г ╤В╨╡╨╖╨╕╤Б╨░: "
++    "decision_status тАФ ╤В╨╡╨╖╨╕╤Б ╤Г╤В╨▓╨╡╤А╨╢╨┤╨░╨╡╤В, ╤З╤В╨╛ ╤А╨╡╤И╨╡╨╜╨╕╨╡ ╨┐╤А╨╕╨╜╤П╤В╨╛/╨╛╨┤╨╛╨▒╤А╨╡╨╜╨╛/"
++    "╨╛╤В╨║╨╗╨╛╨╜╨╡╨╜╨╛/╨▓╨╜╨╡╤Б╨╡╨╜╨╛; normative_state_on_date тАФ ╤В╨╡╨╖╨╕╤Б ╤Г╤В╨▓╨╡╤А╨╢╨┤╨░╨╡╤В, ╨║╨░╨║╨░╤П "
++    "╨╜╨╛╤А╨╝╨░/╨┐╤А╨░╨▓╨╕╨╗╨╛ ╨┤╨╡╨╣╤Б╤В╨▓╤Г╨╡╤В ╨╜╨░ ╨┤╨░╤В╤Г; ╨╜╨╕ ╤В╨╛ ╨╜╨╕ ╨┤╤А╤Г╨│╨╛╨╡ тАФ unknown. ╨Ч╨╜╨░╤З╨╡╨╜╨╕╤П "
++    "image_content ╨╕ public_statement_attribution ╨╜╨╡ ╤Б╤В╨░╨▓╤М: ╨╕╤Е ╨╛╨┐╤А╨╡╨┤╨╡╨╗╤П╨╡╤В "
++    "╨┐╤А╨╛╨╕╤Б╤Е╨╛╨╢╨┤╨╡╨╜╨╕╨╡ ╨╝╨░╤В╨╡╤А╨╕╨░╨╗╨░ ╨╕ ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨░╤П ╨┐╤А╨╛╨▓╨╡╤А╨║╨░ ╨░╤В╤А╨╕╨▒╤Г╤Ж╨╕╨╕.\n"
++    # FCT-192 (U1, 28.11.2026): ╨░╨┤╨┤╨╕╤В╨╕╨▓╨╜╨╛╨╡ ╨┐╨╛╨╗╨╡ ╤З╨░╤Б╤В╨╕ тАФ ╨┤╨╛╤Б╨╗╨╛╨▓╨╜╨░╤П ╤Ж╨╕╤В╨░╤В╨░
++    # ╨╛╤Б╨╜╨╛╨▓╨░╨╜╨╕╤П. ╨б╨╡╤А╨▓╨╡╤А ╨┐╤А╨╛╨▓╨╡╤А╨╕╤В ╨▓╤Е╨╛╨╢╨┤╨╡╨╜╨╕╨╡ ╤Д╤А╨░╨╖╤Л ╨▓ ╨▓╤Л╨┤╨╡╤А╨╢╨║╤Г; ╨┐╨╡╤А╨╡╤Б╨║╨░╨╖ ╨╕╨╗╨╕
++    # ╤Ж╨╕╤В╨░╤В╨░ ╨╕╨╖ ╨┤╤А╤Г╨│╨╛╨╣ ╨▓╤Л╨┤╨╡╤А╨╢╨║╨╕ ╨╛╤Б╨╜╨╛╨▓╨░╨╜╨╕╨╡╨╝ ╨╜╨╡ ╤Б╤З╨╕╤В╨░╤О╤В╤Б╤П.
++    "(15) evidence_quotes ╤З╨░╤Б╤В╨╕ тАФ ╨┤╨╛╤Б╨╗╨╛╨▓╨╜╤Л╨╡ ╤Д╤А╨░╨╖╤Л ╨Ш╨Ч ╨▓╤Л╨┤╨╡╤А╨╢╨╡╨║, ╨╜╨░ ╨║╨╛╤В╨╛╤А╤Л╨╡ "
++    "╨╛╨┐╨╕╤А╨░╨╡╤В╤Б╤П supported/refuted ╤З╨░╤Б╤В╤М, ╨▓ ╤Д╨╛╤А╨╝╨░╤В╨╡ {\"ev-N\": \"╤Д╤А╨░╨╖╨░\"}: "
++    "╨╜╨╡ ╨┐╨╡╤А╨╡╤Б╨║╨░╨╖ ╨╕ ╨╜╨╡ ╤Ж╨╕╤В╨░╤В╨░ ╨╕╨╖ ╨┤╤А╤Г╨│╨╛╨╣ ╨▓╤Л╨┤╨╡╤А╨╢╨║╨╕.\n"
+     # ┬з8 (FC-08): ╨┤╨╕╤А╨╡╨║╤В╨╕╨▓╨░ ╨┤╨╛╨┐╨╛╨╗╨╜╤П╨╡╤В ╨┐╤А╨░╨▓╨╕╨╗╨░, ╨╜╨╡ ╨╖╨░╨╝╨╡╨╜╤П╤П ╨╕╤Е; ╤А╨╛╨▓╨╜╨╛ ╨╛╨┤╨╕╨╜
+     # ╨╜╨╛╤Б╨╕╤В╨╡╨╗╤М (╤Б╨╝. ╨║╨╛╨╝╨╝╨╡╨╜╤В╨░╤А╨╕╨╣ ╤Г ANALYST_DIRECTIVE).
+     "\n" + ANALYST_DIRECTIVE

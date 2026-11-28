@@ -1,0 +1,83 @@
+diff --git a/services/search_aggregator.py b/services/search_aggregator.py
+index 502604e57..628abdde2 100644
+--- a/services/search_aggregator.py
++++ b/services/search_aggregator.py
+@@ -596,6 +596,42 @@ class ClaimRelevance:
+ 
+ _QUOTED_CLAIM_RE = re.compile(r"┬л([^┬л┬╗]{8,200})┬╗|\"([^\"]{8,200})\"")
+ 
++#: FCT-192 (U1, 28.11.2026): ╤П╨▓╨╜╤Л╨╣ 4-╨╖╨╜╨░╤З╨╜╤Л╨╣ ╨│╨╛╨┤. ╨Ю╨▒╨╛╨▒╤Й╤С╨╜╨╜╤Л╨╣ ╤А╨░╨╖╨▒╨╛╤А ╨┤╨░╤В╤Л
++#: (owner ┬з2.2 ╤А╨░╨╖╤А╨╡╤И╨░╨╡╤В ╨╡╨│╨╛), ╨░ ╨╜╨╡ ╤Б╨┐╨╕╤Б╨╛╨║ ╤Б╨╗╨╛╨▓; ╨╝╨╡╤Б╤П╤Ж/╨┤╨╡╨╜╤М ╨╜╨╡ ╤А╨░╨╖╨▒╨╕╤А╨░╤О╤В╤Б╤П,
++#: ╨┐╨╛╤Н╤В╨╛╨╝╤Г ╨║╤А╨╛╤Б╤Б-╤П╨╖╤Л╤З╨╜╤Л╨╣ ╨║╨╡╨╣╤Б ┬л30 ╨╛╨║╤В╤П╨▒╤А╤П 2026┬╗ тЖФ ┬лOctober 30┬╗ ╨▒╨╡╨╖ ╨│╨╛╨┤╨░ ╨▓
++#: ╨┐╨░╤Б╤Б╨░╨╢╨╡ ╨║╨╛╨╜╤Д╨╗╨╕╨║╤В╨╛╨╝ ╨╜╨╡ ╤Б╤В╨░╨╜╨╛╨▓╨╕╤В╤Б╤П.
++_EXPLICIT_YEAR_RE = re.compile(r"(?<!\d)((?:19|20)\d{2})(?!\d)")
++#: URL ╨▓╨╜╤Г╤В╤А╨╕ ╨┐╨░╤Б╤Б╨░╨╢╨░ тАФ ╨░╨┤╤А╨╡╤Б, ╨░ ╨╜╨╡ ╤Г╤В╨▓╨╡╤А╨╢╨┤╨╡╨╜╨╕╨╡ ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║╨░: ╨│╨╛╨┤ ╨╕╨╖ ┬л/2024/┬╗
++#: ╨╜╨╡ ╤Г╤З╨░╤Б╤В╨▓╤Г╨╡╤В ╨▓ ╨┐╤А╨╛╨▓╨╡╤А╨║╨╡ ╨│╨╛╨┤╨░ ╨╕ ╨╜╨╡ ╨┤╨░╤С╤В ╨╗╨╛╨╢╨╜╨╛╨│╨╛ ╨║╨╛╨╜╤Д╨╗╨╕╨║╤В╨░.
++_URL_IN_TEXT_RE = re.compile(r"https?://\S+", re.IGNORECASE)
++
++
++def _explicit_years(text: str) -> tuple[int, ...]:
++    """╨п╨▓╨╜╤Л╨╡ 4-╨╖╨╜╨░╤З╨╜╤Л╨╡ ╨│╨╛╨┤╤Л ╤В╨╡╨║╤Б╤В╨░: ╨┐╨╛ ╨▓╨╛╨╖╤А╨░╤Б╤В╨░╨╜╨╕╤О, ╨▒╨╡╨╖ ╨┐╨╛╨▓╤В╨╛╤А╨╛╨▓."""
++    found = {int(m.group(1))
++             for m in _EXPLICIT_YEAR_RE.finditer(str(text or ""))}
++    return tuple(sorted(found))
++
++
++def _year_conflict(claim_timeframe: str, body: str) -> bool:
++    """FCT-192 (U1): ╤В╨╡╨╖╨╕╤Б ╨╕ ╨┐╨░╤Б╤Б╨░╨╢ ╨│╨╛╨▓╨╛╤А╤П╤В ╨╛ ╨а╨Р╨Ч╨Э╨л╨е ╨│╨╛╨┤╨░╤Е.
++
++    ╨Ъ╨╛╨╜╤Д╨╗╨╕╨║╤В ╤В╨╛╨╗╤М╨║╨╛ ╨┐╤А╨╕ ╤В╤А╤С╤Е ╤Г╤Б╨╗╨╛╨▓╨╕╤П╤Е ╨╛╨┤╨╜╨╛╨▓╤А╨╡╨╝╨╡╨╜╨╜╨╛: (1) ╤Г ╤В╨╡╨╖╨╕╤Б╨░ ╨╡╤Б╤В╤М ╤П╨▓╨╜╤Л╨╣
++    ╨│╨╛╨┤ ╨▓╨╛ ╨▓╤А╨╡╨╝╨╡╨╜╨╜╨╛╨╝ ╨╕╨╜╤В╨╡╤А╨▓╨░╨╗╨╡, (2) ╨▓ ╨┐╨░╤Б╤Б╨░╨╢╨╡ ╨╡╤Б╤В╤М ╤П╨▓╨╜╤Л╨╡ ╨│╨╛╨┤╤Л, (3) ╨╜╨╕ ╨╛╨┤╨╕╨╜
++    ╨│╨╛╨┤ ╨┐╨░╤Б╤Б╨░╨╢╨░ ╨╜╨╡ ╨┐╨╛╨┐╨░╨┤╨░╨╡╤В ╨▓ ╨╕╨╜╤В╨╡╤А╨▓╨░╨╗ ╨│╨╛╨┤╨╛╨▓ ╤В╨╡╨╖╨╕╤Б╨░. ╨Э╨╡╤В ╨│╨╛╨┤╨░ ╨▓ ╨┐╨░╤Б╤Б╨░╨╢╨╡
++    (╨║╤А╨╛╤Б╤Б-╤П╨╖╤Л╤З╨╜╤Л╨╣ ╨║╨╡╨╣╤Б) ╨╕╨╗╨╕ ╨╜╨╡╤В ╨│╨╛╨┤╨░ ╤Г ╤В╨╡╨╖╨╕╤Б╨░ тАФ ╨║╨╛╨╜╤Д╨╗╨╕╨║╤В╨░ ╨╜╨╡╤В; ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜
++    ╤В╨╡╨╖╨╕╤Б╨░ (┬л2023тАУ2025┬╗) ╨╜╨╡ ╨║╨╛╨╜╤Д╨╗╨╕╨║╤В╤Г╨╡╤В ╤Б ╨│╨╛╨┤╨╛╨╝ ╨▓╨╜╤Г╤В╤А╨╕ ╨╜╨╡╨│╨╛. ╨У╨╛╨┤ ╨╕╨╖ URL
++    ╨┐╨░╤Б╤Б╨░╨╢╨░ ╤Г╤В╨▓╨╡╤А╨╢╨┤╨╡╨╜╨╕╨╡╨╝ ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║╨░ ╨╜╨╡ ╤Б╤З╨╕╤В╨░╨╡╤В╤Б╤П.
++    """
++    claim_years = _explicit_years(claim_timeframe)
++    if not claim_years:
++        return False
++    body_years = _explicit_years(_URL_IN_TEXT_RE.sub(" ", str(body or "")))
++    if not body_years:
++        return False
++    low, high = claim_years[0], claim_years[-1]
++    return not any(low <= year <= high for year in body_years)
++
+ 
+ def _quoted_fragment_hit(claim_text: str, body_low: str) -> str:
+     """╨Ф╨╛╤Б╨╗╨╛╨▓╨╜╨░╤П ╤Ж╨╕╤В╨░╤В╨░ ╤В╨╡╨╖╨╕╤Б╨░, ╨╜╨░╨╣╨┤╨╡╨╜╨╜╨░╤П ╨▓ ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║╨╡ (FCT-402 basis).
+@@ -681,6 +717,11 @@ def claim_relevance(text: str, *, claim_text: str = "",
+         causal_link = (str(claim_type or "") == "cause"
+                        and not causal_missing)
+         quoted_fragment = _quoted_fragment_hit(claim_text, body_low)
++        #: FCT-192 (U1): ╤Г╨╖╨║╨╕╨╣ ╨║╨╛╨╜╤Д╨╗╨╕╨║╤В ╨│╨╛╨┤╨░ тАФ ╤В╨╛╨╗╤М╨║╨╛ ╨▓ evidence-╨┐╤А╨╛╤Д╨╕╨╗╨╡
++        #: (╨┐╤А╨╛╤Д╨╕╨╗╤М ╨┐╨╛ ╤Г╨╝╨╛╨╗╤З╨░╨╜╨╕╤О ╤Б╨╛╤Е╤А╨░╨╜╤П╨╡╤В ╨┐╤А╨╡╨╢╨╜╨╕╨╣ ╨▒╨░╨╣╤В-╨┐╨░╤В╤В╨╡╤А╨╜ ╨┐╨╛╤В╤А╨╡╨▒╨╕╤В╨╡╨╗╨╡╨╣
++        #: direct_execution/evidence_policy). ╨Ф╤А╤Г╨│╨╛╨╣ ╨│╨╛╨┤ ╨▓ ╨┐╨░╤Б╤Б╨░╨╢╨╡ тАФ ╨╜╨╡
++        #: ╨┐╤А╤П╨╝╨╛╨╡ ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╨╡╨╜╨╕╨╡/╨╛╨┐╤А╨╛╨▓╨╡╤А╨╢╨╡╨╜╨╕╨╡ ╤В╨╡╨╖╨╕╤Б╨░.
++        year_conflict = require_anchor and _year_conflict(timeframe, body)
+         #: FCT-201: ╨▓╤А╨╡╨╝╨╡╨╜╨╜╨╛╨╣ ╨╕╨╜╤В╨╡╤А╨▓╨░╨╗ ╤В╨╡╨╖╨╕╤Б╨░ тАФ ╤Б╨┐╨╡╤Ж╨╕╤Д╨╕╤З╨╡╤Б╨║╨╕╨╣ ╨░╨╜╨║╨╡╤А, ╨║╨╛╨│╨┤╨░ ╨▓
+         #: ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║╨╡ ╤Б╨╛╨▓╨┐╨░╨╗╨╕ ╨╝╨╕╨╜╨╕╨╝╤Г╨╝ ╨┤╨▓╨╡ ╨╡╨│╨╛ ╨║╨╛╨╝╨┐╨╛╨╜╨╡╨╜╤В╤Л (╨┤╨╡╨╜╤М + ╨╝╨╡╤Б╤П╤Ж/╨│╨╛╨┤):
+         #: ╨╕╨╜╨░╤З╨╡ ┬л╨╝╨╕╤А╨╛╨▓╤Л╨╡ ╤А╤Л╨╜╨║╨╕ ╨╛╨▒╨▓╨░╨╗╨╕╨╗╨╕╤Б╤М┬╗ ╨╜╨╡ ╨╕╨╝╨╡╨╡╤В ╨╜╨╕ ╨╛╨┤╨╜╨╛╨│╨╛ ╤П╨║╨╛╤А╤П.
+@@ -737,12 +778,22 @@ def claim_relevance(text: str, *, claim_text: str = "",
+                     and not anchor_hit:
+                 # ╨в╨╛╨╗╤М╨║╨╛ ╨╛╨▒╤Й╨╕╨╡ ╤Б╨╗╨╛╨▓╨░: ╨║╨╛╨╜╤В╨╡╨║╤Б╤В, ╨╜╨╡ ╨┤╨╛╨║╨░╨╖╨░╤В╨╡╨╗╤М╤Б╤В╨▓╨╛ (FCT-401).
+                 effective = EVIDENCE_ROLE_BACKGROUND
++            conflict_years = False
++            if year_conflict and effective in (EVIDENCE_ROLE_SUPPORTS,
++                                               EVIDENCE_ROLE_CONTRADICTS):
++                # FCT-192 (U1): ╨┐╨░╤Б╤Б╨░╨╢ ╨╛ ╨┤╤А╤Г╨│╨╛╨╝ ╨│╨╛╨┤╨╡ ╨║╨▓╨░╨╗╨╕╤Д╨╕╤Ж╨╕╤А╤Г╨╡╤В ╤В╨╡╨╖╨╕╤Б,
++                # ╨░ ╨╜╨╡ ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╨░╨╡╤В/╨╛╨┐╤А╨╛╨▓╨╡╤А╨│╨░╨╡╤В ╨╡╨│╨╛ (strength тЖТ indirect).
++                effective = EVIDENCE_ROLE_QUALIFIES
++                conflict_years = True
++            basis = _basis(effective)
++            if conflict_years:
++                basis = basis + ("time:year_conflict",)
+             return ClaimRelevance(role=effective,
+                                   score=len(matched) + number_hits,
+                                   word_hits=word_hits, number_hits=number_hits,
+                                   entity_hit=entity_hit, opposite=opposite,
+                                   number_mismatch=mismatch,
+-                                  basis=_basis(effective),
++                                  basis=basis,
+                                   topic_miss=topic_miss, anchor=anchor_hit,
+                                   quoted_hit=bool(quoted_fragment),
+                                   causal_link=causal_link)

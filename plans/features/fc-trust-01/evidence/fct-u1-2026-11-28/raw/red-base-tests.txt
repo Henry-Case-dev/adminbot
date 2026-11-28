@@ -1,0 +1,523 @@
+..FFFFFFFFF..FF....F.FFF.....FFFF.FFFFFFFFF..                            [100%]
+================================== FAILURES ===================================
+_ TestAnalystSemanticKinds.test_out_of_set_or_non_string_becomes_unknown[bogus_kind] _
+
+self = <tests.test_fc_trust_assertion_kind.TestAnalystSemanticKinds object at 0x0000024C1FB4BBF0>
+value = 'bogus_kind'
+
+    @pytest.mark.parametrize("value", [
+        "bogus_kind", "", "image", 7, 3.5, None, True, ["decision_status"],
+        {"kind": "decision_status"}])
+    def test_out_of_set_or_non_string_becomes_unknown(self, value):
+        """╨Ч╨╜╨░╤З╨╡╨╜╨╕╨╡ ╨▓╨╜╨╡ ╨╜╨░╨▒╨╛╤А╨░ ╨╕ ╨╜╨╡-╤Б╤В╤А╨╛╨║╨░ тЖТ honest unknown, ╨▒╨╡╨╖ ╨┐╨░╨┤╨╡╨╜╨╕╤П."""
+        verdict = tf.verdict_from_payload(
+            _payload(value), _envelope(CLAIM_PLAIN), allowed_refs={"ev-1"})
+>       assert verdict.parts[0]["assertion_kind"] == fsp.ASSERTION_KIND_UNKNOWN
+E       AssertionError: assert 'bogus_kind' == 'unknown'
+E         
+E         - unknown
+E         + bogus_kind
+
+tests\test_fc_trust_assertion_kind.py:105: AssertionError
+__ TestAnalystSemanticKinds.test_out_of_set_or_non_string_becomes_unknown[] ___
+
+self = <tests.test_fc_trust_assertion_kind.TestAnalystSemanticKinds object at 0x0000024C1FB4BF80>
+value = ''
+
+    @pytest.mark.parametrize("value", [
+        "bogus_kind", "", "image", 7, 3.5, None, True, ["decision_status"],
+        {"kind": "decision_status"}])
+    def test_out_of_set_or_non_string_becomes_unknown(self, value):
+        """╨Ч╨╜╨░╤З╨╡╨╜╨╕╨╡ ╨▓╨╜╨╡ ╨╜╨░╨▒╨╛╤А╨░ ╨╕ ╨╜╨╡-╤Б╤В╤А╨╛╨║╨░ тЖТ honest unknown, ╨▒╨╡╨╖ ╨┐╨░╨┤╨╡╨╜╨╕╤П."""
+        verdict = tf.verdict_from_payload(
+            _payload(value), _envelope(CLAIM_PLAIN), allowed_refs={"ev-1"})
+>       assert verdict.parts[0]["assertion_kind"] == fsp.ASSERTION_KIND_UNKNOWN
+E       AssertionError: assert '' == 'unknown'
+E         
+E         - unknown
+
+tests\test_fc_trust_assertion_kind.py:105: AssertionError
+_ TestAnalystSemanticKinds.test_out_of_set_or_non_string_becomes_unknown[image] _
+
+self = <tests.test_fc_trust_assertion_kind.TestAnalystSemanticKinds object at 0x0000024C1DFABE60>
+value = 'image'
+
+    @pytest.mark.parametrize("value", [
+        "bogus_kind", "", "image", 7, 3.5, None, True, ["decision_status"],
+        {"kind": "decision_status"}])
+    def test_out_of_set_or_non_string_becomes_unknown(self, value):
+        """╨Ч╨╜╨░╤З╨╡╨╜╨╕╨╡ ╨▓╨╜╨╡ ╨╜╨░╨▒╨╛╤А╨░ ╨╕ ╨╜╨╡-╤Б╤В╤А╨╛╨║╨░ тЖТ honest unknown, ╨▒╨╡╨╖ ╨┐╨░╨┤╨╡╨╜╨╕╤П."""
+        verdict = tf.verdict_from_payload(
+            _payload(value), _envelope(CLAIM_PLAIN), allowed_refs={"ev-1"})
+>       assert verdict.parts[0]["assertion_kind"] == fsp.ASSERTION_KIND_UNKNOWN
+E       AssertionError: assert 'image' == 'unknown'
+E         
+E         - unknown
+E         + image
+
+tests\test_fc_trust_assertion_kind.py:105: AssertionError
+__ TestAnalystSemanticKinds.test_out_of_set_or_non_string_becomes_unknown[7] __
+
+self = <tests.test_fc_trust_assertion_kind.TestAnalystSemanticKinds object at 0x0000024C1FB4BB60>
+value = 7
+
+    @pytest.mark.parametrize("value", [
+        "bogus_kind", "", "image", 7, 3.5, None, True, ["decision_status"],
+        {"kind": "decision_status"}])
+    def test_out_of_set_or_non_string_becomes_unknown(self, value):
+        """╨Ч╨╜╨░╤З╨╡╨╜╨╕╨╡ ╨▓╨╜╨╡ ╨╜╨░╨▒╨╛╤А╨░ ╨╕ ╨╜╨╡-╤Б╤В╤А╨╛╨║╨░ тЖТ honest unknown, ╨▒╨╡╨╖ ╨┐╨░╨┤╨╡╨╜╨╕╤П."""
+        verdict = tf.verdict_from_payload(
+            _payload(value), _envelope(CLAIM_PLAIN), allowed_refs={"ev-1"})
+>       assert verdict.parts[0]["assertion_kind"] == fsp.ASSERTION_KIND_UNKNOWN
+E       AssertionError: assert 7 == 'unknown'
+E        +  where 'unknown' = fsp.ASSERTION_KIND_UNKNOWN
+
+tests\test_fc_trust_assertion_kind.py:105: AssertionError
+_ TestAnalystSemanticKinds.test_out_of_set_or_non_string_becomes_unknown[3.5] _
+
+self = <tests.test_fc_trust_assertion_kind.TestAnalystSemanticKinds object at 0x0000024C1FB4B800>
+value = 3.5
+
+    @pytest.mark.parametrize("value", [
+        "bogus_kind", "", "image", 7, 3.5, None, True, ["decision_status"],
+        {"kind": "decision_status"}])
+    def test_out_of_set_or_non_string_becomes_unknown(self, value):
+        """╨Ч╨╜╨░╤З╨╡╨╜╨╕╨╡ ╨▓╨╜╨╡ ╨╜╨░╨▒╨╛╤А╨░ ╨╕ ╨╜╨╡-╤Б╤В╤А╨╛╨║╨░ тЖТ honest unknown, ╨▒╨╡╨╖ ╨┐╨░╨┤╨╡╨╜╨╕╤П."""
+        verdict = tf.verdict_from_payload(
+            _payload(value), _envelope(CLAIM_PLAIN), allowed_refs={"ev-1"})
+>       assert verdict.parts[0]["assertion_kind"] == fsp.ASSERTION_KIND_UNKNOWN
+E       AssertionError: assert 3.5 == 'unknown'
+E        +  where 'unknown' = fsp.ASSERTION_KIND_UNKNOWN
+
+tests\test_fc_trust_assertion_kind.py:105: AssertionError
+_ TestAnalystSemanticKinds.test_out_of_set_or_non_string_becomes_unknown[None] _
+
+self = <tests.test_fc_trust_assertion_kind.TestAnalystSemanticKinds object at 0x0000024C1FB4B770>
+value = None
+
+    @pytest.mark.parametrize("value", [
+        "bogus_kind", "", "image", 7, 3.5, None, True, ["decision_status"],
+        {"kind": "decision_status"}])
+    def test_out_of_set_or_non_string_becomes_unknown(self, value):
+        """╨Ч╨╜╨░╤З╨╡╨╜╨╕╨╡ ╨▓╨╜╨╡ ╨╜╨░╨▒╨╛╤А╨░ ╨╕ ╨╜╨╡-╤Б╤В╤А╨╛╨║╨░ тЖТ honest unknown, ╨▒╨╡╨╖ ╨┐╨░╨┤╨╡╨╜╨╕╤П."""
+        verdict = tf.verdict_from_payload(
+            _payload(value), _envelope(CLAIM_PLAIN), allowed_refs={"ev-1"})
+>       assert verdict.parts[0]["assertion_kind"] == fsp.ASSERTION_KIND_UNKNOWN
+E       AssertionError: assert None == 'unknown'
+E        +  where 'unknown' = fsp.ASSERTION_KIND_UNKNOWN
+
+tests\test_fc_trust_assertion_kind.py:105: AssertionError
+_ TestAnalystSemanticKinds.test_out_of_set_or_non_string_becomes_unknown[True] _
+
+self = <tests.test_fc_trust_assertion_kind.TestAnalystSemanticKinds object at 0x0000024C1FB4B0B0>
+value = True
+
+    @pytest.mark.parametrize("value", [
+        "bogus_kind", "", "image", 7, 3.5, None, True, ["decision_status"],
+        {"kind": "decision_status"}])
+    def test_out_of_set_or_non_string_becomes_unknown(self, value):
+        """╨Ч╨╜╨░╤З╨╡╨╜╨╕╨╡ ╨▓╨╜╨╡ ╨╜╨░╨▒╨╛╤А╨░ ╨╕ ╨╜╨╡-╤Б╤В╤А╨╛╨║╨░ тЖТ honest unknown, ╨▒╨╡╨╖ ╨┐╨░╨┤╨╡╨╜╨╕╤П."""
+        verdict = tf.verdict_from_payload(
+            _payload(value), _envelope(CLAIM_PLAIN), allowed_refs={"ev-1"})
+>       assert verdict.parts[0]["assertion_kind"] == fsp.ASSERTION_KIND_UNKNOWN
+E       AssertionError: assert True == 'unknown'
+E        +  where 'unknown' = fsp.ASSERTION_KIND_UNKNOWN
+
+tests\test_fc_trust_assertion_kind.py:105: AssertionError
+_ TestAnalystSemanticKinds.test_out_of_set_or_non_string_becomes_unknown[value7] _
+
+self = <tests.test_fc_trust_assertion_kind.TestAnalystSemanticKinds object at 0x0000024C1FB49DC0>
+value = ['decision_status']
+
+    @pytest.mark.parametrize("value", [
+        "bogus_kind", "", "image", 7, 3.5, None, True, ["decision_status"],
+        {"kind": "decision_status"}])
+    def test_out_of_set_or_non_string_becomes_unknown(self, value):
+        """╨Ч╨╜╨░╤З╨╡╨╜╨╕╨╡ ╨▓╨╜╨╡ ╨╜╨░╨▒╨╛╤А╨░ ╨╕ ╨╜╨╡-╤Б╤В╤А╨╛╨║╨░ тЖТ honest unknown, ╨▒╨╡╨╖ ╨┐╨░╨┤╨╡╨╜╨╕╤П."""
+        verdict = tf.verdict_from_payload(
+            _payload(value), _envelope(CLAIM_PLAIN), allowed_refs={"ev-1"})
+>       assert verdict.parts[0]["assertion_kind"] == fsp.ASSERTION_KIND_UNKNOWN
+E       AssertionError: assert ['decision_status'] == 'unknown'
+E        +  where 'unknown' = fsp.ASSERTION_KIND_UNKNOWN
+
+tests\test_fc_trust_assertion_kind.py:105: AssertionError
+_ TestAnalystSemanticKinds.test_out_of_set_or_non_string_becomes_unknown[value8] _
+
+self = <tests.test_fc_trust_assertion_kind.TestAnalystSemanticKinds object at 0x0000024C1FB49DF0>
+value = {'kind': 'decision_status'}
+
+    @pytest.mark.parametrize("value", [
+        "bogus_kind", "", "image", 7, 3.5, None, True, ["decision_status"],
+        {"kind": "decision_status"}])
+    def test_out_of_set_or_non_string_becomes_unknown(self, value):
+        """╨Ч╨╜╨░╤З╨╡╨╜╨╕╨╡ ╨▓╨╜╨╡ ╨╜╨░╨▒╨╛╤А╨░ ╨╕ ╨╜╨╡-╤Б╤В╤А╨╛╨║╨░ тЖТ honest unknown, ╨▒╨╡╨╖ ╨┐╨░╨┤╨╡╨╜╨╕╤П."""
+        verdict = tf.verdict_from_payload(
+            _payload(value), _envelope(CLAIM_PLAIN), allowed_refs={"ev-1"})
+>       assert verdict.parts[0]["assertion_kind"] == fsp.ASSERTION_KIND_UNKNOWN
+E       AssertionError: assert {'kind': 'decision_status'} == 'unknown'
+E        +  where 'unknown' = fsp.ASSERTION_KIND_UNKNOWN
+
+tests\test_fc_trust_assertion_kind.py:105: AssertionError
+_ TestAnalystSemanticKinds.test_structural_kind_from_model_is_rejected[public_statement_attribution] _
+
+self = <tests.test_fc_trust_assertion_kind.TestAnalystSemanticKinds object at 0x0000024C1FB80F50>
+kind = 'public_statement_attribution'
+caplog = <_pytest.logging.LogCaptureFixture object at 0x0000024C14921A60>
+
+    @pytest.mark.parametrize("kind", [
+        fsp.ASSERTION_PUBLIC_STATEMENT, fsp.ASSERTION_IMAGE_CONTENT])
+    def test_structural_kind_from_model_is_rejected(self, kind, caplog):
+        """╨б╤В╤А╤Г╨║╤В╤Г╤А╨╜╤Л╨╣ ╤В╨╕╨┐ ╨╝╨╛╨┤╨╡╨╗╤М╤О ╨╜╨╡ ╨▓╤Л╤Б╤В╨░╨▓╨╗╤П╨╡╤В╤Б╤П: ╨┐╨╛╨┐╤Л╤В╨║╨░ тЖТ unknown + ╨╗╨╛╨│.
+    
+        ╨Ш╨╜╨░╤З╨╡ ╨╝╨╛╨┤╨╡╨╗╤М ╨╛╨▒╤Е╨╛╨┤╨╕╨╗╨░ ╨▒╤Л ╨╖╨░╤Й╨╕╤В╤Г ┬л╤Ж╨╕╤В╨░╤В╨░ ╨▒╨╡╨╖ ╨░╤В╤А╨╕╨▒╤Г╤Ж╨╕╨╕ тЖТ unknown тЖТ
+        ╨┐╨╛╨╜╨╕╨╢╨╡╨╜╨╕╨╡┬╗: ╨╛╨▒╤К╤П╨▓╨╕╨▓ ╨░╤В╤А╨╕╨▒╤Г╤Ж╨╕╤О ╤Б╨░╨╝╨░, ╨╛╨╜╨░ ╤Б╨╜╨╕╨╝╨░╨╗╨░ ╨▒╤Л ╨┐╨╛╨╜╨╕╨╢╨╡╨╜╨╕╨╡.
+        """
+        with caplog.at_level(logging.WARNING,
+                             logger="services.temporal_factcheck"):
+            verdict = tf.verdict_from_payload(
+                _payload(kind), _envelope(CLAIM_PLAIN), allowed_refs={"ev-1"})
+>       assert verdict.parts[0]["assertion_kind"] == \
+            fsp.ASSERTION_KIND_UNKNOWN
+E       AssertionError: assert 'public_statement_attribution' == 'unknown'
+E         
+E         - unknown
+E         + public_statement_attribution
+
+tests\test_fc_trust_assertion_kind.py:129: AssertionError
+_ TestAnalystSemanticKinds.test_structural_kind_from_model_is_rejected[image_content] _
+
+self = <tests.test_fc_trust_assertion_kind.TestAnalystSemanticKinds object at 0x0000024C1FB810A0>
+kind = 'image_content'
+caplog = <_pytest.logging.LogCaptureFixture object at 0x0000024C14922C60>
+
+    @pytest.mark.parametrize("kind", [
+        fsp.ASSERTION_PUBLIC_STATEMENT, fsp.ASSERTION_IMAGE_CONTENT])
+    def test_structural_kind_from_model_is_rejected(self, kind, caplog):
+        """╨б╤В╤А╤Г╨║╤В╤Г╤А╨╜╤Л╨╣ ╤В╨╕╨┐ ╨╝╨╛╨┤╨╡╨╗╤М╤О ╨╜╨╡ ╨▓╤Л╤Б╤В╨░╨▓╨╗╤П╨╡╤В╤Б╤П: ╨┐╨╛╨┐╤Л╤В╨║╨░ тЖТ unknown + ╨╗╨╛╨│.
+    
+        ╨Ш╨╜╨░╤З╨╡ ╨╝╨╛╨┤╨╡╨╗╤М ╨╛╨▒╤Е╨╛╨┤╨╕╨╗╨░ ╨▒╤Л ╨╖╨░╤Й╨╕╤В╤Г ┬л╤Ж╨╕╤В╨░╤В╨░ ╨▒╨╡╨╖ ╨░╤В╤А╨╕╨▒╤Г╤Ж╨╕╨╕ тЖТ unknown тЖТ
+        ╨┐╨╛╨╜╨╕╨╢╨╡╨╜╨╕╨╡┬╗: ╨╛╨▒╤К╤П╨▓╨╕╨▓ ╨░╤В╤А╨╕╨▒╤Г╤Ж╨╕╤О ╤Б╨░╨╝╨░, ╨╛╨╜╨░ ╤Б╨╜╨╕╨╝╨░╨╗╨░ ╨▒╤Л ╨┐╨╛╨╜╨╕╨╢╨╡╨╜╨╕╨╡.
+        """
+        with caplog.at_level(logging.WARNING,
+                             logger="services.temporal_factcheck"):
+            verdict = tf.verdict_from_payload(
+                _payload(kind), _envelope(CLAIM_PLAIN), allowed_refs={"ev-1"})
+>       assert verdict.parts[0]["assertion_kind"] == \
+            fsp.ASSERTION_KIND_UNKNOWN
+E       AssertionError: assert 'image_content' == 'unknown'
+E         
+E         - unknown
+E         + image_content
+
+tests\test_fc_trust_assertion_kind.py:129: AssertionError
+________ TestYearConflict.test_passage_of_another_year_is_not_support _________
+
+self = <tests.test_fc_trust_relation_binding.TestYearConflict object at 0x0000024C1F91CDA0>
+
+    def test_passage_of_another_year_is_not_support(self):
+        """╨в╨╡╨╖╨╕╤Б 2025 ╨┐╤А╨╛╤В╨╕╨▓ ╨┐╨░╤Б╤Б╨░╨╢╨░ 2024: ╨╜╨╡ supports, ╨░ qualifies."""
+        rel = _relevance(PASSAGE_2024)
+>       assert rel.role == sa.EVIDENCE_ROLE_QUALIFIES
+E       AssertionError: assert 'supports' == 'qualifies'
+E         
+E         - qualifies
+E         + supports
+
+tests\test_fc_trust_relation_binding.py:85: AssertionError
+_ TestYearConflict.test_any_other_year_is_a_conflict[\u042d\u043a\u043e\u041f\u0440\u043e\u043c \u0441\u043d\u0438\u0437\u0438\u043b\u0430 \u0432\u044b\u0431\u0440\u043e\u0441\u044b \u043d\u0430 12% \u0432 2023 \u0433\u043e\u0434\u0443 \u043f\u043e\u0441\u043b\u0435 \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0438.] _
+
+self = <tests.test_fc_trust_relation_binding.TestYearConflict object at 0x0000024C1FB80B00>
+passage = '╨н╨║╨╛╨Я╤А╨╛╨╝ ╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12% ╨▓ 2023 ╨│╨╛╨┤╤Г ╨┐╨╛╤Б╨╗╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨║╨╕.'
+
+    @pytest.mark.parametrize("passage", [
+        "╨н╨║╨╛╨Я╤А╨╛╨╝ ╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12% ╨▓ 2023 ╨│╨╛╨┤╤Г ╨┐╨╛╤Б╨╗╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨║╨╕.",
+        "╨н╨║╨╛╨Я╤А╨╛╨╝ ╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12% ╨▓ 2023тАУ2024 ╨│╨╛╨┤╨░╤Е ╨┐╨╛ ╨┤╨░╨╜╨╜╤Л╨╝ "
+        "╨╜╨╡╨╖╨░╨▓╨╕╤Б╨╕╨╝╤Л╤Е ╨╜╨░╨▒╨╗╤О╨┤╨░╤В╨╡╨╗╨╡╨╣.",
+        "╨н╨║╨╛╨Я╤А╨╛╨╝ ╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12% ╨▓ 2024 ╨│╨╛╨┤╤Г, ╤Е╨╛╤В╤П ╨▓ 2019-╨╝ "
+        "╨┐╨╛╨║╨░╨╖╨░╤В╨╡╨╗╤М ╤А╨╛╤Б.",
+    ])
+    def test_any_other_year_is_a_conflict(self, passage):
+        rel = _relevance(passage)
+>       assert rel.role == sa.EVIDENCE_ROLE_QUALIFIES
+E       AssertionError: assert 'supports' == 'qualifies'
+E         
+E         - qualifies
+E         + supports
+
+tests\test_fc_trust_relation_binding.py:107: AssertionError
+_ TestYearConflict.test_any_other_year_is_a_conflict[\u042d\u043a\u043e\u041f\u0440\u043e\u043c \u0441\u043d\u0438\u0437\u0438\u043b\u0430 \u0432\u044b\u0431\u0440\u043e\u0441\u044b \u043d\u0430 12% \u0432 2023\u20132024 \u0433\u043e\u0434\u0430\u0445 \u043f\u043e \u0434\u0430\u043d\u043d\u044b\u043c \u043d\u0435\u0437\u0430\u0432\u0438\u0441\u0438\u043c\u044b\u0445 \u043d\u0430\u0431\u043b\u044e\u0434\u0430\u0442\u0435\u043b\u0435\u0439.] _
+
+self = <tests.test_fc_trust_relation_binding.TestYearConflict object at 0x0000024C1FB80A40>
+passage = '╨н╨║╨╛╨Я╤А╨╛╨╝ ╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12% ╨▓ 2023тАУ2024 ╨│╨╛╨┤╨░╤Е ╨┐╨╛ ╨┤╨░╨╜╨╜╤Л╨╝ ╨╜╨╡╨╖╨░╨▓╨╕╤Б╨╕╨╝╤Л╤Е ╨╜╨░╨▒╨╗╤О╨┤╨░╤В╨╡╨╗╨╡╨╣.'
+
+    @pytest.mark.parametrize("passage", [
+        "╨н╨║╨╛╨Я╤А╨╛╨╝ ╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12% ╨▓ 2023 ╨│╨╛╨┤╤Г ╨┐╨╛╤Б╨╗╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨║╨╕.",
+        "╨н╨║╨╛╨Я╤А╨╛╨╝ ╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12% ╨▓ 2023тАУ2024 ╨│╨╛╨┤╨░╤Е ╨┐╨╛ ╨┤╨░╨╜╨╜╤Л╨╝ "
+        "╨╜╨╡╨╖╨░╨▓╨╕╤Б╨╕╨╝╤Л╤Е ╨╜╨░╨▒╨╗╤О╨┤╨░╤В╨╡╨╗╨╡╨╣.",
+        "╨н╨║╨╛╨Я╤А╨╛╨╝ ╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12% ╨▓ 2024 ╨│╨╛╨┤╤Г, ╤Е╨╛╤В╤П ╨▓ 2019-╨╝ "
+        "╨┐╨╛╨║╨░╨╖╨░╤В╨╡╨╗╤М ╤А╨╛╤Б.",
+    ])
+    def test_any_other_year_is_a_conflict(self, passage):
+        rel = _relevance(passage)
+>       assert rel.role == sa.EVIDENCE_ROLE_QUALIFIES
+E       AssertionError: assert 'supports' == 'qualifies'
+E         
+E         - qualifies
+E         + supports
+
+tests\test_fc_trust_relation_binding.py:107: AssertionError
+_ TestYearConflict.test_any_other_year_is_a_conflict[\u042d\u043a\u043e\u041f\u0440\u043e\u043c \u0441\u043d\u0438\u0437\u0438\u043b\u0430 \u0432\u044b\u0431\u0440\u043e\u0441\u044b \u043d\u0430 12% \u0432 2024 \u0433\u043e\u0434\u0443, \u0445\u043e\u0442\u044f \u0432 2019-\u043c \u043f\u043e\u043a\u0430\u0437\u0430\u0442\u0435\u043b\u044c \u0440\u043e\u0441.] _
+
+self = <tests.test_fc_trust_relation_binding.TestYearConflict object at 0x0000024C1FB80560>
+passage = '╨н╨║╨╛╨Я╤А╨╛╨╝ ╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12% ╨▓ 2024 ╨│╨╛╨┤╤Г, ╤Е╨╛╤В╤П ╨▓ 2019-╨╝ ╨┐╨╛╨║╨░╨╖╨░╤В╨╡╨╗╤М ╤А╨╛╤Б.'
+
+    @pytest.mark.parametrize("passage", [
+        "╨н╨║╨╛╨Я╤А╨╛╨╝ ╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12% ╨▓ 2023 ╨│╨╛╨┤╤Г ╨┐╨╛╤Б╨╗╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨║╨╕.",
+        "╨н╨║╨╛╨Я╤А╨╛╨╝ ╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12% ╨▓ 2023тАУ2024 ╨│╨╛╨┤╨░╤Е ╨┐╨╛ ╨┤╨░╨╜╨╜╤Л╨╝ "
+        "╨╜╨╡╨╖╨░╨▓╨╕╤Б╨╕╨╝╤Л╤Е ╨╜╨░╨▒╨╗╤О╨┤╨░╤В╨╡╨╗╨╡╨╣.",
+        "╨н╨║╨╛╨Я╤А╨╛╨╝ ╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12% ╨▓ 2024 ╨│╨╛╨┤╤Г, ╤Е╨╛╤В╤П ╨▓ 2019-╨╝ "
+        "╨┐╨╛╨║╨░╨╖╨░╤В╨╡╨╗╤М ╤А╨╛╤Б.",
+    ])
+    def test_any_other_year_is_a_conflict(self, passage):
+        rel = _relevance(passage)
+>       assert rel.role == sa.EVIDENCE_ROLE_QUALIFIES
+E       AssertionError: assert 'supports' == 'qualifies'
+E         
+E         - qualifies
+E         + supports
+
+tests\test_fc_trust_relation_binding.py:107: AssertionError
+________ TestYearConflict.test_planner_wrapper_passes_claim_timeframe _________
+
+self = <tests.test_fc_trust_relation_binding.TestYearConflict object at 0x0000024C1FB93FE0>
+
+    def test_planner_wrapper_passes_claim_timeframe(self):
+        """╨а╨╡╨░╨╗╤М╨╜╤Л╨╣ ╨▓╤Л╨╖╨╛╨▓ ╨┐╨╗╨░╨╜╨╕╤А╨╛╨▓╤Й╨╕╨║╨░: ╤В╨╕╨┐ ╨┐╨░╤Б╤Б╨░╨╢╨░ ╨╛╨┐╤А╨╡╨┤╨╡╨╗╤П╨╡╤В╤Б╤П ╤Б ╨│╨╛╨┤╨╛╨╝ ╤В╨╡╨╖╨╕╤Б╨░."""
+        ref = fsp.EvidenceRef(evidence_id="ev-1", url="https://eco.example/1",
+                              support=PASSAGE_2024, source_kind="secondary")
+        rel = fsp._relevance_for(ref, _claim("2025"))
+>       assert rel.role == sa.EVIDENCE_ROLE_QUALIFIES
+E       AssertionError: assert 'supports' == 'qualifies'
+E         
+E         - qualifies
+E         + supports
+
+tests\test_fc_trust_relation_binding.py:150: AssertionError
+___________ TestEvidenceQuotesForm.test_verbatim_quote_is_preserved ___________
+
+self = <tests.test_fc_trust_relation_binding.TestEvidenceQuotesForm object at 0x0000024C1FB906B0>
+
+    def test_verbatim_quote_is_preserved(self):
+        verdict = tf.verdict_from_payload(
+            _payload(evidence_quotes={"ev-1": "  ╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12%  "}),
+            _envelope(CLAIM_2025), allowed_refs={"ev-1"})
+>       assert verdict.parts[0]["evidence_quotes"] == {
+            "ev-1": "╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12%"}
+E       AssertionError: assert {'ev-1': '  ╤Б...╨╛╤Б╤Л ╨╜╨░ 12%  '} == {'ev-1': '╤Б╨╜╨╕...╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12%'}
+E         
+E         Differing items:
+E         {'ev-1': '  ╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12%  '} != {'ev-1': '╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12%'}
+E         Use -v to get more diff
+
+tests\test_fc_trust_relation_binding.py:162: AssertionError
+_ TestEvidenceQuotesForm.test_non_dict_quotes_are_dropped[\u0441\u043d\u0438\u0437\u0438\u043b\u0430 \u0432\u044b\u0431\u0440\u043e\u0441\u044b \u043d\u0430 12%] _
+
+self = <tests.test_fc_trust_relation_binding.TestEvidenceQuotesForm object at 0x0000024C1FB90CE0>
+quotes = '╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12%'
+
+    @pytest.mark.parametrize("quotes", [
+        "╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12%",            # ╨╜╨╡ ╤Б╨╗╨╛╨▓╨░╤А╤М
+        ["ev-1", "╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л"],         # ╨╜╨╡ ╤Б╨╗╨╛╨▓╨░╤А╤М
+        None,
+        7,
+    ])
+    def test_non_dict_quotes_are_dropped(self, quotes):
+        verdict = tf.verdict_from_payload(
+            _payload(evidence_quotes=quotes), _envelope(CLAIM_2025),
+            allowed_refs={"ev-1"})
+>       assert "evidence_quotes" not in verdict.parts[0]
+E       AssertionError: assert 'evidence_quotes' not in {'part_id': 'c1', 'factual_verdict': 'supported', 'evidence_refs': ['ev-1'], 'evidence_quotes': '╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12%'}
+
+tests\test_fc_trust_relation_binding.py:175: AssertionError
+______ TestEvidenceQuotesForm.test_non_dict_quotes_are_dropped[quotes1] _______
+
+self = <tests.test_fc_trust_relation_binding.TestEvidenceQuotesForm object at 0x0000024C1FB90F50>
+quotes = ['ev-1', '╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л']
+
+    @pytest.mark.parametrize("quotes", [
+        "╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12%",            # ╨╜╨╡ ╤Б╨╗╨╛╨▓╨░╤А╤М
+        ["ev-1", "╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л"],         # ╨╜╨╡ ╤Б╨╗╨╛╨▓╨░╤А╤М
+        None,
+        7,
+    ])
+    def test_non_dict_quotes_are_dropped(self, quotes):
+        verdict = tf.verdict_from_payload(
+            _payload(evidence_quotes=quotes), _envelope(CLAIM_2025),
+            allowed_refs={"ev-1"})
+>       assert "evidence_quotes" not in verdict.parts[0]
+E       AssertionError: assert 'evidence_quotes' not in {'part_id': 'c1', 'factual_verdict': 'supported', 'evidence_refs': ['ev-1'], 'evidence_quotes': ['ev-1', '╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л']}
+
+tests\test_fc_trust_relation_binding.py:175: AssertionError
+_________ TestEvidenceQuotesForm.test_non_dict_quotes_are_dropped[7] __________
+
+self = <tests.test_fc_trust_relation_binding.TestEvidenceQuotesForm object at 0x0000024C1FB910D0>
+quotes = 7
+
+    @pytest.mark.parametrize("quotes", [
+        "╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12%",            # ╨╜╨╡ ╤Б╨╗╨╛╨▓╨░╤А╤М
+        ["ev-1", "╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л"],         # ╨╜╨╡ ╤Б╨╗╨╛╨▓╨░╤А╤М
+        None,
+        7,
+    ])
+    def test_non_dict_quotes_are_dropped(self, quotes):
+        verdict = tf.verdict_from_payload(
+            _payload(evidence_quotes=quotes), _envelope(CLAIM_2025),
+            allowed_refs={"ev-1"})
+>       assert "evidence_quotes" not in verdict.parts[0]
+E       AssertionError: assert 'evidence_quotes' not in {'part_id': 'c1', 'factual_verdict': 'supported', 'evidence_refs': ['ev-1'], 'evidence_quotes': 7}
+
+tests\test_fc_trust_relation_binding.py:175: AssertionError
+_________ TestEvidenceQuotesForm.test_non_string_phrase_is_dropped[5] _________
+
+self = <tests.test_fc_trust_relation_binding.TestEvidenceQuotesForm object at 0x0000024C1FB82D80>
+phrase = 5
+
+    @pytest.mark.parametrize("phrase", [5, None, True, ["╤Д╤А╨░╨╖╨░"], {"t": "x"}])
+    def test_non_string_phrase_is_dropped(self, phrase):
+        verdict = tf.verdict_from_payload(
+            _payload(evidence_quotes={"ev-1": phrase}),
+            _envelope(CLAIM_2025), allowed_refs={"ev-1"})
+>       assert "evidence_quotes" not in verdict.parts[0]
+E       AssertionError: assert 'evidence_quotes' not in {'part_id': 'c1', 'factual_verdict': 'supported', 'evidence_refs': ['ev-1'], 'evidence_quotes': {'ev-1': 5}}
+
+tests\test_fc_trust_relation_binding.py:182: AssertionError
+_______ TestEvidenceQuotesForm.test_non_string_phrase_is_dropped[None] ________
+
+self = <tests.test_fc_trust_relation_binding.TestEvidenceQuotesForm object at 0x0000024C1FB82270>
+phrase = None
+
+    @pytest.mark.parametrize("phrase", [5, None, True, ["╤Д╤А╨░╨╖╨░"], {"t": "x"}])
+    def test_non_string_phrase_is_dropped(self, phrase):
+        verdict = tf.verdict_from_payload(
+            _payload(evidence_quotes={"ev-1": phrase}),
+            _envelope(CLAIM_2025), allowed_refs={"ev-1"})
+>       assert "evidence_quotes" not in verdict.parts[0]
+E       AssertionError: assert 'evidence_quotes' not in {'part_id': 'c1', 'factual_verdict': 'supported', 'evidence_refs': ['ev-1'], 'evidence_quotes': {'ev-1': None}}
+
+tests\test_fc_trust_relation_binding.py:182: AssertionError
+_______ TestEvidenceQuotesForm.test_non_string_phrase_is_dropped[True] ________
+
+self = <tests.test_fc_trust_relation_binding.TestEvidenceQuotesForm object at 0x0000024C1FB81BB0>
+phrase = True
+
+    @pytest.mark.parametrize("phrase", [5, None, True, ["╤Д╤А╨░╨╖╨░"], {"t": "x"}])
+    def test_non_string_phrase_is_dropped(self, phrase):
+        verdict = tf.verdict_from_payload(
+            _payload(evidence_quotes={"ev-1": phrase}),
+            _envelope(CLAIM_2025), allowed_refs={"ev-1"})
+>       assert "evidence_quotes" not in verdict.parts[0]
+E       AssertionError: assert 'evidence_quotes' not in {'part_id': 'c1', 'factual_verdict': 'supported', 'evidence_refs': ['ev-1'], 'evidence_quotes': {'ev-1': True}}
+
+tests\test_fc_trust_relation_binding.py:182: AssertionError
+______ TestEvidenceQuotesForm.test_non_string_phrase_is_dropped[phrase3] ______
+
+self = <tests.test_fc_trust_relation_binding.TestEvidenceQuotesForm object at 0x0000024C1FB81160>
+phrase = ['╤Д╤А╨░╨╖╨░']
+
+    @pytest.mark.parametrize("phrase", [5, None, True, ["╤Д╤А╨░╨╖╨░"], {"t": "x"}])
+    def test_non_string_phrase_is_dropped(self, phrase):
+        verdict = tf.verdict_from_payload(
+            _payload(evidence_quotes={"ev-1": phrase}),
+            _envelope(CLAIM_2025), allowed_refs={"ev-1"})
+>       assert "evidence_quotes" not in verdict.parts[0]
+E       AssertionError: assert 'evidence_quotes' not in {'part_id': 'c1', 'factual_verdict': 'supported', 'evidence_refs': ['ev-1'], 'evidence_quotes': {'ev-1': ['╤Д╤А╨░╨╖╨░']}}
+
+tests\test_fc_trust_relation_binding.py:182: AssertionError
+______ TestEvidenceQuotesForm.test_non_string_phrase_is_dropped[phrase4] ______
+
+self = <tests.test_fc_trust_relation_binding.TestEvidenceQuotesForm object at 0x0000024C1FB80F20>
+phrase = {'t': 'x'}
+
+    @pytest.mark.parametrize("phrase", [5, None, True, ["╤Д╤А╨░╨╖╨░"], {"t": "x"}])
+    def test_non_string_phrase_is_dropped(self, phrase):
+        verdict = tf.verdict_from_payload(
+            _payload(evidence_quotes={"ev-1": phrase}),
+            _envelope(CLAIM_2025), allowed_refs={"ev-1"})
+>       assert "evidence_quotes" not in verdict.parts[0]
+E       AssertionError: assert 'evidence_quotes' not in {'part_id': 'c1', 'factual_verdict': 'supported', 'evidence_refs': ['ev-1'], 'evidence_quotes': {'ev-1': {'t': 'x'}}}
+
+tests\test_fc_trust_relation_binding.py:182: AssertionError
+_____________ TestEvidenceQuotesForm.test_empty_phrase_is_dropped _____________
+
+self = <tests.test_fc_trust_relation_binding.TestEvidenceQuotesForm object at 0x0000024C1F91D4C0>
+
+    def test_empty_phrase_is_dropped(self):
+        verdict = tf.verdict_from_payload(
+            _payload(evidence_quotes={"ev-1": "   "}),
+            _envelope(CLAIM_2025), allowed_refs={"ev-1"})
+>       assert "evidence_quotes" not in verdict.parts[0]
+E       AssertionError: assert 'evidence_quotes' not in {'part_id': 'c1', 'factual_verdict': 'supported', 'evidence_refs': ['ev-1'], 'evidence_quotes': {'ev-1': '   '}}
+
+tests\test_fc_trust_relation_binding.py:188: AssertionError
+______ TestEvidenceQuotesForm.test_quote_for_foreign_evidence_is_dropped ______
+
+self = <tests.test_fc_trust_relation_binding.TestEvidenceQuotesForm object at 0x0000024C1FB90140>
+
+    def test_quote_for_foreign_evidence_is_dropped(self):
+        """ID ╨▓╤Л╨┤╨╡╤А╨╢╨║╨╕ ╨▓╨╜╨╡ ╤В╨╡╨║╤Г╤Й╨╡╨│╨╛ ╨┐╤А╨╛╨│╨╛╨╜╨░ ╨╜╨╡ ╤Б╤В╨░╨╜╨╛╨▓╨╕╤В╤Б╤П ╨╛╤Б╨╜╨╛╨▓╨░╨╜╨╕╨╡╨╝."""
+        verdict = tf.verdict_from_payload(
+            _payload(evidence_quotes={"ev-9": "╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12%"}),
+            _envelope(CLAIM_2025), allowed_refs={"ev-1"})
+>       assert "evidence_quotes" not in verdict.parts[0]
+E       AssertionError: assert 'evidence_quotes' not in {'part_id': 'c1', 'factual_verdict': 'supported', 'evidence_refs': ['ev-1'], 'evidence_quotes': {'ev-9': '╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12%'}}
+
+tests\test_fc_trust_relation_binding.py:195: AssertionError
+___ TestEvidenceQuotesForm.test_mixed_quotes_keep_only_current_run_evidence ___
+
+self = <tests.test_fc_trust_relation_binding.TestEvidenceQuotesForm object at 0x0000024C1FB916A0>
+
+    def test_mixed_quotes_keep_only_current_run_evidence(self):
+        verdict = tf.verdict_from_payload(
+            _payload(evidence_quotes={"ev-1": "╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12%",
+                                      "ev-9": "╤З╤Г╨╢╨░╤П ╨▓╤Л╨┤╨╡╤А╨╢╨║╨░"}),
+            _envelope(CLAIM_2025), allowed_refs={"ev-1"})
+>       assert verdict.parts[0]["evidence_quotes"] == {
+            "ev-1": "╤Б╨╜╨╕╨╖╨╕╨╗╨░ ╨▓╤Л╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12%"}
+E       AssertionError: assert {'ev-1': '╤Б╨╜╨╕...╨╢╨░╤П ╨▓╤Л╨┤╨╡╤А╨╢╨║╨░'} == {'ev-1': '╤Б╨╜╨╕...╨▒╤А╨╛╤Б╤Л ╨╜╨░ 12%'}
+E         
+E         Omitting 1 identical items, use -vv to show
+E         Left contains 1 more item:
+E         {'ev-9': '╤З╤Г╨╢╨░╤П ╨▓╤Л╨┤╨╡╤А╨╢╨║╨░'}
+E         Use -v to get more diff
+
+tests\test_fc_trust_relation_binding.py:202: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_fc_trust_assertion_kind.py::TestAnalystSemanticKinds::test_out_of_set_or_non_string_becomes_unknown[bogus_kind]
+FAILED tests/test_fc_trust_assertion_kind.py::TestAnalystSemanticKinds::test_out_of_set_or_non_string_becomes_unknown[]
+FAILED tests/test_fc_trust_assertion_kind.py::TestAnalystSemanticKinds::test_out_of_set_or_non_string_becomes_unknown[image]
+FAILED tests/test_fc_trust_assertion_kind.py::TestAnalystSemanticKinds::test_out_of_set_or_non_string_becomes_unknown[7]
+FAILED tests/test_fc_trust_assertion_kind.py::TestAnalystSemanticKinds::test_out_of_set_or_non_string_becomes_unknown[3.5]
+FAILED tests/test_fc_trust_assertion_kind.py::TestAnalystSemanticKinds::test_out_of_set_or_non_string_becomes_unknown[None]
+FAILED tests/test_fc_trust_assertion_kind.py::TestAnalystSemanticKinds::test_out_of_set_or_non_string_becomes_unknown[True]
+FAILED tests/test_fc_trust_assertion_kind.py::TestAnalystSemanticKinds::test_out_of_set_or_non_string_becomes_unknown[value7]
+FAILED tests/test_fc_trust_assertion_kind.py::TestAnalystSemanticKinds::test_out_of_set_or_non_string_becomes_unknown[value8]
+FAILED tests/test_fc_trust_assertion_kind.py::TestAnalystSemanticKinds::test_structural_kind_from_model_is_rejected[public_statement_attribution]
+FAILED tests/test_fc_trust_assertion_kind.py::TestAnalystSemanticKinds::test_structural_kind_from_model_is_rejected[image_content]
+FAILED tests/test_fc_trust_relation_binding.py::TestYearConflict::test_passage_of_another_year_is_not_support
+FAILED tests/test_fc_trust_relation_binding.py::TestYearConflict::test_any_other_year_is_a_conflict[\u042d\u043a\u043e\u041f\u0440\u043e\u043c \u0441\u043d\u0438\u0437\u0438\u043b\u0430 \u0432\u044b\u0431\u0440\u043e\u0441\u044b \u043d\u0430 12% \u0432 2023 \u0433\u043e\u0434\u0443 \u043f\u043e\u0441\u043b\u0435 \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0438.]
+FAILED tests/test_fc_trust_relation_binding.py::TestYearConflict::test_any_other_year_is_a_conflict[\u042d\u043a\u043e\u041f\u0440\u043e\u043c \u0441\u043d\u0438\u0437\u0438\u043b\u0430 \u0432\u044b\u0431\u0440\u043e\u0441\u044b \u043d\u0430 12% \u0432 2023\u20132024 \u0433\u043e\u0434\u0430\u0445 \u043f\u043e \u0434\u0430\u043d\u043d\u044b\u043c \u043d\u0435\u0437\u0430\u0432\u0438\u0441\u0438\u043c\u044b\u0445 \u043d\u0430\u0431\u043b\u044e\u0434\u0430\u0442\u0435\u043b\u0435\u0439.]
+FAILED tests/test_fc_trust_relation_binding.py::TestYearConflict::test_any_other_year_is_a_conflict[\u042d\u043a\u043e\u041f\u0440\u043e\u043c \u0441\u043d\u0438\u0437\u0438\u043b\u0430 \u0432\u044b\u0431\u0440\u043e\u0441\u044b \u043d\u0430 12% \u0432 2024 \u0433\u043e\u0434\u0443, \u0445\u043e\u0442\u044f \u0432 2019-\u043c \u043f\u043e\u043a\u0430\u0437\u0430\u0442\u0435\u043b\u044c \u0440\u043e\u0441.]
+FAILED tests/test_fc_trust_relation_binding.py::TestYearConflict::test_planner_wrapper_passes_claim_timeframe
+FAILED tests/test_fc_trust_relation_binding.py::TestEvidenceQuotesForm::test_verbatim_quote_is_preserved
+FAILED tests/test_fc_trust_relation_binding.py::TestEvidenceQuotesForm::test_non_dict_quotes_are_dropped[\u0441\u043d\u0438\u0437\u0438\u043b\u0430 \u0432\u044b\u0431\u0440\u043e\u0441\u044b \u043d\u0430 12%]
+FAILED tests/test_fc_trust_relation_binding.py::TestEvidenceQuotesForm::test_non_dict_quotes_are_dropped[quotes1]
+FAILED tests/test_fc_trust_relation_binding.py::TestEvidenceQuotesForm::test_non_dict_quotes_are_dropped[7]
+FAILED tests/test_fc_trust_relation_binding.py::TestEvidenceQuotesForm::test_non_string_phrase_is_dropped[5]
+FAILED tests/test_fc_trust_relation_binding.py::TestEvidenceQuotesForm::test_non_string_phrase_is_dropped[None]
+FAILED tests/test_fc_trust_relation_binding.py::TestEvidenceQuotesForm::test_non_string_phrase_is_dropped[True]
+FAILED tests/test_fc_trust_relation_binding.py::TestEvidenceQuotesForm::test_non_string_phrase_is_dropped[phrase3]
+FAILED tests/test_fc_trust_relation_binding.py::TestEvidenceQuotesForm::test_non_string_phrase_is_dropped[phrase4]
+FAILED tests/test_fc_trust_relation_binding.py::TestEvidenceQuotesForm::test_empty_phrase_is_dropped
+FAILED tests/test_fc_trust_relation_binding.py::TestEvidenceQuotesForm::test_quote_for_foreign_evidence_is_dropped
+FAILED tests/test_fc_trust_relation_binding.py::TestEvidenceQuotesForm::test_mixed_quotes_keep_only_current_run_evidence
+28 failed, 17 passed in 3.92s

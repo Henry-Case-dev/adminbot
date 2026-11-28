@@ -596,6 +596,72 @@ class ClaimRelevance:
 
 _QUOTED_CLAIM_RE = re.compile(r"«([^«»]{8,200})»|\"([^\"]{8,200})\"")
 
+#: FCT-192 (U1, 28.11.2026): явный 4-значный год. Обобщённый разбор даты
+#: (owner §2.2 разрешает его), а не список слов; месяц/день не разбираются,
+#: поэтому кросс-язычный кейс «30 октября 2026» ↔ «October 30» без года в
+#: пассаже конфликтом не становится.
+_EXPLICIT_YEAR_RE = re.compile(r"(?<!\d)((?:19|20)\d{2})(?!\d)")
+#: FCT-U1-R1-F1 (28.11.2026): 4-значный токен — год, только если он не
+#: количество/сумма. Единица/валюта/масштаб сразу после числа означает
+#: денежную или количественную величину («2025 рублей», «2025 млн рублей»,
+#: «2025 тыс. тонн», «2025%»), а не год: пассаж без года конфликта не даёт
+#: (решения §2.1 п.1, §2.4). Список — единицы и валюты, а не «слова-годы»;
+#: годовые маркеры («2025 году», «2025 г.») намеренно не входят.
+_YEAR_QUANTITY_TAIL_RE = re.compile(
+    r"\s*(?:"
+    r"тыс[а-яё]*|млн|млрд|трлн|миллион[а-яё]*|миллиард[а-яё]*|"
+    r"рубл[а-яё]*|руб\.?|₽|\$|€|евро|долл[а-яё]*|"
+    r"процент[а-яё]*|%|тонн[а-яё]*|"
+    r"человек[а-яё]*|чел[а-яё]*|кг|шт"
+    r")(?![а-яёa-z0-9])",
+    re.IGNORECASE)
+#: Валюта/масштаб перед числом («$2025 млн», «₽2025»).
+_YEAR_QUANTITY_PREFIX = "$€₽"
+#: URL внутри пассажа — адрес, а не утверждение источника: год из «/2024/»
+#: не участвует в проверке года и не даёт ложного конфликта.
+_URL_IN_TEXT_RE = re.compile(r"https?://\S+", re.IGNORECASE)
+
+
+def _year_is_quantity(text: str, match: re.Match) -> bool:
+    """4-значный токен — сумма/количество, а не год (FCT-U1-R1-F1)."""
+    prefix = text[:match.start()].rstrip()
+    if prefix and prefix[-1] in _YEAR_QUANTITY_PREFIX:
+        return True
+    return bool(_YEAR_QUANTITY_TAIL_RE.match(text[match.end():]))
+
+
+def _explicit_years(text: str) -> tuple[int, ...]:
+    """Явные 4-значные годы текста: по возрастанию, без повторов.
+
+    Суммы и количества («2025 рублей», «$2025 млн», «2025 тыс. тонн») годами
+    не считаются — это числа, а не дата (FCT-U1-R1-F1)."""
+    source = str(text or "")
+    found = {int(m.group(1))
+             for m in _EXPLICIT_YEAR_RE.finditer(source)
+             if not _year_is_quantity(source, m)}
+    return tuple(sorted(found))
+
+
+def _year_conflict(claim_timeframe: str, body: str) -> bool:
+    """FCT-192 (U1): тезис и пассаж говорят о РАЗНЫХ годах.
+
+    Конфликт только при трёх условиях одновременно: (1) у тезиса есть явный
+    год во временном интервале, (2) в пассаже есть явные годы, (3) ни один
+    год пассажа не попадает в интервал годов тезиса. Нет года в пассаже
+    (кросс-язычный кейс) или нет года у тезиса — конфликта нет; диапазон
+    тезиса («2023–2025») не конфликтует с годом внутри него. Год из URL
+    пассажа утверждением источника не считается; 4-значная сумма/количество
+    («2025 рублей», «2025 млн рублей») — не год (FCT-U1-R1-F1).
+    """
+    claim_years = _explicit_years(claim_timeframe)
+    if not claim_years:
+        return False
+    body_years = _explicit_years(_URL_IN_TEXT_RE.sub(" ", str(body or "")))
+    if not body_years:
+        return False
+    low, high = claim_years[0], claim_years[-1]
+    return not any(low <= year <= high for year in body_years)
+
 
 def _quoted_fragment_hit(claim_text: str, body_low: str) -> str:
     """Дословная цитата тезиса, найденная в источнике (FCT-402 basis).
@@ -681,6 +747,11 @@ def claim_relevance(text: str, *, claim_text: str = "",
         causal_link = (str(claim_type or "") == "cause"
                        and not causal_missing)
         quoted_fragment = _quoted_fragment_hit(claim_text, body_low)
+        #: FCT-192 (U1): узкий конфликт года — только в evidence-профиле
+        #: (профиль по умолчанию сохраняет прежний байт-паттерн потребителей
+        #: direct_execution/evidence_policy). Другой год в пассаже — не
+        #: прямое подтверждение/опровержение тезиса.
+        year_conflict = require_anchor and _year_conflict(timeframe, body)
         #: FCT-201: временной интервал тезиса — специфический анкер, когда в
         #: источнике совпали минимум две его компоненты (день + месяц/год):
         #: иначе «мировые рынки обвалились» не имеет ни одного якоря.
@@ -737,12 +808,22 @@ def claim_relevance(text: str, *, claim_text: str = "",
                     and not anchor_hit:
                 # Только общие слова: контекст, не доказательство (FCT-401).
                 effective = EVIDENCE_ROLE_BACKGROUND
+            conflict_years = False
+            if year_conflict and effective in (EVIDENCE_ROLE_SUPPORTS,
+                                               EVIDENCE_ROLE_CONTRADICTS):
+                # FCT-192 (U1): пассаж о другом годе квалифицирует тезис,
+                # а не подтверждает/опровергает его (strength → indirect).
+                effective = EVIDENCE_ROLE_QUALIFIES
+                conflict_years = True
+            basis = _basis(effective)
+            if conflict_years:
+                basis = basis + ("time:year_conflict",)
             return ClaimRelevance(role=effective,
                                   score=len(matched) + number_hits,
                                   word_hits=word_hits, number_hits=number_hits,
                                   entity_hit=entity_hit, opposite=opposite,
                                   number_mismatch=mismatch,
-                                  basis=_basis(effective),
+                                  basis=basis,
                                   topic_miss=topic_miss, anchor=anchor_hit,
                                   quoted_hit=bool(quoted_fragment),
                                   causal_link=causal_link)

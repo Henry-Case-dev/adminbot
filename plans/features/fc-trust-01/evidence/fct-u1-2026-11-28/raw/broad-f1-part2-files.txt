@@ -1,0 +1,16 @@
+﻿tests/test_factcheck_orchestrator_cfg06.py
+tests/test_factcheck_p0_fc.py
+tests/test_factcheck_planner_cfg06.py
+tests/test_factcheck_post_release_w1.py
+tests/test_factcheck_post_release_w2.py
+tests/test_factcheck_prompts.py
+tests/test_factcheck_renderer_cfg06.py
+tests/test_factcheck_resources.py
+tests/test_factcheck_service.py
+tests/test_factcheck_subject_contract.py
+tests/test_factcheck_tool_grounding_round1021.py
+tests/test_factcheck_tool_route_cfg06.py
+tests/test_factcheck_tools_round1020.py
+tests/test_factcheck_two_call_round1022.py
+tests/test_factcheck_w6_cfg06.py
+tests/test_factcheck_w7_acceptance_cfg06.py
