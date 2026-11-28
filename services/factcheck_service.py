@@ -633,6 +633,122 @@ def _human_evaluated_period(period: dict | None) -> str:
     return ""
 
 
+# ── FCT-801 (S5 U1): даты публикации/фактические даты доказательств ─────────
+# Writer видит РЕАЛЬНЫЕ даты из уже существующих полей evidence (U1:
+# published_at_source/claim_valid_*/retrieved_at/original_posted_at/timezone/
+# timestamp_source/confidence). Никаких новых запросов, никаких подстановок
+# now(): неизвестная дата просто не попадает в payload (честный unknown).
+
+_WRITER_DATE_SOURCE_HUMAN = {
+    "page": "со страницы",
+    "html_meta": "из метаданных страницы",
+    "json_ld": "из разметки страницы",
+    "url_path": "из адреса страницы",
+    "provider": "из поисковой выдачи",
+    "planner_fetch": "из открытой страницы",
+}
+_WRITER_DATE_CONFIDENCE_HUMAN = {
+    "high": "высокая",
+    "medium": "средняя",
+    "low": "низкая",
+}
+
+
+def _fmt_writer_date(ts) -> str:
+    """unix ts → «ДД.ММ.ГГГГ» (формат существующего `period`); нет даты → ''.
+
+    `None`/пусто/битое значение — не дата, а не «сегодня»: подстановки now()
+    здесь нет по построению."""
+    if ts is None or ts == "":
+        return ""
+    try:
+        value = int(ts)
+    except (TypeError, ValueError, OverflowError):
+        return ""
+    if value <= 0:
+        return ""
+    try:
+        return datetime.datetime.fromtimestamp(
+            value, datetime.timezone.utc).strftime("%d.%m.%Y")
+    except (OSError, OverflowError, ValueError):
+        return ""
+
+
+def _writer_dates_payload(evidence, env) -> dict:
+    """FCT-801 (S5 U1): компактный блок дат для Writer payload.
+
+    * ``original_publication`` — дата публикации оригинала (из evidence
+      ``original_posted_at``, иначе из уже установленного envelope);
+    * ``evidence[]`` — по каждому доказательству с URL: реальная дата
+      публикации/оригинала, период действия тезиса, момент получения и
+      происхождение/надёжность даты — ТОЛЬКО известные значения.
+
+    Пустой блок → ``{}`` (ключ ``dates`` в payload не появляется)."""
+    rows = [row for row in (evidence or ()) if isinstance(row, dict)]
+    original = ""
+    for row in rows:
+        if not str(row.get("url") or "").strip():
+            # Без URL строка не проверяемое доказательство — её дата не
+            # выдаётся за дату публикации оригинала.
+            continue
+        original = _fmt_writer_date(row.get("original_posted_at"))
+        if original:
+            break
+    if not original:
+        original = _fmt_writer_date(
+            getattr(env, "original_published_at", None))
+    info: dict = {}
+    if original:
+        info["original_publication"] = original
+    items: list[dict] = []
+    seen: set[str] = set()
+    for row in rows:
+        url = str(row.get("url") or "").strip()
+        if not url:
+            # Без URL строка не доказательство (её нельзя проверить).
+            continue
+        evidence_id = str(row.get("evidence_id") or "")
+        if evidence_id and evidence_id in seen:
+            continue
+        item: dict = {}
+        if evidence_id:
+            item["evidence_id"] = evidence_id
+        published_at = _fmt_writer_date(row.get("published_at"))
+        if published_at:
+            item["published_at"] = published_at
+        original_posted = _fmt_writer_date(row.get("original_posted_at"))
+        if original_posted:
+            item["original_posted_at"] = original_posted
+        claim_period = _human_evaluated_period({
+            "from": row.get("claim_valid_from"),
+            "to": row.get("claim_valid_to")})
+        if claim_period:
+            item["claim_period"] = claim_period
+        retrieved_at = _fmt_writer_date(row.get("retrieved_at"))
+        if retrieved_at:
+            item["retrieved_at"] = retrieved_at
+        timezone_value = str(row.get("timezone") or "").strip()
+        if timezone_value:
+            item["timezone"] = timezone_value
+        source = str(row.get("published_at_source")
+                     or row.get("timestamp_source") or "").strip()
+        if source and source not in ("unknown", "date_parse_failed"):
+            source_human = _WRITER_DATE_SOURCE_HUMAN.get(source)
+            if source_human:
+                item["date_source"] = source_human
+        confidence = str(row.get("timestamp_confidence") or "").strip()
+        confidence_human = _WRITER_DATE_CONFIDENCE_HUMAN.get(confidence)
+        if confidence_human:
+            item["date_confidence"] = confidence_human
+        if len(item) > (1 if evidence_id else 0):
+            items.append(item)
+            if evidence_id:
+                seen.add(evidence_id)
+    if items:
+        info["evidence"] = items
+    return info
+
+
 # ── P0-FACTCHECK (owner 24.10.2026 §3.3/§3.5/§3.6): материал изображения ──────
 # Текст с картинки приходит в анализ ЧЕРЕЗ СУЩЕСТВУЮЩИЙ Vision-контур
 # (`mca_vision.render_media_context_async`: OCR + визуальное описание уже
@@ -4588,6 +4704,12 @@ class FactCheckService:
                 "as_of_utc": time_snap.as_of_utc.strftime(
                     "%Y-%m-%dT%H:%M:%S+00:00"),
             }
+        # FCT-801 (S5 U1): даты публикации оригинала и фактическая дата
+        # доказательств — из уже собранных полей evidence (без новых запросов).
+        # Неизвестная дата не подменяется now(): блока просто нет.
+        dates_payload = _writer_dates_payload(evidence, env)
+        if dates_payload:
+            payload["dates"] = dates_payload
         # RLR R-03.4/R-06/§3.4: проверенный набор чисел — из структурного
         # payload'а, evidence этого прогона и дат envelope; уходит Writer'у
         # ЯВНО до генерации. Post-L2 numeric-правки здесь нет.
