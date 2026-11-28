@@ -2,7 +2,7 @@
 ================================== FAILURES ===================================
 _ TestFCT1001CooperativeCancel.test_cancelled_check_stops_and_refunds_user_limit _
 
-self = <tests.test_fc_trust_s4_reliability.TestFCT1001CooperativeCancel object at 0x000002B1DC185C70>
+self = <tests.test_fc_trust_s4_reliability.TestFCT1001CooperativeCancel object at 0x000002884D045970>
 handler_env = None
 
     @pytest.mark.asyncio
@@ -32,15 +32,15 @@ handler_env = None
 >       assert hfc._cooldown.remaining(CHAT_ID, USER_ID) == 0
 E       assert 300.0 == 0
 E        +  where 300.0 = remaining(-100777, 7)
-E        +    where remaining = <services.smartmodule_throttling.CooldownTracker object at 0x000002B1DC1DB830>.remaining
-E        +      where <services.smartmodule_throttling.CooldownTracker object at 0x000002B1DC1DB830> = hfc._cooldown
+E        +    where remaining = <services.smartmodule_throttling.CooldownTracker object at 0x000002884E18EC30>.remaining
+E        +      where <services.smartmodule_throttling.CooldownTracker object at 0x000002884E18EC30> = hfc._cooldown
 
 tests\test_fc_trust_s4_reliability.py:299: AssertionError
 _ TestFCT1001SingleFlight.test_persistent_tracker_does_not_double_provider_call _
 
-self = <tests.test_fc_trust_s4_reliability.TestFCT1001SingleFlight object at 0x000002B1DC1867E0>
-tmp_path = WindowsPath('C:/Users/main/.config/opencode/WorkspaceData/temp/intelligence/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-2053/test_persistent_tracker_does_n0')
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002B1DD2DFD10>
+self = <tests.test_fc_trust_s4_reliability.TestFCT1001SingleFlight object at 0x000002884D0464E0>
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/WorkspaceData/temp/intelligence/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-2064/test_persistent_tracker_does_n0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002884E1A19A0>
 
     @pytest.mark.asyncio
     async def test_persistent_tracker_does_not_double_provider_call(
@@ -85,11 +85,11 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002B1DD2DFD10>
     
 >           assert service.check_claim.await_count == 1
 E           AssertionError: assert 2 == 1
-E            +  where 2 = <AsyncMock name='mock.check_claim' id='2962934187456'>.await_count
-E            +    where <AsyncMock name='mock.check_claim' id='2962934187456'> = <MagicMock id='2962943173520'>.check_claim
+E            +  where 2 = <AsyncMock name='mock.check_claim' id='2784444153488'>.await_count
+E            +    where <AsyncMock name='mock.check_claim' id='2784444153488'> = <MagicMock id='2784435380272'>.check_claim
 
 tests\test_fc_trust_s4_reliability.py:365: AssertionError
 =========================== short test summary info ===========================
 FAILED tests/test_fc_trust_s4_reliability.py::TestFCT1001CooperativeCancel::test_cancelled_check_stops_and_refunds_user_limit
 FAILED tests/test_fc_trust_s4_reliability.py::TestFCT1001SingleFlight::test_persistent_tracker_does_not_double_provider_call
-2 failed, 9 passed in 5.40s
+2 failed, 9 passed in 5.27s

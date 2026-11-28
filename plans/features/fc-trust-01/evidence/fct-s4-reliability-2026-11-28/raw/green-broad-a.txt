@@ -28,5 +28,11 @@ tests/test_factcheck_p0_fc.py::TestF1CascadeRealPath::test_retrieval_numbers_aft
   C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\fc-trust-s4-reliability-4488c81af065-d034fef8\services\search_aggregator.py:1201: RuntimeWarning: This package (`duckduckgo_search`) has been renamed to `ddgs`! Use `pip install ddgs` instead.
     with DDGS(timeout=int(max(1.0, timeout))) as ddgs:
 
+tests/test_factcheck_p0_fc.py::TestF1CascadeRealPath::test_retrieval_numbers_after_tavily_failure
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\proactor_events.py:116: ResourceWarning: unclosed transport <_ProactorSocketTransport fd=4244 read=<_OverlappedFuture cancelled>>
+    _warn(f"unclosed transport {self!r}", ResourceWarning, source=self)
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-925 passed, 2 warnings in 41.35s
+925 passed, 3 warnings in 38.66s

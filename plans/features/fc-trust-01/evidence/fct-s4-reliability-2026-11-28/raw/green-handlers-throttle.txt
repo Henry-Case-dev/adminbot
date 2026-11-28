@@ -12,4 +12,4 @@ python.exe :
  
 WARNING: closed 1 leaked aiosqlite connection(s)
 ...........................................                              [100%]
-403 passed in 28.27s
+403 passed in 28.73s

@@ -6,8 +6,9 @@
 `temporal_factcheck.py`, `prompt_registry.py` не редактировались (U1-зона).
 
 - База: `fa4ba6292` (`release/2.58.272`; в проде 2.58.272 = `a2195fe3f`).
-- Код-кандидат: `8d5b383de822b8589ed944387f4c833d33205232` (2 коммита поверх базы).
-- Предыдущий кандидат с тем же продуктом: `bd454b4fe` (различие — только тест backoff).
+- Код-кандидат: `dc6703a8f77b11505f3fe8518960fadc9df806de` (4 коммита поверх базы:
+  фикс надёжности, тест backoff, evidence, точная метка времени claim).
+  Предыдущий кандидат с тем же смыслом: `8d5b383de`.
 
 ## 1. Вердикт
 
@@ -92,7 +93,7 @@ embedding-провайдера — фактический provider-путь фа
   затем восстановлены): `2 failed, 9 passed` — падают ровно два исправленных
   поведения: отмена списывает лимит; персистентный single-flight удваивает вызов.
   `raw/red-base-fa4ba6292-final.txt`
-- GREEN на кандидате `8d5b383de`: `11 passed`.
+- GREEN на кандидате `dc6703a8f`: `11 passed`.
   `raw/green-new.txt`
 - Восемь остальных тестов зелёные и на базе — это контроль, что тесты не
   «подгонялись» под изменения.
@@ -116,7 +117,7 @@ embedding-провайдера — фактический provider-путь фа
 | M-FCT1002-EGRESS | `evidence_refs` просочились в публикуемый текст | `test_published_payload_has_no_internal_fields_or_foreign_links` |
 | M-FCT1002-MIX | общий глобальный coverage между чатами | `test_roles_and_sources_do_not_mix_between_chats` |
 
-## 6. Команды и результаты (кандидат `8d5b383de`)
+## 6. Команды и результаты (кандидат `dc6703a8f`)
 
 Интерпретатор: `C:\Code\Python\adminbot\.venv\Scripts\python.exe` (3.12.0),
 cwd — этот worktree, все прогоны с `-p no:cacheprovider`.
@@ -167,4 +168,4 @@ cwd — этот worktree, все прогоны с `-p no:cacheprovider`.
   файл не затрагивается кандидатом.
 - Строка FCT-1001 в карте ссылается на кандидата `3a78484b9` и run
   `test_evol_fc_admission.py`; это историческое доказательство сохранено, новые
-  evidence должны быть привязаны к `8d5b383de` (или последующему tip с evidence).
+  evidence должны быть привязаны к `dc6703a8f` (или последующему tip с evidence).
