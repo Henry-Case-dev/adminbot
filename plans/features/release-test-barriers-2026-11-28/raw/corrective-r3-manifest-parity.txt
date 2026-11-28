@@ -1,0 +1,57 @@
+== self-check alone ==
+$ C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest tests/test_routes_contract_barriers.py -q --no-header -p no:cacheprovider
+......................................................                   [100%]
+54 passed in 8.43s
+(exit 0)
+
+== CLI parity/idempotency ==
+sha256 before: 05ed342b2284347b0fe4ee910d63e9d4e68cd3f4182809d6ab0d98042a19987f
+$ C:\Code\Python\adminbot\.venv\Scripts\python.exe -m tests.routes_contract --emit
+OK: манифест записан: C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\release-test-barriers-2026-11--19f1987d0616-5da2a6da\tests\fixtures\routes_contract.json (78 маршрутов)
+(exit 0)
+
+sha256 after emit #1: 05ed342b2284347b0fe4ee910d63e9d4e68cd3f4182809d6ab0d98042a19987f
+$ C:\Code\Python\adminbot\.venv\Scripts\python.exe -m tests.routes_contract --emit
+OK: манифест записан: C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\release-test-barriers-2026-11--19f1987d0616-5da2a6da\tests\fixtures\routes_contract.json (78 маршрутов)
+(exit 0)
+
+sha256 after emit #2: 05ed342b2284347b0fe4ee910d63e9d4e68cd3f4182809d6ab0d98042a19987f
+$ C:\Code\Python\adminbot\.venv\Scripts\python.exe -m tests.routes_contract --check
+CHECK OK: C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\release-test-barriers-2026-11--19f1987d0616-5da2a6da\tests\fixtures\routes_contract.json соответствует web/api/routes.py
+(exit 0)
+
+== collect vs manifest (in-process) ==
+manifest schema: 2
+manifest routes: 78
+live routes: 78
+equal: True
+duplicate keys: []
+overlapping methods: []
+public without initData: ['/health']
+rows with both fields: 78
+rows with legacy 'checks': 0
+
+== negative control: corrupted manifest copy ==
+CHECK FAILED: C:\Users\main\.config\opencode\WorkspaceData\temp\intelligence\adminbot-ccef72c25768\tmp\tmpcjmn69zf\routes_contract.json расходится с web/api/routes.py
+  12: ожидалось '        "get_tma_user",', в файле '        "MUTATED"'
+  13: ожидалось '        "requires_permission:access"', в файле '      ],'
+  14: ожидалось '      ],', в файле '      "helper_checks": []'
+  15: ожидалось '      "helper_checks": []', в файле '    },'
+  16: ожидалось '    },', в файле '    {'
+  17: ожидалось '    {', в файле '      "path": "/admins",'
+  18: ожидалось '      "path": "/admins",', в файле '      "methods": ['
+  19: ожидалось '      "methods": [', в файле '        "POST"'
+  20: ожидалось '        "POST"', в файле '      ],'
+  21: ожидалось '      ],', в файле '      "init_data": true,'
+  22: ожидалось '      "init_data": true,', в файле '      "direct_checks": ['
+  23: ожидалось '      "direct_checks": [', в файле '        "get_tma_user",'
+  24: ожидалось '        "get_tma_user",', в файле '        "guard_admin_lockout",'
+  25: ожидалось '        "guard_admin_lockout",', в файле '        "requires_global_admin"'
+  26: ожидалось '        "requires_global_admin"', в файле '      ],'
+  27: ожидалось '      ],', в файле '      "helper_checks": []'
+  28: ожидалось '      "helper_checks": []', в файле '    },'
+  29: ожидалось '    },', в файле '    {'
+  30: ожидалось '    {', в файле '      "path": "/admins/remove",'
+  31: ожидалось '      "path": "/admins/remove",', в файле '      "methods": ['
+Переэмиссия: python -m tests.routes_contract --emit
+(exit 1)

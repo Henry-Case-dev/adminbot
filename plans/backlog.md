@@ -34,6 +34,14 @@
 2. **Repair-event clock uniformity**: repair — детерминированная стадия без LLM-вызова (finish_reason=deterministic); привести clock-мета события к единому формату честного отсутствия `clock_included: false, skip_reason: no_llm_stage` (по образцу TestHonestAbsenceCodes в том же тест-файле: no_llm_call/no_time_block/no_chat_id).
 3. **Evidence wording (base state)**: уточнить формулировку evidence в привязанных строках карты unified-reply о базовом состоянии (что именно проверено на базовом состоянии до payload-слайсов) — косметическая правка текста карты, поведение не меняется.
 
+## Release/test barriers corrective — неначатые долги ревью r1 (28.11.2026)
+
+Источник: `plans/features/release-test-barriers-2026-11-28/review-r1.md` §4 (F-BAR-04/05/06); кандидат `7e8eb8a05`/`e535ae4d9` + corrective r1. Строки не блокируют.
+
+1. **F-BAR-04 (дублирующий assert)**: `test_round1025_f8_registry.test_param_catalog_identity_contract` и `test_registry_keys_match_catalog_baseline` проверяют одно и то же (`set(pc.REGISTRY) == set(catalog_baseline["registry_keys"])`) — дедуп/слияние при следующем касании. Формулировка про «baseline типов» в `implementation.md` §1 исправлена в corrective r1: типов baseline не хранит, типы/описания/секретность защищены `gen --check` по TSV.
+2. **F-BAR-05 (JS-литералы версии вне pytest-гейта)**: `tests/js/round1025_hotfix{7,8,9,10}_*.js` содержат устаревший `/APP_VERSION = "2\.58\.255"/`, плюс `tests/js/mod_acl_ux_m5c_corrective_test.js`; раннера/package.json нет, ни один pytest-тест JS не исполняет — не релизный барьер, убрать при появлении JS-раннера.
+3. **F-BAR-06 (четвёртый предсуществующий красный)**: `tests/test_status_section_ui_merge_round1019.py::TestStatusSectionMerge::test_mode_version_line_removed` падает и на базе `fa4ba6292`, и на кандидате — устаревший UI-снимок (`statusData.bot.version` присутствует в `web/app.js`). Обновить снимок при следующем касании UI 10.19; к release/test barriers не относится.
+
 ## Статус программ (сводка)
 
 - **MCA программа (раунды 10.27–10.48, MCA-01…22)** — ЗАКРЫТА: RELEASED + VERIFIED **2.58.67** (07.10.2026, mca-release; 2.58.31→2.58.67, SQLite v12→v33, каталог 473→523). Историческая шапка 10.27 «IN PROGRESS» в слепке устарела — программа закрыта раундом 10.48.

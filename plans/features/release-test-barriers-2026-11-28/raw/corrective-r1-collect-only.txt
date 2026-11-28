@@ -1,0 +1,4 @@
+# command: C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest --collect-only -q -p no:cacheprovider (cwd=worktree)
+# exit: 0
+23711 tests collected in 59.65s
+# collection/import errors: none (exit 0; полный список id не сохраняем — 4.9 MB дамп)

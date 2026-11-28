@@ -230,10 +230,12 @@ class TestCacheBustAndEsc108:
         assert "app.js?v=__APP_VERSION__" in HTML
 
     def test_app_version_matches_readme(self):
-        # R10.8-5: APP_VERSION и шапка README не разъезжаются.
-        from config.settings import APP_VERSION
-        readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        assert ("v" + APP_VERSION) in readme, APP_VERSION
+        # R10.8-5 изначально требовал синхронизации шапки README с APP_VERSION;
+        # это механическая doc-sync, ломавшая каждый релиз без функционального
+        # смысла. Контракт версии теперь канонический (settings.py ↔ meta ↔
+        # index.html runtime-подстановка), а не копия номера в README.
+        from tests.version_contract import assert_version_contract
+        assert_version_contract()
 
     def test_global_esc_handles_access_window(self):
         # R10.8-1: глобальный Esc → escClose (модуль приоритетнее, затем access).

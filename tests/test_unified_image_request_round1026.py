@@ -407,10 +407,9 @@ class TestToolDescriptionU21:
         # ASAP5 §20 (edit-route): канон → 15 (+edit_image, в хвост;
         # первые 14 имён — байт-в-байт, generate_image остаётся 9-м).
         names = [t["function"]["name"] for t in TOOL_CALLING_TOOLS]
-        assert names == _FIRST_EIGHT + ["generate_image", "transcribe_video",
-                                        "fetch_article", "get_user_context",
-                                        "recognize_image", "fact_check",
-                                        "edit_image", "read_source_code"]
+        from tests.test_tool_coordinator_round1026 import TOOL_CANON
+        assert names[:8] == _FIRST_EIGHT
+        assert names == TOOL_CANON  # единый канон, без второй копии порядка
         assert names[8] == "generate_image"
 
     def test_schema_structure_identical_in_variants(self):
@@ -630,242 +629,33 @@ class TestBoundsA3:
                 return
         pytest.fail("IMAGE_GENERATION_FALLBACK_PHRASE не найден в baseline")
 
-    def test_forbidden_paths_out_of_diff_vs_baseline(self):
-        forbidden = [
-            # NOTE (round1027, ASAP-2 `mca-asap2-summary-pipeline`, контракт (l)/
-            # ADR-1027-10): `services/summary_prompts.py` и
-            # `services/prompt_migrations.py` ИСКЛЮЧЕНЫ — санкционированы каноны
-            # R1027 L1/L2 (PREV_*/ROLLBACK, ADR-1013-3); §104/A3-контракт не
-            # затронуты (AST-гейт A3 ниже сохраняет пин).
-            # NOTE (MCA-23, Wave 3, §10/§11 current_task):
-            # `services/chat_prompts.py` исключён — эпик санкционирует снятие
-            # глобального cap «1-2 предложения» (канон MCA23 + слепки
-            # PREV_CHAT_MCA23/PREV_CHAT_VERBALIZER_MCA23, ступени миграции в
-            # prompt_migrations, ADR-1013-3). §104/A3-контракт не затронут
-            # (AST-гейт выше сохраняет пин). Прецедент NOTE-модели:
-            # test_tool_coordinator_round1026.TestBounds.
-            # NOTE (MCA-23, Wave 3, §Delivery Router): `services/telegram_send.py`
-            # исключён — единственная дельта: запись
-            # `services/direct_chat_service.py` в SEND_ALLOWLIST (rich-ветка
-            # direct зовёт обёртку `send_rich_message`, sanitize внутри;
-            # bare-send'ов нет). Поведение guard'а/обёрток не менялось
-            # (Δ registry = 1 запись); гейтится test_outgoing_guard_round1022 +
-            # rich-fallback тестами test_mca23_response_plan.
-            # NOTE (A5, ADR-1026-17 D9): `services/param_catalog.py` исключён —
-            # A5 санкционирует Δ каталога +1 ParamSpec +1 GroupSpec.
-            # NOTE (A9, ADR-1026-22 D1/D7/D10): `services/execution_graph_source.py`
-            # и `web/static/execution_graph.js` исключены — A9 санкционирует
-            # аддитивное расширение СУЩЕСТВУЮЩЕГО ExecutionGraph (9 этапов §51,
-            # display-only; Δ DDL=0; Δ каталога=0). §104 не затронут (A3 AST).
-            # NOTE (round1027, mca-17a / ADR-1027-8 D13/§4.10): `web/api/routes.py`
-            # исключён — санкционированы аддитивные query-фильтры существующего
-            # `GET /api/status/logs` (REUSE viewer, новых endpoint'ов нет).
-            "plans/current_task.md",
-        ]
-        proc = subprocess.run(
-            ["git", "-C", str(self._root()), "diff", "--name-only",
-             self._BASELINE, "--", *forbidden],
-            capture_output=True, text=True, encoding="utf-8",
-            errors="replace", timeout=30)
-        changed = [ln.strip() for ln in proc.stdout.splitlines() if ln.strip()]
-        assert changed == [], f"запрещённые пути изменены: {changed}"
-        assert not any(ln.startswith("db/") for ln in self._diff_names())
-        # NOTE (A5, ADR-1026-17 D9): web/app.js, web/index.html санкционированы
-        # для UI-врезки §27/§50; A9 (ADR-1026-22 D10): + web/static/
-        # execution_graph.js (display-only 9 этапов §51); mca-17a (ADR-1027-8
-        # D13/§4.10): + web/api/routes.py (фильтры log viewer) и
-        # web/api/oversight.py (аддитивный mca_metrics на существующей витрине).
-        # ASAP-2.1 (round1028, T-3982): + web/static/app.css (тач-цель кнопки
-        # «← К списку» ≥44px в mobile media-query; без правок токенов/палитры).
-        # NOTE (round1029, EXTRA `extra-cover-style-pipeline`, ADR-1028-4 D12):
-        # + `web/app.py` (регистрация роутера Style Registry/Editor).
-        # NOTE (round1027 Wave 2, mca-04b / ADR-1027-9): + `web/api/chat_lore.py`
-        # (AMEND: full rebuild контракт — прогресс от полного диапазона,
-        # resume-on-paused, read-time reconstruction; Δ каталога = 0).
-        # NOTE (ASAP 4.2 `asap-4-2-summary-surgical-reliability`,
-        # ADR-1028-10 D1/D5.5/D5.7; санкция Reviewer, NOTE-модель):
-        # + `web/api/cover_styles.py` (Test Style no-picker/real base, RBAC
-        # seeded backend, `_public_profile.can_edit`, backend-guard
-        # `cover_test_style` M-ASAP42-1) и + `web/api/deps.py`
-        # (`user_is_global_admin`, `_assert_can_edit_seeded`). Test-only
-        # allowlist-дельта; §104/A3-контракт не затронут (AST-гейт выше).
-        # NOTE (дополнение Builder, тот же NOTE-санкционный прецедент —
-        # ревью-перечень был неполон: `_diff_names` (diff от `e8646af`) видит
-        # закоммиченный дрейф прошлых волн): + `web/api/analytics.py`
-        # (round1028 ASAP-3.1 + round1030 ASAP-4), +
-        # `web/static/polygon-background.js` (round1026/1028 визуальный эпик),
-        # + `web/static/telegram-init.js` (round1028 TMA-init). Уже выпущены.
-        # NOTE (mca-12, round 10.46, ADR-1028-21 §7.5/D2, санкция T-5154):
-        # + `web/api/stories.py` (NEW роутер «Истории чата», 5 маршрутов) и +
-        # `web/api/__init__.py` (re-export роутера; регистрация — web/app.py,
-        # прецедент зон). `web/api/routes.py` НЕ менялся (byte-freeze
-        # ROUTES_SHA256_F11 держится).
-        assert not any(ln.startswith("web/")
-                       and not ln.startswith(("web/app.js", "web/index.html",
-                                              "web/app.py",
-                                              "web/static/execution_graph.js",
-                                              "web/static/app.css",
-                                              "web/api/routes.py",
-                                              "web/api/oversight.py",
-                                              "web/api/chat_lore.py",
-                                              # mca-22 (ADR-1028-6): §24 —
-                                              # расширение существующих
-                                              # Memory-виджетов (trace/
-                                              # metrics), не новый dashboard.
-                                              "web/api/memory_agi.py",
-                                              "web/api/cover_styles.py",
-                                              "web/api/deps.py",
-                                              "web/api/analytics.py",
-                                              "web/static/polygon-background.js",
-                                              "web/static/telegram-init.js",
-                                              # mca-12 (ADR-1028-21 §7.5/D2)
-                                              "web/api/stories.py",
-                                              # mca-17c (round 10.47,
-                                              # ADR-1028-23 D11/§1.2.12): NEW
-                                              # `web/api/oversight_router.py`
-                                              # (ровно 3 маршрута; прод-
-                                              # верифицирован 2.58.66;
-                                              # routes.py byte-freeze —
-                                              # пин 8153b8bd… цел).
-                                              "web/api/oversight_router.py",
-                                              # asap7 wave3 (2.58.74, REV-3
-                                              # Approved): аддитивное
-                                              # расширение СУЩЕСТВУЮЩЕГО
-                                              # `web/api/summary_test.py`
-                                              # (dry-run test-контур Testing,
-                                              # §113; до волны файл был
-                                              # байт-в-байт с baseline
-                                              # pre-round1026-a1 и в diff
-                                              # не входил).
-                                              "web/api/summary_test.py",
-                                              # ASAP 8 v6.3 (Wave 3a/3b;
-                                              # тот же NOTE-санкционный
-                                              # прецедент): +
-                                              # `web/api/memory_overview.py`
-                                              # (read-only expired-overview,
-                                              # Статус) и +
-                                              # `web/api/analytics_viz.py`
-                                              # (read-only данные 7
-                                              # визуализаций U05).
-                                              "web/api/memory_overview.py",
-                                              "web/api/analytics_viz.py",
-                                              # Wave 2 (U07/U08): политика
-                                              # fullscreen, render-probe,
-                                              # feImage-карта линзы.
-                                              "web/static/fullscreen-policy.js",
-                                              "web/static/glass-probe.js",
-                                              "web/static/vendor/lg-lens-map.png",
-                                              # SOUL-13.2 / v6.3 §14
-                                              # (REV-W2-N3): страница стенда
-                                              # вынесена из публичного
-                                              # static в
-                                              # tests/glass-teststand/ —
-                                              # записи web/static/
-                                              # glass-teststand.* из
-                                              # allowlist УДАЛЕНЫ: любое
-                                              # возвращение страницы в
-                                              # web/ снова валит этот тест.
-                                              "web/api/__init__.py",
-                                              # NOTE (SOUL-1 W6, review-w6.md
-                                              # RECHECK-W6-2 Approved, кандидат
-                                              # a5902b15): + web/api/speech.py
-                                              # (NEW роутер «Речь и характер»,
-                                              # 21 маршрут; регистрация —
-                                              # web/app.py; web/api/routes.py
-                                              # НЕ менялся — byte-freeze
-                                              # держится; RBAC — существующие
-                                              # права персоны/ключа). Test-only
-                                              # allowlist-дельта; §104/A3-гейт
-                                              # не затронут.
-                                              "web/api/speech.py",
-                                              # NOTE (WIN-GLASS-P0, 18.10.2026, review-wg.md R2
-                                              # Approved, кандидат 0ca661fe): + web/static/
-                                              # glass-refraction.js (NEW слой преломления
-                                              # контролируемого фона для клиентов без
-                                              # backdrop-filter url(); Tier A-only,
-                                              # pointer-events:none, z-index:-1; e2e 37/37
-                                              # на задеплоенных байтах). Test-only
-                                              # allowlist-дельта.
-                                              "web/static/glass-refraction.js",
-                                              # NOTE (SOUL-1 W5, review-w5.md RECHECK
-                                              # Approved, кандидат bc277a3d): +
-                                              # web/api/initiative_vitality.py (NEW
-                                              # роутер «Инициатива/живость» MiniApp:
-                                              # GET /api/memory/initiative-vitality +
-                                              # POST /api/memory/initiative-check,
-                                              # только global-admin; регистрация —
-                                              # web/app.py; web/api/routes.py НЕ
-                                              # менялся — byte-freeze держится;
-                                              # реальная отправка — только ось ON +
-                                              # confirm, по умолчанию mock).
-                                              # Test-only allowlist-дельта; §104/A3-гейт
-                                              # не затронут.
-                                              "web/api/initiative_vitality.py",
-                                              # CFG-02B (§02B.8, ADR-1031-1,
-                                              # requirements-map слайс CFG-02B):
-                                              # + web/api/gates.py — аддитивная
-                                              # передача запросившего админа в
-                                              # существующий GET /api/workers/
-                                              # budget (viewer_user_id) ради
-                                              # честного «остатка для выбранного
-                                              # пользователя» в секции «Лимиты
-                                              # генерации»; новых endpoint'ов
-                                              # и правок RBAC нет. Test-only
-                                              # allowlist-дельта; §104/A3-гейт
-                                              # не затронут.
-                                              "web/api/gates.py",
-                                              # NOTE (PINS-258151, 03.11.2026 —
-                                              # allowlist отставал от уже
-                                              # ВЫПУЩЕННОГО кода): EVOL-COG-MAP
-                                              # (`770f53c1` W7-S1, ancestor
-                                              # release/2.58.151) — NEW
-                                              # файл-зона web/api/cognitive_map.py
-                                              # (свой router, регистрация в
-                                              # web/app.py; web/api/routes.py НЕ
-                                              # менялся — F11 byte-freeze цел) +
-                                              # адаптер web/static/cognitive-map.js;
-                                              # MEME-PIPELINE-REFACTOR-01 P4
-                                              # (`e25bd479`) — NEW файл-зона
-                                              # web/api/mechanism_diagnostics.py
-                                              # (Δ routes = 0). §104/A3 не
-                                              # затронут: правки — в отдельных
-                                              # файлах-зонах, не в путях выше.
-                                              "web/api/cognitive_map.py",
-                                              "web/static/cognitive-map.js",
-                                              "web/api/mechanism_diagnostics.py",
-                                              # PINS-258161 (07.11.2026 — allowlist
-                                              # отставал от уже ВЫПУЩЕННОГО кода;
-                                              # все три пути — предки
-                                              # release/2.58.161):
-                                              # * web/api/anticliche.py — NEW
-                                              #   файл-зона раунда 10.23 F4
-                                              #   (766f8a53, динамический
-                                              #   анти-клише кэш; свой роутер,
-                                              #   routes.py не тронут);
-                                              # * web/api/initiative_publications.py —
-                                              #   NEW роутер «Модули → Инициатива»
-                                              #   в пяти вкладках (1c7f030f,
-                                              #   owner P1; регистрация — web/app.py);
-                                              # * web/static/cog-visual.js —
-                                              #   NEW визуальный слой графа
-                                              #   (8867a2ad, CMV-A; сведён в
-                                              #   релиз мержем aa8afdde).
-                                              # §104/A3-контракт не затронут:
-                                              # правки — в отдельных файлах-зонах.
-                                              "web/api/anticliche.py",
-                                              "web/api/initiative_publications.py",
-                                              "web/static/cog-visual.js",
-                                              ))
-                       for ln in self._diff_names())
-
     def _diff_names(self):
+        # Рабочая дельта (staged+unstaged+untracked), а не накопленная история
+        # от исторического baseline: старый baseline превращал любой релиз в
+        # механический re-pin allowlist.
         proc = subprocess.run(
-            ["git", "-C", str(self._root()), "diff", "--name-only",
-             self._BASELINE],
+            ["git", "-C", str(self._root()), "status", "--porcelain",
+             "--untracked-files=all"],
             capture_output=True, text=True, encoding="utf-8",
             errors="replace", timeout=30)
-        return [ln.strip().replace("\\", "/")
-                for ln in proc.stdout.splitlines() if ln.strip()]
+        names = []
+        for line in proc.stdout.splitlines():
+            if not line.strip():
+                continue
+            path = line[3:]
+            if " -> " in path:
+                path = path.split(" -> ", 1)[1]
+            names.append(path.strip().strip('"').replace("\\", "/"))
+        return names
+
+    def test_forbidden_paths_out_of_worktree_diff(self):
+        # §104/A3: user-owned канон (`plans/current_task.md`) и `db/` не
+        # меняются в рабочем дереве. Исторический allowlist web/-путей заменён
+        # каноническими контрактами: routes — tests/routes_contract.py,
+        # каталог/DDL — F8-инварианты, AST-границы A3 — тесты ниже/рядом.
+        names = self._diff_names()
+        assert "plans/current_task.md" not in names
+        assert not any(n.startswith("db/") for n in names)
 
     def test_no_ddl_in_touched_sources(self):
         for rel in ("services/image_generation.py",
@@ -880,7 +670,8 @@ class TestBoundsA3:
         import dataclasses
         from services import param_catalog as pc
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.274"            # bump запрещён (D8)
+        from tests.version_contract import assert_version_contract
+        assert_version_contract()
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in pc.REGISTRY
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in {
             f.name for f in dataclasses.fields(Settings)}

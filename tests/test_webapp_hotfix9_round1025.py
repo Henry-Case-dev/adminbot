@@ -202,7 +202,8 @@ class TestVendoredGlassAurora:
 class TestFlagsAcceptance:
     def test_app_version_bumped(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.274", m and m.group(1)
+        from tests.version_contract import assert_version_contract
+        assert_version_contract()
 
     def test_env_only_flags_delivered(self):
         for flag in HOTFIX9_FLAGS:

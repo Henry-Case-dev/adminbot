@@ -12,7 +12,7 @@ AdminBot — юмористический Telegram-бот «товарищ» д�
 | Telegram | aiogram 3.x (`>=3.31,<4`, rich_message/локальный режим) | MEMORY.md, requirements.txt |
 | LLM | deepseek-v4-flash через apinet.cloud (OpenAI-совместимый, провайдер-агностик), фолбэк DeepSeek direct; эмбеддинги gemini-embedding-001 (dim 3072); Groq whisper-large-v3 → OpenRouter fallback | MEMORY.md |
 | Хранилища | SQLite + sqlite-vec + FTS5 (память бота); PostgreSQL 16 + asyncpg (админка; Docker, слушает только 127.0.0.1) | MEMORY.md |
-| Тесты | pytest + pytest-asyncio; прод-база постоянно растёт (3111+ по README; 3280 passed на 31.08). **Правило: полный прогон перед каждым коммитом, 0 регрессий** | README, MEMORY.md |
+| Тесты | pytest + pytest-asyncio; прод-база постоянно растёт (3111+ по README; 3280 passed на 31.08). **Правило: перед каждым коммитом — соразмерные проверки изменённых компонентов (затронутые тесты + смежные контракты); полный прогон — при техническом основании (общие контракты, схема/миграции, высокий риск, неясная область влияния) или обязательном релизном требовании. Обязательные гейты релиза не ослабляются.** | README, MEMORY.md |
 | Прод | сервер 198.46.175.136, systemd `admin_bot`, `git pull --ff-only`, `TimeoutStopSec=30`; домен admin-bot.duckdns.org (DuckDNS + Caddy + Let's Encrypt) | MEMORY.md |
 
 ## Git и процессы

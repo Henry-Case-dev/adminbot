@@ -15,8 +15,8 @@
   * endpoints: ``/api/analytics/execution/latest`` отдаёт ``planned``;
     ``/api/analytics/response/summary`` (24h/7d) — агрегаты из СУЩЕСТВУЮЩИХ
     событий, честный fail-open (нет данных → available=False, «—»);
-  * routes.py не менялся (byte-freeze f25e759e…; аддитивный endpoint — в
-    analytics.py, регистрация в web/app.py).
+  * routes.py соответствует объявленному контракту (tests/routes_contract.py);
+    аддитивный endpoint — в analytics.py, регистрация в web/app.py.
 
 Автор: @Builder (MCA-23 P2-B).
 """
@@ -35,86 +35,8 @@ from services import execution_graph_source as egs
 from services import response_extent as ext
 
 _ROOT = Path(__file__).resolve().parent.parent
-_ROUTES = (_ROOT / "web" / "api" / "routes.py").read_bytes()
 _ANALYTICS = (_ROOT / "web" / "api" / "analytics.py").read_text(
     encoding="utf-8")
-
-ROUTES_SHA256_F11 = (
-    # ASAP 7 (F3): переутверждён — аддитивный ключ `modules` в GET /api/config;
-    # канон пина — tests/test_round1025_f8_registry.py (L-F11S-1).
-    # ASAP 8 v6 W-C-DIRECT re-pin (D03/D04, 14.10.2026): аддитивное поле `l1`
-    # в GET /api/direct/context-diagnostics (+ D07 overrides-map в той же
-    # параллельной зоне) — комбинированный хэш рабочего дерева.
-    # P0 p0-vision-universal (19.10.2026): аддитивные поля ответа
-    # POST /api/vision/test (visible_reason/provider/api_type) — Δ routes=0.
-    # P0-Vision FIX2 (V-FIX2, 19.10.2026): аддитивный контекст чата у
-    # GET /api/vision/state и POST /api/vision/test (chat_id/X-Chat-Id; без них
-    # — прежний глобальный слой) — Δ routes=0, RBAC/маскировка не менялись.
-    # NF-1 ревью e3fa4e97: проба отдаёт тот же контекстно-корректный `state`.
-    # P0 corrective 25.10.2026 (F7): аддитивное R17-safe поле `aliases` в
-    # GET /api/direct/context-diagnostics (Δ routes=0) — re-pin синхронно с
-    # каноном tests/test_round1025_f8_registry.py (L-F11S-1).
-    # P0 admin-toggle-save (28.10.2026): починка chat-пути POST /api/config
-    # (ограниченный ретрай на ChatParamsConflict; Δ routes=0) — re-pin
-    # синхронно с каноном (L-F11S-1).
-    # MEME-PIPELINE-REFactor-01 P2 (03.11.2026): контентная Δ в СУЩЕСТВУЮЩИХ
-    # POST /api/config и GET/POST /api/initiative/meme-settings (два
-    # редактируемых мем-промпта, единый гейт шаблона, витрина бюджета от
-    # эффективного шаблона, `extra="forbid"` в MemeSettingsUpdate; Δ routes=0) —
-    # re-pin синхронно с каноном (L-F11S-1).
-    # MEME-PIPELINE-REFactor-01 P4 (`MEME-IIC-DIAG-UI`, 03.11.2026,
-    # L-F11S-1 conscious requalification): контентная Δ в СУЩЕСТВУЮЩИХ
-    # GET/POST /api/initiative/meme-settings — сняты совместимые алиасы
-    # `length_limit.value`/`prefix_chars`/`summary_target` (карточка
-    # переведена на канонические имена MemeBudget: ceiling/template_chars/
-    # joke_budget; одно число — одно имя). Новый маршрут
-    # GET /api/initiative/mechanism-diagnostics добавлен НЕ здесь, а в
-    # отдельном файле-зоне web/api/mechanism_diagnostics.py, поэтому
-    # Δ routes=0 и routes-инвентарь f8_baseline не меняется. RBAC/
-    # маскировка/DDL не менялись. Хэш переутверждён осознанно (L-F11S-1).
-    # P0.5-CEILING-AUTO + P0-PUBLICATION (03.11.2026, hotfix 2.58.152,
-    # кандидат 97390ee4, L-F11S-1 conscious requalification): контентная Δ в
-    # СУЩЕСТВУЮЩИХ GET/POST /api/initiative/meme-settings (три состояния потолка
-    # длины: нет поля = не менять, пусто/`null`/исторический `0` = авто,
-    # положительное целое = фиксированный, мусор = 422 у поля; витрина отдаёт
-    # `events`/`event_names` публикации). Новых `@router`-маршрутов нет,
-    # Δ routes-инвентарь = 0. Копия канона: канон пина —
-    # tests/test_round1025_f8_registry.py (L-F11S-1).
-    # EPIC-PROMPT-VERSIONING-UX-01 (2.58.155): переутверждён вместе с
-    # каноном tests/test_round1025_f8_registry.py (L-F11S-1) —
-    # +4 аддитивных маршрута карточки версий/базовой ревизии промпта.
-    # URF backend honesty wave (06.11.2026, a5ee0864): +3 пути
-    # (/config/timezones, /config/time, /direct/turn-diagnostics) —
-    # переутверждён синхронно с каноном (L-F11S-1).
-    # MOD-ACL-UX-01 M4A (17.11.2026): синхронизировано с каноном
-    # tests/test_round1025_f8_registry.py (аддитивные state/permissions
-    # в GET /api/config; Δ маршрутов = 0).
-    # QRNG P1 (17.11.2026): синхронизировано с каноном — RBAC
-    # POST /api/random/test (только global admin) и guard записи ключей
-    # провайдера в POST /api/config; Δ маршрутов = 0.
-    # QRNG P3 (17.11.2026): синхронизировано с каноном — правила каталога
-    # для json-значений и кросс-полевой инвариант селектора в СУЩЕСТВУЮЩЕМ
-    # POST /api/config; Δ маршрутов = 0.
-    # QRNG P3 F1 corrective: chat-scope GET /api/config скрывает глобальные
-    # ключи селектора от non-admin (новых маршрутов нет).
-    # VMQ-TIME-09 (19.11.2026): аддитивная проекция СУЩЕСТВУЮЩЕГО
-    # GET /api/direct/turn-diagnostics (годы Writer-блоков, memory_period,
-    # bounded retrieval[], stages.retrieval); Δ routes=0, RBAC/DDL не менялись.
-    # Re-pin синхронно с каноном tests/test_round1025_f8_registry.py (L-F11S-1).
-    # MOD-ACL-UX-01 M4C C1 (22.11.2026): routes.py +12 — три honest
-    # 503-guard'а (GET /api/roles, /api/admins, /api/roles/tree) при пустом
-    # кэше и pg_available=false; Δ routes=0, без полей/флагов/DDL. Канон
-    # пина — tests/test_round1025_f8_registry.py (L-F11S-1).
-    # MOD-ACL-UX-01 M4C ACL-hardening S1/S2 (22.11.2026): routes.py re-pin —
-    # 5 write-маршрутов ACL только для effective global admin + S2-инварианты
-    # назначенных админов и per-app lock; Δ routes=0, DDL=0. Канон пина —
-    # tests/test_round1025_f8_registry.py (L-F11S-1).
-    # FCT-S6 U3 (28.11.2026): осознанный re-pin вместе с каноном
-    # tests/test_round1025_f8_registry.py — добавлен ровно один endpoint
-    # GET /api/factcheck/temporal/aggregate; других правок routes.py нет.
-    # Канон пина — f8_registry (L-F11S-1).
-    "5c20750a0a273651600a2baf1fe0a74a842585742af1e1a846cf1f8ecff79bdf")
-
 
 @pytest.fixture(autouse=True)
 def _clean_store():
@@ -498,9 +420,12 @@ def client_with_runs(monkeypatch):
 
 
 class TestResponseEndpoints:
-    def test_routes_pin_untouched(self):
-        # routes.py byte-freeze: аддитивный endpoint живёт в analytics.py.
-        assert hashlib.sha256(_ROUTES).hexdigest() == ROUTES_SHA256_F11
+    def test_routes_contract_intact(self):
+        # routes.py больше не пинится sha256: контракт маршрутов/методов/
+        # RBAC (tests/routes_contract.py). Аддитивный endpoint живёт в
+        # analytics.py; контракт routes.py обязан остаться неизменным.
+        from tests.routes_contract import assert_routes_contract_intact
+        assert_routes_contract_intact()
         assert "/analytics/response/summary" in _ANALYTICS
 
     def test_execution_latest_planned_roundtrip(self, client):

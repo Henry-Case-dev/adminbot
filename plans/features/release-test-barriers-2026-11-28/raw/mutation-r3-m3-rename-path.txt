@@ -1,0 +1,31 @@
+# mutation: m3-rename-path
+# M3: rename /persona/rules/{rule_id}/sources path
+# node: tests/test_round1025_f8_registry.py::TestFrozenInvariants::test_routes_contract_intact
+# command: C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest tests/test_round1025_f8_registry.py::TestFrozenInvariants::test_routes_contract_intact -q --no-header -p no:cacheprovider
+# exit: 1 -> RED (expected route substring 'отсутствуют' present: True)
+
+        # (tests/routes_contract.py). Падает при удалении маршрута, смене
+        # метода, снятии проверки прав, появлении необъявленного маршрута.
+        from tests.routes_contract import assert_routes_contract_intact
+>       assert_routes_contract_intact()
+
+tests\test_round1025_f8_registry.py:133: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def assert_routes_contract_intact() -> None:
+        """Главная проверка: живой routes.py соответствует объявленному контракту."""
+        expected = load_manifest()["routes"]
+        assert_routes_unique(expected, "манифест tests/fixtures/routes_contract.json")
+        actual = collect_routes()
+        exp_map = {(r["path"], tuple(r["methods"])): r for r in expected}
+        act_map = {(r["path"], tuple(r["methods"])): r for r in actual}
+        missing = sorted(set(exp_map) - set(act_map))
+        unexpected = sorted(set(act_map) - set(exp_map))
+>       assert not missing, "маршруты контракта отсутствуют в routes.py: %r" % (
+            missing,)
+E       AssertionError: маршруты контракта отсутствуют в routes.py: [('/persona/rules/{rule_id}/sources', ('GET',))]
+
+tests\routes_contract.py:435: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_round1025_f8_registry.py::TestFrozenInvariants::test_routes_contract_intact
+1 failed in 3.87s

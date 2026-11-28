@@ -6,8 +6,8 @@
 вкладке «Временной фактчек» (без нового раздела).
 
 Проверяется: успешный ответ, период/лимит, пустые сигналы null, отказ без
-прав (401/403), отсутствие секретов/текстов в теле, осознанно обновлённый
-пин `ROUTES_SHA256_F11`.
+прав (401/403), отсутствие секретов/текстов в теле, объявленный контракт
+маршрутов (`tests/routes_contract.py`).
 """
 from __future__ import annotations
 
@@ -29,12 +29,10 @@ import services.lore_runtime as lore_runtime
 import web.api.deps as deps_mod
 import web.api.routes as routes_mod
 from services.roles import Permissions
-from tests.test_round1025_f8_registry import ROUTES_SHA256_F11
 
 TEST_TOKEN = "123456:TEST-P0-TOKEN"
 ADMIN_ID = 700001
 USER_ID = 700002
-OLD_ROUTES_SHA = "b8f63355495c388a4240f9a96a0bebc3f1a99af663a7883ddfc4ab352a13c78a"
 
 
 def _init_data(user_id: int) -> str:
@@ -234,13 +232,21 @@ class TestAggregateApi:
 
 
 class TestRoutesPin:
-    def test_routes_pin_updated_and_green(self):
-        path = (Path(__file__).resolve().parent.parent
-                / "web" / "api" / "routes.py")
-        digest = hashlib.sha256(path.read_bytes()).hexdigest()
-        assert digest == ROUTES_SHA256_F11
-        assert ROUTES_SHA256_F11 != OLD_ROUTES_SHA
-        assert ROUTES_SHA256_F11.startswith("5c20750a")
+    def test_routes_contract_intact_with_new_endpoint(self):
+        # routes.py не пинится sha256 (устранён механический re-pin
+        # FCT-S6 U3). Контракт объявляет новый endpoint явно:
+        # GET /api/factcheck/temporal/aggregate с global-admin проверкой.
+        from tests.routes_contract import assert_routes_contract_intact
+        assert_routes_contract_intact()
+        from tests.routes_contract import load_manifest, route_checks
+        rows = [r for r in load_manifest()["routes"]
+                if r["path"] == "/factcheck/temporal/aggregate"]
+        assert len(rows) == 1
+        assert rows[0]["methods"] == ["GET"]
+        assert rows[0]["init_data"] is True
+        checks = route_checks(rows[0])
+        assert "requires_global_admin" in checks or \
+            "_ctx_global_admin" in checks
 
 
 class TestUiStructure:

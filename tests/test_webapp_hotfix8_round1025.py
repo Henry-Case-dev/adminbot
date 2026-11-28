@@ -219,7 +219,8 @@ class TestFlagsAcceptance:
     def test_app_version_bumped(self):
         # T-2834: HOTFIX9 bump 2.58.11 → 2.58.12 (cache-bust shell/glass/aurora).
         m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.274", m and m.group(1)
+        from tests.version_contract import assert_version_contract
+        assert_version_contract()
 
     def test_env_only_flags_delivered(self):
         for flag in HOTFIX8_FLAGS:

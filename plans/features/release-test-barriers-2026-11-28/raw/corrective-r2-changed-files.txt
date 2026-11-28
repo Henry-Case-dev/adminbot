@@ -1,0 +1,7 @@
+# command: C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest <32 changed tests/test_*.py cf. fa4ba6292> -q --no-header -p no:cacheprovider
+# exit: 1 — только 3 известных предсуществующих red в tests/test_webapp_round108_ui.py
+FAILED tests/test_webapp_round108_ui.py::TestRenames108::test_old_labels_gone
+FAILED tests/test_webapp_round108_ui.py::TestAccessWindows108::test_three_windows
+FAILED tests/test_webapp_round108_ui.py::TestAccessWindows108::test_no_accordion
+3 failed, 1024 passed, 1 warning in 88.12s (0:01:28)
+# self-check alone: 50 passed (tests/test_routes_contract_barriers.py)

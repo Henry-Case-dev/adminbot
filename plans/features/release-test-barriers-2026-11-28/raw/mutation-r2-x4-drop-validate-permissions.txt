@@ -1,0 +1,31 @@
+# mutation: x4-drop-validate-permissions
+# X4: remove validate_permissions from POST /roles
+# node: tests/test_round1025_f8_registry.py::TestFrozenInvariants::test_routes_contract_intact
+# command: C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest tests/test_round1025_f8_registry.py::TestFrozenInvariants::test_routes_contract_intact -q --no-header -p no:cacheprovider
+# exit: 1 -> RED (expected message 'изменены проверки прав /roles' present: True)
+
+        expected = load_manifest()["routes"]
+        assert_routes_unique(expected, "манифест tests/fixtures/routes_contract.json")
+        actual = collect_routes()
+        exp_map = {(r["path"], tuple(r["methods"])): r for r in expected}
+        act_map = {(r["path"], tuple(r["methods"])): r for r in actual}
+        missing = sorted(set(exp_map) - set(act_map))
+        unexpected = sorted(set(act_map) - set(exp_map))
+        assert not missing, "маршруты контракта отсутствуют в routes.py: %r" % (
+            missing,)
+        assert not unexpected, "необъявленные маршруты в routes.py: %r" % (
+            unexpected,)
+        for key in sorted(exp_map):
+            exp, act = exp_map[key], act_map[key]
+            assert exp["init_data"] == act["init_data"], (
+                "изменена auth-модель %s %s: init_data %r -> %r"
+                % (key[0], key[1], exp["init_data"], act["init_data"]))
+>           assert exp["checks"] == act["checks"], (
+                "изменены проверки прав %s %s: %r -> %r"
+                % (key[0], key[1], exp["checks"], act["checks"]))
+E           AssertionError: изменены проверки прав /roles ('POST',): ['get_tma_user', 'guard_admin_lockout', 'guard_last_wildcard', 'requires_global_admin', 'validate_permissions'] -> ['get_tma_user', 'guard_admin_lockout', 'guard_last_wildcard', 'requires_global_admin']
+
+tests\routes_contract.py:353: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_round1025_f8_registry.py::TestFrozenInvariants::test_routes_contract_intact
+1 failed in 4.40s

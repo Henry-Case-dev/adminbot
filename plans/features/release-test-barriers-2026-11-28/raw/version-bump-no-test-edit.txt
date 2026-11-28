@@ -1,0 +1,7 @@
+# temporary APP_VERSION=2.58.299 in canonical source+meta, tests unchanged
+$ pytest -k version <changed files>
+EXIT=0
+
+.........................                                                [100%]
+25 passed, 835 deselected in 8.22s
+

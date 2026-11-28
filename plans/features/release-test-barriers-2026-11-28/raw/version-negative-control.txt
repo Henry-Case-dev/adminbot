@@ -1,0 +1,38 @@
+# only settings.py bumped, release metadata NOT updated -> consistency must fail
+EXIT=1
+
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________________ TestInvariants.test_app_version_contract ___________________
+
+self = <tests.test_webapp_f9_round1025.TestInvariants object at 0x000002D253C65B20>
+
+    def test_app_version_contract(self):
+        # Текущий номер — канонический источник, а не литерал теста.
+        from tests.version_contract import assert_version_contract
+>       assert_version_contract()
+
+tests\test_webapp_f9_round1025.py:195: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def assert_version_contract() -> None:
+        from config.settings import APP_VERSION
+    
+        runtime = APP_VERSION
+        assert re.fullmatch(r"\d+\.\d+\.\d+", runtime), (
+            "APP_VERSION имеет невалидный формат: %r" % (runtime,))
+        assert runtime == declared_version(), (
+            "runtime APP_VERSION %r != литерал config/settings.py %r — "
+            "второй источник версии" % (runtime, declared_version()))
+        meta_match = _META_RE.search(META_PATH.read_text(encoding="utf-8"))
+        assert meta_match, "APP_VERSION отсутствует в release-метаданных каталога"
+>       assert meta_match.group(1) == runtime, (
+            "release-метаданные называют %r, runtime — %r"
+            % (meta_match.group(1), runtime))
+E       AssertionError: release-метаданные называют '2.58.272', runtime — '2.58.299'
+
+tests\version_contract.py:50: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_webapp_f9_round1025.py::TestInvariants::test_app_version_contract
+1 failed in 3.79s
+

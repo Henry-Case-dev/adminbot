@@ -1145,7 +1145,8 @@ class TestFlagsAndCanon:
         import dataclasses
         from config.settings import APP_VERSION
         from services import param_catalog as pc
-        assert APP_VERSION == "2.58.274"
+        from tests.version_contract import assert_version_contract
+        assert_version_contract()
         assert "IMAGE_CONTEXT_MEMORY_ENABLED" not in pc.REGISTRY
         assert "IMAGE_CONTEXT_MEMORY_ENABLED" not in {
             f.name for f in dataclasses.fields(Settings)}

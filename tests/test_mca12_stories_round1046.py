@@ -215,10 +215,8 @@ def test_routes_pin_unchanged_and_router_registered():
     import hashlib
     from pathlib import Path
     root = Path(__file__).resolve().parents[1]
-    sha = hashlib.sha256(
-        (root / "web/api/routes.py").read_bytes()).hexdigest()
-    from tests.test_round1025_f8_registry import ROUTES_SHA256_F11
-    assert sha == ROUTES_SHA256_F11
+    from tests.routes_contract import assert_routes_contract_intact
+    assert_routes_contract_intact()
     # роутер +5 маршрутов зарегистрирован в web/app.py (прецедент зон)
     app_py = (root / "web/app.py").read_text(encoding="utf-8")
     assert "include_router(stories_router" in app_py

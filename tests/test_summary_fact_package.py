@@ -650,7 +650,8 @@ class TestLivePathInvariants:
             f.name for f in dataclasses.fields(Settings)}
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.274"
+        from tests.version_contract import assert_version_contract
+        assert_version_contract()
 
     @pytest.mark.asyncio
     async def test_two_calls_stage1_stage2(self):

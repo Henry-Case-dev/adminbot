@@ -1,0 +1,992 @@
+{
+  "schema": 2,
+  "source": "web/api/routes.py",
+  "routes": [
+    {
+      "path": "/admins",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user",
+        "requires_permission:access"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/admins",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user",
+        "guard_admin_lockout",
+        "requires_global_admin"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/admins/remove",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user",
+        "guard_admin_lockout",
+        "requires_global_admin"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/config",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_ensure_keyvalue_object",
+        "can_access_chat",
+        "can_view_param",
+        "get_tma_user"
+      ],
+      "helper_checks": [
+        "can_access_chat",
+        "can_edit_param",
+        "can_view_param",
+        "gate_authorization"
+      ]
+    },
+    {
+      "path": "/config",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_meme_template_guard",
+        "_recheck_config_chat_rights",
+        "can_access_chat",
+        "can_edit_param",
+        "get_tma_user"
+      ],
+      "helper_checks": [
+        "_meme_template_guard",
+        "_random_selector_guard",
+        "can_access_chat",
+        "can_edit_param",
+        "can_view_key_value",
+        "user_is_global_admin"
+      ]
+    },
+    {
+      "path": "/config/chat/{key}",
+      "methods": [
+        "DELETE"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/config/keys/own",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_ctx_global_admin",
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/config/keys/own",
+      "methods": [
+        "PUT"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_ctx_global_admin",
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/config/keys/own/{key_name}",
+      "methods": [
+        "DELETE"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_ctx_global_admin",
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/config/keys/status",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "can_access_chat",
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/config/overrides-map",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "can_access_chat",
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/config/params-meta",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/config/time",
+      "methods": [
+        "DELETE"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/config/time",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "can_access_chat",
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/config/time",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "can_access_chat",
+        "can_edit_param",
+        "get_tma_user"
+      ],
+      "helper_checks": [
+        "can_edit_param"
+      ]
+    },
+    {
+      "path": "/config/timezones",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/control/restart",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user",
+        "requires_permission:action.control.restart"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/control/start",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user",
+        "requires_permission:action.control.start"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/control/stop",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user",
+        "requires_permission:action.control.stop"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/debug/config",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user",
+        "requires_permission:action.debug.config"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/direct/context-diagnostics",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "can_access_chat",
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/direct/turn-diagnostics",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "can_access_chat",
+        "get_tma_user"
+      ],
+      "helper_checks": [
+        "can_access_chat"
+      ]
+    },
+    {
+      "path": "/episodes/feed",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_require_chat_access",
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/episodes/recovery",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_require_chat_access",
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/episodes/{episode_id}",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_require_chat_access",
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/experience/pipeline",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_ctx_global_admin",
+        "get_tma_user"
+      ],
+      "helper_checks": [
+        "can_access_chat"
+      ]
+    },
+    {
+      "path": "/factcheck/temporal/aggregate",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_ctx_global_admin",
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/factcheck/temporal/runs",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_ctx_global_admin",
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/factcheck/temporal/runs/{run_id}",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_ctx_global_admin",
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/health",
+      "methods": [
+        "GET"
+      ],
+      "init_data": false,
+      "direct_checks": [],
+      "helper_checks": []
+    },
+    {
+      "path": "/images/test",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user",
+        "requires_global_admin"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/info",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/info",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user",
+        "requires_permission:edit_info"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/info/guide",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/info/guide",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user",
+        "requires_permission:edit_info"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/info/guide/backup",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user",
+        "requires_permission:edit_info"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/info/guide/reset",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user",
+        "requires_permission:edit_info"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/info/reset-canon",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user",
+        "requires_permission:edit_info"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/initiative/meme-settings",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_require_chat_access",
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/initiative/meme-settings",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_meme_template_guard",
+        "_recheck_meme_rights",
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/llm/test",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user",
+        "requires_global_admin"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/me",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/persona",
+      "methods": [
+        "DELETE"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user"
+      ],
+      "helper_checks": [
+        "match_permission:edit_persona",
+        "match_permission:section.content"
+      ]
+    },
+    {
+      "path": "/persona",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user"
+      ],
+      "helper_checks": [
+        "can_access_chat",
+        "match_permission:edit_persona",
+        "requires_global_admin"
+      ]
+    },
+    {
+      "path": "/persona",
+      "methods": [
+        "PUT"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user"
+      ],
+      "helper_checks": [
+        "get_tma_user",
+        "match_permission:edit_persona",
+        "match_permission:section.content"
+      ]
+    },
+    {
+      "path": "/persona/health",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user",
+        "requires_global_admin"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/persona/rules/{rule_id}/pause",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user"
+      ],
+      "helper_checks": [
+        "match_permission:edit_persona",
+        "match_permission:section.content"
+      ]
+    },
+    {
+      "path": "/persona/rules/{rule_id}/resume",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user"
+      ],
+      "helper_checks": [
+        "match_permission:edit_persona",
+        "match_permission:section.content"
+      ]
+    },
+    {
+      "path": "/persona/rules/{rule_id}/sources",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user"
+      ],
+      "helper_checks": [
+        "can_access_chat",
+        "match_permission:edit_persona"
+      ]
+    },
+    {
+      "path": "/persona/self-model",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user"
+      ],
+      "helper_checks": [
+        "can_access_chat",
+        "match_permission:edit_persona"
+      ]
+    },
+    {
+      "path": "/prompts/catalog",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_prompt_hidden_admin",
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/prompts/revisions/diff",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_prompt_require_revision_view",
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/prompts/revisions/{revision_id}/copy-to-global",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_prompt_require_edit",
+        "_prompt_require_revision_view",
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/prompts/revisions/{revision_id}/source",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_prompt_require_revision_view",
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/prompts/{prompt_key}/activate",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_prompt_require_edit",
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/prompts/{prompt_key}/baseline",
+      "methods": [
+        "DELETE"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_prompt_require_edit",
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/prompts/{prompt_key}/baseline",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_prompt_require_view",
+        "get_tma_user"
+      ],
+      "helper_checks": [
+        "_prompt_require_edit"
+      ]
+    },
+    {
+      "path": "/prompts/{prompt_key}/baseline",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_prompt_require_edit",
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/prompts/{prompt_key}/baseline/restore",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_prompt_require_edit",
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/prompts/{prompt_key}/factory/restore",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_prompt_require_edit",
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/prompts/{prompt_key}/versions",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_prompt_require_view",
+        "get_tma_user"
+      ],
+      "helper_checks": [
+        "_prompt_require_edit"
+      ]
+    },
+    {
+      "path": "/random/ibm/smoke",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user",
+        "requires_global_admin"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/random/test",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user",
+        "requires_global_admin"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/roles",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user",
+        "requires_permission:access"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/roles",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user",
+        "guard_admin_lockout",
+        "guard_last_wildcard",
+        "requires_global_admin",
+        "validate_permissions"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/roles/tree",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user",
+        "requires_permission:access"
+      ],
+      "helper_checks": [
+        "match_permission"
+      ]
+    },
+    {
+      "path": "/roles/{role_name}",
+      "methods": [
+        "DELETE"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user",
+        "guard_last_wildcard",
+        "requires_global_admin"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/roles/{role_name}/rename",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user",
+        "requires_global_admin"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/status",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "can_access_chat",
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/status/key-history",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/status/logs",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_is_global_admin",
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/status/media-health",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/status/self-diagnosis",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/vision/recognition-check",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_ctx_global_admin",
+        "can_view_key_value",
+        "get_tma_user"
+      ],
+      "helper_checks": [
+        "can_access_chat"
+      ]
+    },
+    {
+      "path": "/vision/state",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_ctx_global_admin",
+        "can_view_key_value",
+        "get_tma_user"
+      ],
+      "helper_checks": [
+        "can_access_chat"
+      ]
+    },
+    {
+      "path": "/vision/test",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "_ctx_global_admin",
+        "can_view_key_value",
+        "get_tma_user"
+      ],
+      "helper_checks": [
+        "can_access_chat"
+      ]
+    },
+    {
+      "path": "/youtube/proxy/health",
+      "methods": [
+        "GET"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user",
+        "requires_global_admin"
+      ],
+      "helper_checks": []
+    },
+    {
+      "path": "/youtube/proxy/test",
+      "methods": [
+        "POST"
+      ],
+      "init_data": true,
+      "direct_checks": [
+        "get_tma_user",
+        "requires_global_admin"
+      ],
+      "helper_checks": []
+    }
+  ]
+}

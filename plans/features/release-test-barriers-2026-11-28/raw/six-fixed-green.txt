@@ -1,0 +1,6 @@
+$ pytest tests/test_mca17c_invariants_round1047.py::test_no_ddl_catalog_ks_tools_delta tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_worktree_diff tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_worktree_diff tests/test_webapp_f9_round1025.py::TestInvariants::test_secret_inventory_exact
+EXIT=0
+
+......                                                                   [100%]
+6 passed in 4.27s
+
