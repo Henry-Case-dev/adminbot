@@ -116,6 +116,20 @@ HEAD фиксируется при деплое):
 - B-1 ревью (BACKLOG_ONLY) — `retrieved_at` snippet-only строк; вне контракта S5-U1, в релиз не входит.
 - Тесты на проде не запускаются; live-проверки — в `deploy-2.58.268.md`.
 
+## 9. Идентичность на коммите релиза (не только в index)
+
+`raw/identity-committed.txt` — блобы из **закоммиченного дерева**, а не из index:
+
+```
+services/factcheck_service.py       head_blob=6f916bb9801e… = candidate, committed_bytes_equal_worktree=True
+tests/test_fc_trust_s5_writer.py     head_blob=4e1390cfec76… = candidate, committed_bytes_equal_worktree=True
+services/factcheck_prompts.py        head_blob=64bb06c05fc7… = candidate, sha256=4cd1e893…, unchanged
+```
+
+Коммит с этим разделом (`docs(release)`) не трогает продуктовые файлы — только
+`plans/features/fc-trust-01/evidence/release-2.58.268/**` ⇒ байтовая идентичность сохраняется
+в задеплоенном дереве.
+
 ## Приложения
 
 `raw/`: `identity.txt`, `identity-committed.txt`, `product-delta.txt`, `product-diff-full.txt`,
