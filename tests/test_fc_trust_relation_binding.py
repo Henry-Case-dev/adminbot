@@ -20,14 +20,19 @@ from __future__ import annotations
 import pytest
 
 from services import factcheck_planner as fsp
+from services import factcheck_service as fsvc
 from services import search_aggregator as sa
 from services import temporal_factcheck as tf
 
 CHAT_ID = -100777
 
 CLAIM_2025 = "ЭкоПром снизила выбросы на 12% в 2025 году."
+CLAIM_2024 = "ЭкоПром снизила выбросы на 12% в 2024 году."
 PASSAGE_2024 = "ЭкоПром снизила выбросы на 12% в 2024 году."
 PASSAGE_2025 = "ЭкоПром снизила выбросы на 12% в 2025 году."
+#: FCT-U1-R1-F1 (ревью r1 §4): 2025 — цена билета, года в пассаже нет
+PASSAGE_AMOUNT = ("Билет на выставку стоит 2025 рублей, выбросы ЭкоПром "
+                  "снизились на 12%.")
 #: кросс-язычный контроль: у тезиса год есть, у пассажа года нет
 CLAIM_CROSS = "Индекс S&P 500 упал на 2,1% 30 октября 2026 года."
 PASSAGE_CROSS = ("S&P 500 falls 2.1% on October 30 after the sell-off")
@@ -148,6 +153,55 @@ class TestYearConflict:
                               support=PASSAGE_2024, source_kind="secondary")
         rel = fsp._relevance_for(ref, _claim("2025"))
         assert rel.role == sa.EVIDENCE_ROLE_QUALIFIES
+        assert "time:year_conflict" in rel.basis
+
+    #: FCT-U1-R1-F1: 4-значная сумма/количество — число, а не год.
+    @pytest.mark.parametrize("passage", [
+        PASSAGE_AMOUNT,                       # repro r1: «2025 рублей»
+        "Билет на выставку стоит 2025 млн рублей, выбросы ЭкоПром "
+        "снизились на 12%.",
+        "Билет на выставку стоит $2025 млн, выбросы ЭкоПром снизились "
+        "на 12%.",
+        "ЭкоПром снизила выбросы на 12%, сэкономлено 2025 тыс. тонн.",
+    ])
+    def test_amount_instead_of_year_behaves_like_no_year(self, passage):
+        """Сумма вместо года: пассаж ведёт себя как пассаж без года."""
+        rel = _relevance(passage, claim_text=CLAIM_2024, timeframe="2024")
+        assert rel.role == sa.EVIDENCE_ROLE_SUPPORTS
+        assert rel.strength == "direct"
+        assert "time:year_conflict" not in rel.basis
+
+    def test_amount_instead_of_year_keeps_supported_verdict(self):
+        """Сквозь merge: сумма не превращает supported в insufficient."""
+        rel = _relevance(PASSAGE_AMOUNT, claim_text=CLAIM_2024,
+                         timeframe="2024")
+        claim = _claim("2024", text=CLAIM_2024)
+        evidence = fsp.ClaimEvidence(
+            claim_id=claim.claim_id, evidence_id="ev-1",
+            url="https://eco.example/1", role=rel.role,
+            strength=rel.strength, opened=True, basis=rel.basis,
+            snippet_only=False, independent=True,
+            published_at_source="page", date_status="known")
+        coverage = fsp.ClaimCoverage(
+            claim=claim, search_status="source_read", status_detail="verified",
+            outcome=fsp.CLAIM_OUTCOME_CONFIRMED, evidence=(evidence,),
+            citation_ids=("ev-1",))
+        model = tf.TemporalVerdict(
+            factual_verdict="supported", temporal_status="current",
+            evaluated_period={}, assessment_mode="data_only", as_of=0,
+            parts=({"part_id": "c1", "factual_verdict": "supported",
+                    "evidence_refs": ["ev-1"]},))
+        merged = fsvc.merge_claim_coverage(model, (coverage,), ())
+        assert merged.factual_verdict == "supported"
+        assert merged.parts[0]["factual_verdict"] == "supported"
+
+    def test_amount_and_real_other_year_still_conflict(self):
+        """Сумма не маскирует настоящий другой год в том же пассаже."""
+        passage = ("Билет на выставку стоит 2025 рублей, а в 2023 году "
+                   "выбросы ЭкоПром снизились на 12%.")
+        rel = _relevance(passage, claim_text=CLAIM_2024, timeframe="2024")
+        assert rel.role == sa.EVIDENCE_ROLE_QUALIFIES
+        assert rel.strength == "indirect"
         assert "time:year_conflict" in rel.basis
 
 

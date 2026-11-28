@@ -594,3 +594,10 @@ lacks evidence for stage release» — провайдерские/UI-доказ�
   `_meme_last_closure` и корректен. Влияние: читаемость оси попытки, данные журнала верны.
   Воспроизведение: `tests/test_publication_binding_delivery.py` (`_meme_last_attempt` →
   `stop_stage="skipped"`).
+- [FCT-U1-R1-F2, fc-trust/verdict, исполнитель Builder — hardening, не блокирует U1]
+  `apply_validator` (`services/temporal_factcheck.py`) повторно нормализует части через
+  `verdict_from_payload` без `allowed_refs`, поэтому на втором проходе фильтр «ID выдержки
+  текущего прогона» не применяется. Наблюдаемого дефекта нет (части уже отфильтрованы первым
+  проходом, payload validator'а не содержит `parts`), защита держится на порядке вызовов.
+  Нужно прокинуть `allowed_refs` в `apply_validator` (ревью U1 r1 §4 F2). Влияние: latent-риск
+  при будущем переиспользовании validator'а с полным payload.
