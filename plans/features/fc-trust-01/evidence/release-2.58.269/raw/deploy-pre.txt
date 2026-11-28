@@ -1,0 +1,29 @@
+## Pre-deploy state (host /var/www/admin_bot)
+# The PowerShell stream capture lost its first lines; values are the actual
+# observed ones: pre-deploy HEAD is confirmed by the checkout message
+# 'Previous HEAD position was e46aa0696 …' and by manifest previous_sha/version.
+pre_head=e46aa0696769a5e2b3caa2c0074c7de209dbb597 (2.58.268, detached)
+pre_version=2.58.268 (manifest previous_version after deploy)
+
+--- disk before ---
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda1        99G   50G   44G  54% /
+root_free_bytes=46709903360 root_total_bytes=105557643264
+db_bytes=6999404544
+-rw-r----- 1 adminbot adminbot 6999404544 Nov 28 04:00 local_database.db
+-rw-r----- 1 adminbot adminbot   15009192 Nov 28 04:02 local_database.db-wal
+root_free_bytes=46700781568 db_bytes=6999580672 need_bytes=16146644992
+=== PRE DB (read-only) ===
+sqlite_version=3.45.1
+user_version_before=49
+mca_factcheck_runs_rows_before=57
+mca_factcheck_evidence_rows_before=435
+quick_check_before=ok
+schema_migrations_max_version=49
+mca_factcheck_runs_cols_before=['run_id', 'access_scope', 'chat_id', 'trigger_tg_message_id', 'target_tg_message_id', 'target_revision', 'target_content_hash', 'claim_text', 'claim_span', 'source_type', 'attribution', 'origin_type', 'repost_received_at', 'original_published_at', 'original_published_precision', 'claim_period_from', 'claim_period_to', 'date_source', 'date_timezone', 'date_uncertainty', 'requested_mode', 'assessment_mode', 'analysis_as_of', 'related_asset_id', 'related_analysis_revision', 'factual_verdict', 'temporal_status', 'evaluated_period', 'verdict_text', 'verdict_uncertainty', 'stage_trace', 'fallback_used', 'cache_hit', 'pipeline_version', 'tz_resolution_version', 'reason', 'revision', 'created_at', 'updated_at']
+mca_factcheck_evidence_cols_before=['id', 'run_id', 'claim_part', 'url', 'support', 'source_ref', 'published_at', 'published_at_source', 'retrieved_at', 'temporal_relevance', 'relation', 'source_kind', 'created_at']
+
+## Space gate (free >= 2 * db + 2 GiB, before touching git/service)
+root_free_bytes=46709903360 root_total_bytes=105557643264
+root_free_bytes=46700781568 db_bytes=6999580672 need_bytes=16146644992
+space_gate=OK

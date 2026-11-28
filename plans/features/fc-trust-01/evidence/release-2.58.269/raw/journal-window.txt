@@ -1,0 +1,29 @@
+=== CLEAN JOURNAL WINDOW (since migration complete) ===
+window_start=2026-11-28T04:15:14Z window_end=2026-11-28T04:38:15Z
+lines=1810
+ERROR=2
+CRITICAL=0
+Traceback=0
+no_such_column=0
+sqlite3.OperationalError=0
+database_is_locked=0
+KeyError=0
+TypeError=0
+AttributeError=0
+ImportError=0
+--- ERROR lines with context ---
+372:Nov 28 04:20:14 vps159032-gqg python[1223380]: 2026-11-28 04:20:14,689 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=fetch status=error reason=sources_unavailable problems=0 version=11
+373-Nov 28 04:20:14 vps159032-gqg python[1223380]: 2026-11-28 04:20:14,705 - services.mca_events - INFO - mca_event=anticliche_run | ts=1795839614 | event_name=anticliche_run | outcome=failed | level=INFO | component=anticliche.run | reason_code=provider_unavailable | duration_ms=36
+374-Nov 28 04:20:14 vps159032-gqg python[1223380]: 2026-11-28 04:20:14,711 - services.anticliche_worker - INFO - [anticliche] refresh | status=fetch_error | count=0 | source=wikipedia
+375:Nov 28 04:20:14 vps159032-gqg python[1223380]: 2026-11-28 04:20:14,711 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=refresh status=fetch_error reason=wikipedia count=0 version=11 next_run_time=2026-12-05 09:39:55.309511+05:00
+376-Nov 28 04:20:14 vps159032-gqg python[1223380]: 2026-11-28 04:20:14,714 - apscheduler.executors.default - INFO - Job "AntiClicheWorker.tick (trigger: interval[7 days, 0:00:00], next run at: 2026-12-05 09:39:55 +05)" executed successfully
+377-Nov 28 04:20:14 vps159032-gqg python[1223380]: 2026-11-28 04:20:14,715 - services.memory_maintenance - INFO - [mca09] intent heartbeat tick ran | due=0 expired=0 archived=0
+--- 5xx-like matches (raw) ---
+594:Nov 28 04:23:30 vps159032-gqg python[1223380]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/fastapi/dependencies/utils.py", line 529 in analyze_param
+--- factcheck tract lines ---
+Nov 28 04:15:14 vps159032-gqg python[1223380]: 2026-11-28 04:15:14,070 - services.database - INFO - [database] migration v50: factcheck_runs.correlation_id added
+Nov 28 04:15:14 vps159032-gqg python[1223380]: 2026-11-28 04:15:14,078 - services.database - INFO - [database] migration v50: factcheck_evidence.evidence_id added
+Nov 28 04:15:14 vps159032-gqg python[1223380]: 2026-11-28 04:15:14,079 - services.database - INFO - [database] migration v50: factcheck_evidence.opened added
+Nov 28 04:15:14 vps159032-gqg python[1223380]: 2026-11-28 04:15:14,080 - services.database - INFO - [database] migration v50: factcheck_evidence.strength added
+Nov 28 04:15:14 vps159032-gqg python[1223380]: 2026-11-28 04:15:14,080 - services.database - INFO - [database] migration v50 applied in 0.0s | factcheck_run_link_v50
+Nov 28 04:15:14 vps159032-gqg python[1223380]: 2026-11-28 04:15:14,215 - __main__ - INFO - SmartModule SmartSearch (Epic 33) initialized (FactCheck тАФ ╨┐╨╛╤Б╨╗╨╡ ╤Б╨▒╨╛╤А╨║╨╕ ToolRouter)

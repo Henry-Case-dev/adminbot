@@ -1,0 +1,28 @@
+=== FETCH/CHECKOUT ===
+From https://github.com/Henry-Case-dev/adminbot
+ * branch                release/2.58.269 -> FETCH_HEAD
+ * [new branch]          release/2.58.269 -> origin/release/2.58.269
+Previous HEAD position was e46aa0696 docs(release): 2.58.268 assembly - bind committed HEAD blob identity to reviewed a0a34dcd3
+HEAD is now at 6d97c02d8 docs(release): 2.58.269 assembly evidence - S6-U1 schema v50 from candidate fa3cb0391, byte-identical 7 files, bump 29/34, additive DDL + rollback SQL, routes b8f63355
+post_head=6d97c02d8a4830c5824cc9c39db311373f953b6d
+post_head_matches=True
+post_dirty=0
+строка:1 знак:170
+
+changed_paths=0
+bash: line 59: pre_head: unbound variable
+unreadable=0
+=== BLOBS ON PROD ===
+526377c8f78db4bc8524ac4f4594d36a9a96719c  services/database.py
+c617cff8257090e4fa9807cb12236d93173fa902  services/temporal_factcheck.py
+7fbf0eaa67be6477c7a9d108644c8c017c5ade08  services/factcheck_orchestrator.py
+7590f714fc035572a85872cd4ab99e817e189d52  services/factcheck_service.py
+89677641866451f8d940aa15136ab65c1296e77b  handlers/factcheck.py
+1b5c061112dafd39bc021b0b84e2c42525e997bb  tests/test_fc_trust_s6_run_link.py
+64bb06c05fc7067b2630951c2b407d5455e631fb  services/factcheck_prompts.py
+=== IMPORT ===
+IMPORT_OK 2.58.269
+=== MANIFEST + RESTART ===
+[release-manifest] wrote .deploy/release.json | sha=6d97c02d8a4830c5824cc9c39db311373f953b6d version=2.58.269 effect=deploy deployed_at=2026-11-28T04:07:43.509788Z
+manifest_rc=0
+{"deployed_at": "2026-11-28T04:07:43.509788Z", "deployed_sha": "6d97c02d8a4830c5824cc9c39db311373f953b6d", "deployer": "devops", "dirty_tracked": false, "effect": "deploy", "previous_sha": "e46aa0696769a5e2b3caa2c0074c7de209dbb597", "previous_version": "2.58.268", "schema": 1, "version": "2.58.269"}

@@ -1,0 +1,6 @@
+bot_settings_rows=558
+digest_md5_nl_k_v=6f6d6624f5f676a1f26dc4be75128aed
+all_max_updated_at=2026-11-27 21:48:55.892740+00:00
+prompts_rows=29
+prompts_max_updated_at=2026-11-27 12:16:16.360531+00:00
+factcheck_flags=[('flags.factcheck_enabled', 'true'), ('flags.factcheck_pipeline_v2', 'true'), ('flags.factcheck_wide_context', 'true')]

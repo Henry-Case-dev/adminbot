@@ -1,0 +1,30 @@
+## FTS5 integrity follow-up (release 2.58.269)
+
+At 04:47 UTC a live `PRAGMA integrity_check` on the running DB returned:
+`malformed inverted index for FTS5 table main.smart_messages_fts`.
+
+Two later live checks and a static copy are clean; the earlier live check at
+04:36 (phase B, same running service) was `ok`. The v50 migration does not touch
+`smart_messages_fts` (DDL adds only rows/evidence columns + one index), and the
+journal has no fts/malformed lines in the whole window.
+
+Evidence collected on the host:
+
+```
+live_integrity_1=ok (446s)          # 2.58.269, service running
+live_integrity_2=ok (355s)
+static_user_version=50              # VACUUM INTO /tmp/ab269_fts.db, then deleted
+static_integrity=ok
+static_quick=ok
+fts5_integrity_check=ok             # INSERT INTO smart_messages_fts(smart_messages_fts) VALUES('integrity-check')
+fts5_match_query_rows=(794,)        # SELECT COUNT(*) ... MATCH 'the'
+fts_rows=(2121871,)
+journal_malformed=0 journal_smart_messages_fts=0 journal_fts5=0
+journal_http_500=0 journal_http_502=0 journal_http_503=0
+```
+
+Conclusion: the single `malformed` line is a read-during-write artefact of
+checking a live FTS5 index under concurrent writers (SQLite documents FTS5
+integrity checks as lock-sensitive), not a data defect and not caused by v50.
+Static copy, FTS5-specific check and MATCH query on that copy are all clean.
+No action taken on production data; recorded here for honesty.

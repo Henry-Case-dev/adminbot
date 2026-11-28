@@ -1,0 +1,16 @@
+## Rollback SQL applied to a v50 copy (VACUUM INTO, /tmp, deleted afterwards)
+
+
+## Static v50 copy: PRAGMA + FTS5 integrity (phase E)
+
+live_integrity_1=ok (446s)
+live_integrity_2=ok (355s)
+vacuum_seconds=213 bytes=6664265728
+static_user_version=50
+static_integrity=ok
+static_quick=ok
+fts5_integrity_check=ok
+fts5_match_query_rows=(794,)
+fts_rows=(2121871,)
+fts_rc=0
+copy_exists=False
