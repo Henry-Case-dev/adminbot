@@ -143,7 +143,14 @@ ROUTES_SHA256_F11 = (
     # `status=inactive`. Route-set/декораторы/пути/RBAC/маскировка не
     # менялись (routes-инвентарь f8_baseline Δ=0). Предыдущий пин —
     # 6b5391e5d51af52cb4c49f9452ca2c2d30f8a2a3660ca7cb6d94be4623f6aa30.
-    "b8f63355495c388a4240f9a96a0bebc3f1a99af663a7883ddfc4ab352a13c78a")
+    # FCT-S6 U3 (28.11.2026, S6-U3): осознанный re-pin (L-F11S-1).
+    # Добавлен ровно один endpoint: GET /api/factcheck/temporal/aggregate
+    # (read-only сводка уже сохранённых прогонов, RBAC global admin —
+    # прецедент /api/factcheck/temporal/runs). Других изменений тела/путей
+    # нет; routes-инвентарь f8_baseline переиздан (+1 путь).
+    # Предыдущий пин:
+    # b8f63355495c388a4240f9a96a0bebc3f1a99af663a7883ddfc4ab352a13c78a.
+    "5c20750a0a273651600a2baf1fe0a74a842585742af1e1a846cf1f8ecff79bdf")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`

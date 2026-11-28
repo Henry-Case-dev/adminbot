@@ -39,6 +39,7 @@
     "/episodes/recovery",
     "/episodes/{episode_id}",
     "/experience/pipeline",
+    "/factcheck/temporal/aggregate",
     "/factcheck/temporal/runs",
     "/factcheck/temporal/runs/{run_id}",
     "/health",

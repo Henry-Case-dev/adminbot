@@ -9961,8 +9961,16 @@
                     даты и статусы честные</span>
                   <div class="ml-auto">
                     <button class="btn-ghost text-xs" :disabled="temporalRunsBusy"
-                            @click="loadTemporalRuns(true)" aria-label="Обновить" title="Обновить">⟳</button>
+                            @click="loadTemporalRuns(true); loadTemporalAggregate(true)" aria-label="Обновить" title="Обновить">⟳</button>
                   </div>
+                </div>
+                <!-- FCT-S6 U3: сводка сохранённых прогонов (read-only API;
+                     отсутствующий сигнал — «не измеряется», не 0). -->
+                <div v-if="temporalAggregateBusy"
+                     class="text-xs text-gray-500 mb-1">сводка обновляется…</div>
+                <div v-else-if="temporalAggregate && temporalAggregate.runs !== undefined"
+                     class="text-xs text-gray-400 mb-2" data-fc-aggregate>
+                  {{ temporalAggregateText() }}
                 </div>
                 <div v-if="temporalRunsBusy" class="spinner my-2"></div>
                 <div v-else-if="!temporalRuns || !temporalRuns.length"

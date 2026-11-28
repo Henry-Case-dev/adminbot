@@ -7150,6 +7150,12 @@
         // чужая область не засевает из него ни строк, ни состояния.
         temporalRunsScope: '',
         temporalRunsEpoch: null,
+        // FCT-S6 U3: сводные показатели прогонов (GET .../aggregate).
+        temporalAggregate: null,
+        temporalAggregateBusy: false,
+        temporalAggregateAt: 0,
+        temporalAggregateScope: '',
+        temporalAggregateEpoch: null,
         temporalDetail: null,
         temporalDetailBusy: false,
         dossierFeedBusy: false,
@@ -24245,6 +24251,11 @@
           if (!this.temporalRuns && !this.temporalRunsBusy) {
             this.loadTemporalRuns();
           }
+          // FCT-S6 U3: компактная сводка прогонов (read-only aggregate API).
+          if (!this.temporalAggregate && !this.temporalAggregateBusy
+              && typeof this.loadTemporalAggregate === 'function') {
+            this.loadTemporalAggregate();
+          }
           // VMQ-TIME-09: тот же store, что у Статуса; не-force — общий
           // TTL-кэш не делает второй запрос при переходе с «Статуса».
           if (typeof this.loadMemoryYearCoverage === 'function') {
@@ -28136,6 +28147,81 @@
             if (typeof self._maybeExitHistory === 'function') {
               self._maybeExitHistory();
             }
+          });
+      },
+      // FCT-S6 U3 (28.11.2026): компактная сводка сохранённых прогонов
+      // (`GET /api/factcheck/temporal/aggregate`, global-admin, read-only).
+      // Сигнал без durable-поля (entity_collision/media_partial) API отдаёт
+      // null — UI честно пишет «не измеряется», без выдуманных нулей.
+      temporalSharePct: function (value) {
+        if (value === null || value === undefined) return null;
+        var n = Number(value);
+        if (!isFinite(n)) return null;
+        return Math.round(n * 100) + '%';
+      },
+      temporalAggregateText: function () {
+        var a = this.temporalAggregate;
+        if (!a || typeof a !== 'object') return '';
+        var parts = ['прогонов: ' + (a.runs != null ? a.runs : 0)];
+        var st = a.execution_status;
+        if (st && typeof st === 'object') {
+          var line = 'завершено: ' + (st.complete || 0)
+            + ', частично: ' + (st.partial || 0)
+            + ', техсбой: ' + (st.technical_unverified || 0);
+          if (st.unknown) line += ', без статуса: ' + st.unknown;
+          parts.push(line);
+        } else {
+          parts.push('статус выполнения: не измеряется');
+        }
+        var snip = this.temporalSharePct(a.snippet_only_share);
+        parts.push(snip === null ? 'только сниппеты: не измеряется'
+                                 : 'только сниппеты: ' + snip);
+        var du = this.temporalSharePct(a.date_unknown_share);
+        parts.push(du === null ? 'дата неизвестна: не измеряется'
+                               : 'дата неизвестна: ' + du);
+        var mm = this.temporalSharePct(a.verdict_mismatch_share);
+        parts.push(mm === null ? 'расхождение с валидатором: не измеряется'
+                               : 'расхождение с валидатором: ' + mm);
+        var ec = this.temporalSharePct(a.entity_collision_share);
+        parts.push(ec === null ? 'коллизии сущностей: не измеряется'
+                               : 'коллизии сущностей: ' + ec);
+        var mp = this.temporalSharePct(a.media_partial_share);
+        parts.push(mp === null ? 'частичное медиа: не измеряется'
+                               : 'частичное медиа: ' + mp);
+        return parts.join(' · ');
+      },
+      loadTemporalAggregate: function (force) {
+        if (!this.isGlobalAdmin) return;
+        var self = this;
+        var scopeKey = (typeof this._wsScopeKey === 'function')
+          ? this._wsScopeKey() : '';
+        var epoch = this.scopeEpoch;
+        var fresh = !force && this.temporalAggregate
+          && this.temporalAggregateAt
+          && this.temporalAggregateScope === scopeKey
+          && this.temporalAggregateEpoch === epoch
+          && (Date.now() - this.temporalAggregateAt) < 30000;
+        if (fresh) return;
+        this.temporalAggregateBusy = true;
+        return this.api('/api/factcheck/temporal/aggregate?limit=100')
+          .then(function (s) {
+            if (typeof self._scopeGuard === 'function'
+                && !self._scopeGuard(epoch)) return;
+            self.temporalAggregate = (s && typeof s === 'object') ? s : null;
+            self.temporalAggregateAt = Date.now();
+            self.temporalAggregateScope = scopeKey;
+            self.temporalAggregateEpoch = epoch;
+          })
+          .catch(function () {
+            if (typeof self._scopeGuard === 'function'
+                && !self._scopeGuard(epoch)) return;
+            self.temporalAggregate = null;
+            self.temporalAggregateAt = Date.now();
+            self.temporalAggregateScope = scopeKey;
+            self.temporalAggregateEpoch = epoch;
+          })
+          .finally(function () {
+            self.temporalAggregateBusy = false;
           });
       },
       // ── MOD-ACL-UX-01 M4A W2b-B3 (H-1/H-7, 2.58.214): прогоны

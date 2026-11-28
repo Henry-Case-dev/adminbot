@@ -2899,13 +2899,13 @@ class Settings:
     # Hot-ключ отката: flags.factcheck_suitability_gate.
     FACTCHECK_SUITABILITY_GATE_ENABLED: bool = _env_bool(
         "FACTCHECK_SUITABILITY_GATE_ENABLED", False)
-    # CFG-06 W3 (06H): единый оркестратор run_factcheck — миграционный
-    # рубильник, default OFF (байт-паритет прод-пути 2.58.98). Внутри v2
-    # широкий контекст и suitability-гейт подразумеваются (консолидация
-    # W1/W2-флагов: см. evidence/cfg-06/w3-schemas.md §флаги).
+    # CFG-06 W3 (06H): единый оркестратор run_factcheck. FCT-S6 U3 (28.11.2026,
+    # правило проекта 09.11.2026): готовый v2-путь включён заводским
+    # значением ON при первом выкладе; существующие пользовательские/PG/hot
+    # настройки не сбрасываются (ConfigCache: PG → hot → env → factory).
     # Hot-ключ отката: flags.factcheck_pipeline_v2.
     FACTCHECK_PIPELINE_V2_ENABLED: bool = _env_bool(
-        "FACTCHECK_PIPELINE_V2_ENABLED", False)
+        "FACTCHECK_PIPELINE_V2_ENABLED", True)
     SEARCH_CONTEXT_MESSAGES: int = _env_int_min("SEARCH_CONTEXT_MESSAGES", 6, 0)
     # LLM-реранкинг выдачи (Anthropic Contextual Retrieval: rerank до −67% промахов).
     SEARCH_RERANK_ENABLED: bool = _env_bool("SEARCH_RERANK_ENABLED", True)

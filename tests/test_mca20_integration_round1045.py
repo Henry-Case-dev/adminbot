@@ -497,6 +497,9 @@ class TestHandlerPaths:
         from services.database import DatabaseService
         fh = self._patch_light(monkeypatch)
         monkeypatch.setattr(fh, "_temporal_on", lambda: True)
+        # FCT-S6 U3: заводской v2 теперь ON; этот тест проверяет legacy
+        # handler-путь с temporal-контуром — фиксируем v2 OFF явно.
+        monkeypatch.setattr(fh, "_pipeline_v2_enabled", lambda: False)
         db = DatabaseService(str(tmp_path / "t4.db"))
         await db.initialize()
 
@@ -561,6 +564,9 @@ class TestHandlerPaths:
         сервиса и reply), старые записи SmartCache не читаются."""
         fh = self._patch_light(monkeypatch)
         monkeypatch.setattr(fh, "_temporal_on", lambda: True)
+        # FCT-S6 U3: заводской v2 ON; тест целенаправленно проверяет legacy
+        # handler-путь — фиксируем v2 OFF явно.
+        monkeypatch.setattr(fh, "_pipeline_v2_enabled", lambda: False)
         envelope = _env()
         monkeypatch.setattr(
             tf, "build_envelope",
@@ -656,7 +662,8 @@ class TestRoutes:
         found = set(re.findall(
             r'@api_router\.(?:get|post)\("/(factcheck/temporal/[^"]+)"',
             txt))
-        assert found == {"factcheck/temporal/runs",
+        assert found == {"factcheck/temporal/aggregate",
+                         "factcheck/temporal/runs",
                          "factcheck/temporal/runs/{run_id}"}
 
     def test_run_json_compact_vs_full(self):
