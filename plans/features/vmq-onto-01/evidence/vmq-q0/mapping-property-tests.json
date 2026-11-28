@@ -1,0 +1,181 @@
+{
+  "schema": "vmq-q0.mapping-property-tests.v1",
+  "requirement": "VMQ-ONTO-01 / Q-08",
+  "slice": "VMQ-Q0",
+  "increment": "A",
+  "date": "2026-11-28",
+  "product_code_commit": "731a7e51cdb747fb3c0507ec80b885e4217766b0",
+  "branch": "feat/vmq-q0-2026-11-28",
+  "product_changed": false,
+  "product_change_reason": "Код контура уже в 2.58.274; тесты не вскрыли функционального дефекта в Q-08. Единственное аудит-наблюдение по Q-01 (ProviderSpec.fetch=None для anu) не является поведенческим дефектом и в scope инкремента не правилось.",
+  "environment": {
+    "os": "Windows",
+    "python": "3.12.0",
+    "pytest": "9.1.1",
+    "isolation": [
+      "ADMINBOT_SKIP_DOTENV=1 (корневой conftest)",
+      "tmp SQLite (DatabaseService.initialize)",
+      "fake quantum client: AnuClient(http_get=...) без сети",
+      "никаких прод-БД/схем/флагов/провайдеров"
+    ]
+  },
+  "test_files": [
+    "tests/test_vmq_q0_mapping_property.py",
+    "tests/test_vmq_q0_source_audit.py"
+  ],
+  "cases": [
+    {
+      "id": "Q08-T1",
+      "name": "rejection sampling без modulo bias + журнал отказов",
+      "test": "tests/test_vmq_q0_mapping_property.py::test_rejection_sampling_unbiased_on_8bit_range",
+      "fixture": "детерминированный fake quantum-клиент: AnuClient.fetch(uint8, 256 значений 0..255) → реальный AnuBatch → RandomStore.insert_batch",
+      "property": "limit=(256//3)*3=255; 255 draw по 3: counts == [85,85,85]; наивная формула value%3 на том же фикстуре даёт [86,85,85]; 256-е значение 255 отвергнуто и записано строкой selected_id=null; reserve_remaining==0",
+      "result": "PASS"
+    },
+    {
+      "id": "Q08-T2",
+      "name": "ровно один effective provider на draw, без смешивания, PRNG честно подписан",
+      "test": "tests/test_vmq_q0_mapping_property.py::test_one_effective_provider_per_draw_and_no_mixing",
+      "fixture": "ANU-партия 4 значения (created 2000) + LfDR-партия 2 значения (created 1000)",
+      "property": "resolve_selection.effective_provider — один канонический id; 4 draw из ANU, 2 из LfDR; каждая draw-запись ссылается на партию своего провайдера; reserved_upto ANU=4/LfDR=2; после исчерпания PRNG: source=pseudorandom, provider=python-random, provider_id=null, entropy_class=null, source_impl=python-random-mt19937; journal_stats quantum=6, pseudorandom=1; ни одна запись не смешивает quantum-провайдера с python-random",
+      "result": "PASS"
+    },
+    {
+      "id": "Q08-T3",
+      "name": "n==1 → index=0 без расхода и без записи",
+      "test": "tests/test_vmq_q0_mapping_property.py::test_n_equals_one_costs_nothing_and_journals_nothing",
+      "property": "resolve_selection подменён raiser-ом (не должен вызываться); index==0, deferred=False; reserve_remaining не изменился; журнал пуст; то же для сервиса без БД",
+      "result": "PASS"
+    },
+    {
+      "id": "Q08-T4",
+      "name": "scoped focus chat → global → restricted(default), без чтения чужих строк",
+      "test": "tests/test_vmq_q0_mapping_property.py::test_scoped_focus_chat_global_restricted",
+      "fixture": "реальный worker_settings.resolve_setting + fake ChatParamsCache/hot_config; счётчик chat_id у cache",
+      "property": "chat-override (pseudorandom) побеждает global (quantum) и применяется до генерации (ANU-партия не расходуется); без override — global (quantum, ANU расходуется); chat-слой недоступен (ok=False) → source=error, глобальный слой, только запрошенный chat_id; нет global+chat → default (DEFAULT_SOURCE=quantum); set(cache.calls) на каждый draw == ровно {запрошенный chat_id}, чужие chat_id не читаются",
+      "result": "PASS"
+    },
+    {
+      "id": "Q01-AUDIT-1",
+      "name": "реестр закрыт 3 каноническими id, без снятых/свободных имён",
+      "test": "tests/test_vmq_q0_source_audit.py::test_registry_is_closed_to_three_canonical_ids",
+      "property": "PROVIDERS/PROVIDER_IDS == ibm_quantum/anu/lfdr; id — код-идентификаторы; entropy_class=hardware_quantum; UI select_options == PROVIDER_IDS",
+      "result": "PASS"
+    },
+    {
+      "id": "Q01-AUDIT-2",
+      "name": "снятые провайдеры не подменяются молча",
+      "test": "tests/test_vmq_q0_source_audit.py::test_removed_and_unknown_providers_are_not_silently_substituted",
+      "property": "canonical_provider_id(lizaonair|ibm_qiskit|ibm|'')==''; primary_setting_state→requires_resolution; normalize_fallback_order отбрасывает мусор/дубли; entropy_class_for→null",
+      "result": "PASS"
+    },
+    {
+      "id": "Q01-AUDIT-3",
+      "name": "у каждого провайдера есть адаптер и он достижим из одного сервиса",
+      "test": "tests/test_vmq_q0_source_audit.py::test_every_provider_has_a_concrete_adapter; ::test_single_service_dispatches_every_provider_to_its_adapter",
+      "property": "AnuClient/LfdrClient/IbmQuantumRuntimeClient.fetch callable; lfdr_fetch/lfdr_check и ibm_fetch/ibm_check привязаны к реестру; один RandomSourceService с fake-клиентами получает батч от каждого провайдера",
+      "result": "PASS"
+    },
+    {
+      "id": "Q01-AUDIT-4",
+      "name": "единственный RandomSourceService, PRNG — не провайдер",
+      "test": "tests/test_vmq_q0_source_audit.py::test_single_random_source_service_class_and_singleton; ::test_prng_is_not_a_registry_provider_and_modes_stay_two",
+      "property": "ровно один класс *Service; get_service()/bind_db() — один экземпляр; MODES=(quantum,pseudorandom); python-random вне PROVIDERS/order; SOURCE_IMPL_PRNG=python-random-mt19937",
+      "result": "PASS"
+    },
+    {
+      "id": "Q01-AUDIT-5",
+      "name": "legacy-mapping memory.random_source/keys.random_quantum_* без потери",
+      "test": "tests/test_vmq_q0_source_audit.py::test_legacy_setting_keys_are_mapped_and_read_without_loss; ::test_legacy_mode_and_fallback_settings_are_read; ::test_legacy_provider_label_batch_is_consumed_without_rewrite",
+      "property": "9 pg-ключей совпадают и входят в PROVIDER_KEY_SETTINGS; accessors возвращают сохранённые значения; selected_mode/fallback читают memory.*; партия с provider='ANU Quantum Numbers' расходуется, provider_id='anu', история в БД не переписана",
+      "result": "PASS"
+    }
+  ],
+  "commands": [
+    {
+      "purpose": "new Q-01/Q-08 tests",
+      "command": "python -m pytest tests/test_vmq_q0_source_audit.py tests/test_vmq_q0_mapping_property.py -q --no-header -p no:cacheprovider",
+      "result": "13 passed"
+    },
+    {
+      "purpose": "related Q0/QM random suites",
+      "command": "python -m pytest tests/test_mca10a_random_source_block_a_round1037.py tests/test_mca10a_random_source_block_b_round1037.py tests/test_mca10a_random_source_block_c_round1037.py tests/test_mca10a_random_source_block_d_round1037.py tests/test_mca10a_random_source_block_e_round1037.py tests/test_mca10a_random_source_js_round1037.py tests/test_mca10b_random_applications_block_a_round1041.py tests/test_mca10b_random_applications_block_b_round1041.py tests/test_mca10b_random_applications_block_c_round1041.py tests/test_mca10b_random_applications_block_d_round1041.py --deselect tests/test_mca10a_random_source_block_e_round1037.py::test_reason_codes_additive_only -q",
+      "result": "139 passed, 1 deselected"
+    },
+    {
+      "purpose": "QRNG/Q07/random-bootstrap suites",
+      "command": "python -m pytest tests/test_qrng_f01_activation_batch_scope.py tests/test_qrng_p1_isolation.py tests/test_qrng_p2_lfdr.py tests/test_qrng_p3_selector.py tests/test_qrng_p5_ibm_adapter.py tests/test_qrng_p5b_ibm_admin.py tests/test_q07_field_stats.py tests/test_asap5_random_bootstrap_config.py --deselect tests/test_qrng_p1_isolation.py::TestRandomBatchProvenanceMigration::test_columns_and_step_registry --deselect tests/test_qrng_p1_isolation.py::TestRandomBatchProvenanceMigration::test_idempotent_and_legacy_rows_preserved --deselect tests/test_qrng_p1_isolation.py::TestProviderOperationRbac::test_api_status_has_no_key_fingerprint -q",
+      "result": "252 passed, 3 deselected"
+    }
+  ],
+  "mutations": [
+    {
+      "id": "M1",
+      "change": "services/mca_random_source.py::map_value_to_index — убран rejection (limit/отказ), оставлен value % n",
+      "expected_red": "Q08-T1",
+      "observed": "FAILED test_rejection_sampling_unbiased_on_8bit_range: AssertionError: assert (0 is None) (256-е значение принято; bias 86/85/85 вместо отказа)",
+      "reverted": true
+    },
+    {
+      "id": "M2",
+      "change": "services/mca_random_source.py::_quantum_index_draw — reserve_draw(provider_ids=None): смешивание источников (берётся самая ранняя партия любого провайдера)",
+      "expected_red": "Q08-T2",
+      "observed": "FAILED test_one_effective_provider_per_draw_and_no_mixing: AssertionError: assert 'lfdr' == 'anu' (draw взял LfDR при effective=ANU)",
+      "reverted": true
+    },
+    {
+      "id": "M3",
+      "change": "services/mca_random_source.py::_read_memory_setting — resolve_setting(chat_id=None): chat scope игнорируется",
+      "expected_red": "Q08-T4",
+      "observed": "FAILED test_scoped_focus_chat_global_restricted: AssertionError: assert 'quantum' == 'pseudorandom' (chat-override не применён до генерации)",
+      "reverted": true
+    },
+    {
+      "id": "M4",
+      "change": "services/mca_random_source.py — удалён legacy-алиас 'anu quantum numbers' и 'ANU Quantum Numbers' из ANU_PROVIDER_IDS",
+      "expected_red": "Q01-AUDIT-5",
+      "observed": "FAILED test_legacy_provider_label_batch_is_consumed_without_rewrite: AssertionError: assert '' == 'anu' (легаси-подпись не маппится/не расходуется)",
+      "reverted": true
+    }
+  ],
+  "mutation_cleanup": {
+    "method": "git checkout -- services/mca_random_source.py после каждой мутации",
+    "final_git_status": "только 2 новых untracked test-файла + evidence; product-файл чист"
+  },
+  "preexisting_failures_on_base": [
+    {
+      "test": "tests/test_mca10a_random_source_block_e_round1037.py::test_reason_codes_additive_only",
+      "cause": "литералы reason_code IBM job-lifecycle отсутствуют в mca_events.REASON_CODES: abandoned_before_submit, cancelled, config_changed, expired, job_in_progress, no_result, recovered, recovered_pool, submit_uncertain, task_failed",
+      "verified_on_clean_base": true,
+      "in_scope": false
+    },
+    {
+      "test": "tests/test_qrng_p1_isolation.py::TestRandomBatchProvenanceMigration::test_columns_and_step_registry",
+      "cause": "пин PRAGMA user_version == 48, фактическая схема 50",
+      "verified_on_clean_base": true,
+      "in_scope": false
+    },
+    {
+      "test": "tests/test_qrng_p1_isolation.py::TestRandomBatchProvenanceMigration::test_idempotent_and_legacy_rows_preserved",
+      "cause": "тот же пин user_version == 48",
+      "verified_on_clean_base": true,
+      "in_scope": false
+    },
+    {
+      "test": "tests/test_qrng_p1_isolation.py::TestProviderOperationRbac::test_api_status_has_no_key_fingerprint",
+      "cause": "blanket-подстрока 'fingerprint' в JSON статуса; новые поля map_fingerprint ломают устаревшую проверку",
+      "verified_on_clean_base": true,
+      "in_scope": false
+    }
+  ],
+  "coverage_limits": [
+    "реальные сетевые вызовы ANU/LfDR/IBM и live health не выполнялись (условие инкремента: без сети/провайдеров)",
+    "durable IBM job lifecycle покрыт существующими p5-наборами, не этими тестами",
+    "UI/RBAC запись снятого primary_provider — существующие P3-тесты; здесь только read-семантика requires_resolution",
+    "ANU ProviderSpec.fetch == None — аудит-наблюдение, не функциональный дефект (адаптер достижим через сервис; spec.fetch не читается потребителями)"
+  ],
+  "status_recommendation": {
+    "Q-08": "REVIEW (evidence достаточно для независимой проверки; VERIFIED ставит Reviewer)",
+    "Q-01": "REVIEW (evidence достаточно; учесть аудит-наблюдение про ProviderSpec.fetch=anu)"
+  }
+}
