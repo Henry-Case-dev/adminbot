@@ -1,0 +1,31 @@
+# mutation: m5-shadow-route-admins
+# duplicate GET /admins registered BEFORE original with weaker auth
+# node: tests/test_round1025_f8_registry.py::TestFrozenInvariants::test_routes_contract_intact
+# command: C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest tests/test_round1025_f8_registry.py::TestFrozenInvariants::test_routes_contract_intact -q --no-header -p no:cacheprovider
+# exit: 1 -> RED (expected message 'неуникальные' present: True)
+
+tests\routes_contract.py:255: in collect_routes
+    assert_routes_unique(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+rows = [{'path': '/health', 'methods': ['GET']}, {'path': '/me', 'methods': ['GET']}, {'path': '/config', 'methods': ['GET']}...['POST']}, {'path': '/config/params-meta', 'methods': ['GET']}, {'path': '/config/timezones', 'methods': ['GET']}, ...]
+where = 'AST-декораторы routes.py'
+
+    def assert_routes_unique(rows: list[dict], where: str) -> None:
+        """Отказ при дубле маршрута: FastAPI диспатчит первый обработчик.
+    
+        Второй обработчик того же ``path``+method недостижим, но его наличие
+        означает, что порядок регистрации определяет, какая проверка доступа
+        реально применяется. Молча схлопывать такие записи нельзя.
+        """
+        duplicates = duplicate_route_keys(rows)
+>       assert not duplicates, (
+            "неуникальные (path, methods) в %s: %r — второй обработчик с тем же "
+            "путём/методом недостижим и может ослабить проверку доступа"
+            % (where, duplicates))
+E       AssertionError: неуникальные (path, methods) в AST-декораторы routes.py: [('/admins', ('GET',))] — второй обработчик с тем же путём/методом недостижим и может ослабить проверку доступа
+
+tests\routes_contract.py:226: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_round1025_f8_registry.py::TestFrozenInvariants::test_routes_contract_intact
+1 failed in 3.86s

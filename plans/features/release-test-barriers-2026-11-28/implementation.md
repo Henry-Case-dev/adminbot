@@ -5,6 +5,7 @@
   rebase release-ветка ушла вперёд deploy-docs `fa4ba6292` (код не менялся) — ветка ребейзнута на неё.
 - **Worktree:** `WorkspaceData/worktrees/…/release-test-barriers-2026-11--19f1987d0616-5da2a6da`
 - **Кодовый кандидат:** `7e8eb8a05a8ea0bfefbef4b7a277328d9189f61d` (tests/contracts + `plans/project.md`; evidence-коммит идёт следом)
+- **Corrective r1 (review-r1, F-BAR-01/02/03):** code `222ad0046` (routes contract: уникальность маршрутов, guard-эвристика, CLI `--emit/--check`), evidence — этот коммит; см. §10.
 - **Прямое поручение владельца:** убрать повторяющиеся механические барьеры тестов и релиза (2026-11-28).
 
 ## 1. Полнофайловые sha256-пины продуктовых файлов — найдено и заменено
@@ -14,7 +15,7 @@
 | Файл-объект | Где был пин | Замена |
 |---|---|---|
 | `web/api/routes.py` | `test_round1025_f8_registry.ROUTES_SHA256_F11` (+`test_routes_file_unchanged`); копия в `test_mca23_planned_vs_actual`; импорт в `test_asap7_cover_preview`, `test_mca10b…`, `test_mca12…`, `test_mca17c…`, `test_fc_trust_s6_aggregate_api` | `tests/routes_contract.py`: объявленный манифест `tests/fixtures/routes_contract.json` (78 операций: path + methods + initData + нормализованные guard-проверки). Падает при удалении/переименовании маршрута, смене метода, снятии RBAC/иной проверки прав, появлении необъявленного маршрута. |
-| `services/param_catalog.py` | `PARAM_CATALOG_SHA256_FOLLOWUP` (`TestFrozenInvariants.test_param_catalog_unchanged`) | `test_param_catalog_identity_contract`: идентичность ключей с `catalog_baseline.json`, валидные типы/чувствительность; описания/типы/секретность остаются под переэмиссией `gen.run_check` (отдельный TestGenerator). |
+| `services/param_catalog.py` | `PARAM_CATALOG_SHA256_FOLLOWUP` (`TestFrozenInvariants.test_param_catalog_unchanged`) | `test_param_catalog_identity_contract`: идентичность **ключей** с `catalog_baseline.json` + валидность `type`/`sensitivity` по самому REGISTRY. Типов baseline не хранит: описания/типы/секретность защищены переэмиссией `gen.run_check`/`--check` по TSV (отдельный TestGenerator). |
 | `services/pg_db.py` | `PG_DB_SHA256_B07` (`test_ddl_source_unchanged`) | `test_ddl_source_contract`: нет `DROP TABLE`/`TRUNCATE`, `CREATE … IF NOT EXISTS`, обязательные таблицы присутствуют, цепочка `migration_steps()` строго возрастает без дублей. |
 
 **Не тронуты (осознанно, это не пины активно изменяемого исходника):**
@@ -81,6 +82,11 @@ fixture 2.58.15 сохранён, runtime проверяется контрак�
   `TestAccessWindows108::test_no_accordion` (`role="tabpanel"` присутствует) — **не относятся** к
   version/route/sha-механизмам; это старые UI-снимки 10.8. Оставлены без изменений как honest backlog
   (лог: `raw/preexisting-round108-unrelated.txt`), чтобы не расширять задачу на рефакторинг UI-тестов.
+- Четвёртый предсуществующий красный (найден ревью r1, F-BAR-06):
+  `tests/test_status_section_ui_merge_round1019.py::TestStatusSectionMerge::test_mode_version_line_removed`
+  — устаревший UI-снимок (`statusData.bot.version` присутствует в `web/app.js`), падает и на базе
+  `fa4ba6292`, и на кандидате; к механизмам этой задачи не относится. Записан в `plans/backlog.md`
+  (лог: `raw/corrective-r1-status-section-round1019.txt`).
 
 ## 5. Мутации (RED) и норма (GREEN)
 
@@ -124,6 +130,7 @@ fixture 2.58.15 сохранён, runtime проверяется контрак�
 ## 8. Изменённые файлы
 
 - Новые: `tests/routes_contract.py`, `tests/fixtures/routes_contract.json`, `tests/version_contract.py`.
+- Self-check контракта (corrective r1): `tests/test_routes_contract_barriers.py`.
 - Тесты: `test_round1025_f8_registry`, `test_mca23_planned_vs_actual`, `test_asap7_cover_preview`,
   `test_mca10b_random_applications_block_d_round1041`, `test_mca12_stories_round1046`,
   `test_mca17c_invariants_round1047`, `test_fc_trust_s6_aggregate_api`, `test_tool_coordinator_round1026`,
@@ -135,12 +142,124 @@ fixture 2.58.15 сохранён, runtime проверяется контрак�
 
 ## 9. Ограничения
 
-- `routes_contract.json` — объявленный контракт: санкционированное добавление маршрута требует одной осознанной
-  записи в манифест (команда генерации описана в `tests/routes_contract.py`), но больше не зависит от
-  комментариев/форматирования/тела обработчиков.
+- `routes_contract.json` — объявленный контракт: санкционированное добавление маршрута или изменение
+  проверок требует одной осознанной переэмиссии манифеста, но больше не зависит от
+  комментариев/форматирования/тела обработчиков. Точные команды:
+  `python -m tests.routes_contract --emit` (записать) и
+  `python -m tests.routes_contract --check` (сверить без записи; exit 0/1).
 - Проверки прав нормализованы по guard-вызовам (`_ctx_global_admin`, `requires_permission:<право>`,
   `_prompt_require_*`, `_require_chat_access`, `_is_global_admin`, …); смена *семантики* самого guard-хелпера
   контрактом маршрутов не покрывается — это зона тестов ACL/ролей.
+- Guard-набор выводится эвристикой имени (`_require*`/`_assert*`/`*_guard`/`*_rights`/`*_admin`) плюс явный
+  whitelist; guard внутри module-level хелпера, который вызывается из маршрута, раскрывается на **один**
+  уровень. Глубже контракт не идёт (маршрутный, не граф всего модуля). Побочный эффект одного уровня:
+  `_prompt_require_edit` внутри capability-probe `_prompt_can_activate` пинится и для
+  `GET /prompts/{prompt_key}/versions` (вызов реально исполняется, но отказ проглатывается) — это осознанное
+  over-approximation, а не заявленная enforcement-точка.
 - 3 UI-снимка 10.8 остаются красными (см. §4), не входят в контракт этой задачи.
 - `test_webapp_round108_ui` содержит и исправленный version-тест, и 3 несвязанных падения; в прогонах выше они
   явно отделены deselect'ом.
+
+## 10. corrective r1: F-BAR-01/02/03 (закрытие findings независимого ревью)
+
+Ревью r1 (`review-r1.md`, §4) нашло два blocking-пробела в новом маршрутном контракте и один
+документационный: F-BAR-01 (дубль маршрута молча схлопывался), F-BAR-02 (inline-guard'ы вне whitelist
+невидимы), F-BAR-03 (не существовало документированной команды переэмиссии). F-BAR-04/05/06 —
+BACKLOG_ONLY, записаны в `plans/backlog.md`, не «чинились». Продукт не менялся: правки только в
+`tests/**` (эти два файла), `plans/features/release-test-barriers-2026-11-28/**`, `plans/backlog.md`.
+
+### 10.1 F-BAR-01 — дубль маршрута теперь ловится
+
+`tests/routes_contract.py`:
+
+- `duplicate_route_keys(rows)` / `overlapping_route_methods(rows)` / `assert_routes_unique(rows, where)` —
+  отказ при одинаковом `(path, methods)` и при одном методе, зарегистрированном двумя обработчиками;
+- `collect_routes()` проверяет уникальность **дважды**: на AST-декораторах `api_router` (два декоратора с
+  одним ключом) и на живом `api_router.routes` (включая пересечение методов);
+- каждый живой `APIRoute` обязан иметь AST-декоратор (`assert fn is not None`), иначе проверки доступа
+  нечем проверить — молчаливый `checks=[]` больше невозможен;
+- `assert_routes_contract_intact()` валидирует и сам манифест (ручной дубль в fixture тоже RED).
+
+Мутация M5 (точный сценарий ревьюера: второй `@api_router.get("/admins")` с `Depends(get_tma_user)` без
+RBAC **перед** оригиналом) → `AssertionError: неуникальные (path, methods) в AST-декораторы routes.py:
+[('/admins', ('GET',))]` (лог `raw/mutation-m5-shadow-route-admins.txt`). Позитивный тест того же
+сценария — `tests/test_routes_contract_barriers.py::TestDuplicateRoutes` (rows-уровень и AST-уровень,
+shadow-обработчик назван `get_admins_shadow`).
+
+### 10.2 F-BAR-02 — guard-набор выводится, а не только расширен
+
+- `is_guard_call_name(name)`: явный `EXPLICIT_GUARD_CALLS` + эвристика `(?:^|_)requires?_`, `^_?assert`,
+  `_guard$`, `_rights$`, `*_admin` (private/`is_`/`user_is_`/`*_global_admin`/`*_hidden_admin`).
+  Бизнес-операции `add_admin`/`remove_admin`/`upsert_admin` и локальные переменные вида `required`
+  намеренно не считаются guard'ами (проверено тестами).
+- `_source_checks()` учитывает не только прямые вызовы, но и guard, переданный callback'ом
+  (`recheck=_recheck_config_chat_rights`), и **на один уровень** раскрывает module-level хелперы,
+  вызываемые из маршрута (например, `_post_config_global`), чтобы guard внутри общего хелпера не был
+  невидим. Глубже — нет (ограничение §9).
+- `tests/fixtures/routes_contract.json` переэмитирован; диф ограничен 4 маршрутами:
+  `POST /config` (+`_meme_template_guard`, `_random_selector_guard`, `_recheck_config_chat_rights`,
+  `user_is_global_admin`), `POST /initiative/meme-settings` (+`_meme_template_guard`,
+  `_recheck_meme_rights`), `GET /prompts/catalog` (+`_prompt_hidden_admin`),
+  `GET /prompts/{prompt_key}/versions` (+`_prompt_require_edit` через `_prompt_can_activate`).
+- `tests/test_routes_contract_barriers.py::TestGuardHeuristic` фиксирует, что все пять имён из ревью
+  (`_prompt_hidden_admin`, `_random_selector_guard`, `_recheck_config_chat_rights`, `_recheck_meme_rights`,
+  `_meme_template_guard`) видимы и реально записаны в манифесте.
+
+Мутации (лог `raw/mutation-m6-…`/`m7-…`/`m8-…`/`m9-…`): M6 `if not _prompt_hidden_admin(...)` → `if False:`
+→ RED `изменены проверки прав /prompts/catalog … ['_prompt_hidden_admin','get_tma_user'] -> ['get_tma_user']`;
+M7 удаление `_random_selector_guard(cache, prepared)` из общего хелпера → RED `/config`; M8 удаление
+`recheck=_recheck_config_chat_rights` → RED `/config`; M9 удаление `recheck=_recheck_meme_rights` → RED
+`/initiative/meme-settings`.
+
+### 10.3 F-BAR-03 — реально работающая команда переэмиссии
+
+В `tests/routes_contract.py` добавлен `__main__`-CLI:
+
+```
+python -m tests.routes_contract --emit    # записать tests/fixtures/routes_contract.json
+python -m tests.routes_contract --check   # сверить без записи, exit 0/1
+```
+
+`--emit` детерминирован (LF, indent=2, сортировка) и **байт-идентичен при повторном запуске**:
+sha256 `2f2e6774…81ac31ba` до и после двух `--emit` (`raw/corrective-r1-manifest-parity.txt`).
+`--check` — exit 0 на согласованном дереве. Те же свойства закреплены тестами
+`TestManifestEmission` (рендер == файл, emit в tmp == байты fixture, subprocess `-m ... --check`).
+
+### 10.4 Мутации r1 (все RED) и прогоны
+
+Все мутации — правка `web/api/routes.py` с обязательным восстановлением (`git status` после прогона:
+изменены только `tests/**`), лог на мутацию в `raw/mutation-m*.txt`:
+
+| # | Мутация | Результат |
+|---|---|---|
+| M1 | `GET /admins`: `requires_permission("access")` → `("admin")` | **RED** `изменены проверки прав /admins` |
+| M2 | `GET /health`: добавлен `Depends(get_tma_user)` | **RED** (auth-модель/публичный инвариант) |
+| M3 | `GET /persona/rules/{rule_id}/sources` → `/persona/rule-sources/{rule_id}` | **RED** `маршруты контракта отсутствуют` |
+| M4 | `POST /vision/test`: убран `_ctx_global_admin(cache, user)` | **RED** `изменены проверки прав /vision/test` |
+| M5 | дубль `GET /admins` без RBAC перед оригиналом | **RED** `неуникальные (path, methods)` |
+| M6 | `GET /prompts/catalog`: `if not _prompt_hidden_admin(...)` → `if False:` | **RED** checks `/prompts/catalog` |
+| M7 | удалён `_random_selector_guard` в общем хелпере | **RED** checks `/config` |
+| M8 | убран callback `_recheck_config_chat_rights` | **RED** checks `/config` |
+| M9 | убран callback `_recheck_meme_rights` | **RED** checks `/initiative/meme-settings` |
+
+Прогоны (venv `C:\Code\Python\adminbot\.venv`, `PYTHONPATH` = worktree, `-p no:cacheprovider`):
+
+| Прогон | Результат | Raw |
+|---|---|---|
+| `pytest tests/test_routes_contract_barriers.py -q` | **27 passed** | (в changed-files) |
+| 31 изменённый тест-файл кандидата + новый self-check | **1001 passed, 3 failed** — только известные `test_webapp_round108_ui` (`test_old_labels_gone`, `test_three_windows`, `test_no_accordion`) | `corrective-r1-changed-files.txt` |
+| `tests/test_status_section_ui_merge_round1019.py` | **1 failed, 6 passed** — четвёртый предсуществующий красный (F-BAR-06, не регрессия) | `corrective-r1-status-section-round1019.txt` |
+| `pytest --collect-only -q` | **23 711 tests collected, exit 0**, ошибок коллекции нет | `corrective-r1-collect-only.txt` |
+| `python tools/gen_param_registry_round1025.py --check` | **EXIT 0** (`реестр 668 == REGISTRY`) | `corrective-r1-registry-check.txt` |
+| `collect_routes()` vs `routes_contract.json` | **78 == 78, equal=True**, дублей/пересечений нет, public без initData = `['/health']` | `corrective-r1-manifest-parity.txt` |
+| `--emit` ×2 + `--check` | sha256 манифеста неизменен, CHECK OK | `corrective-r1-manifest-parity.txt` |
+
+Новых падений относительно ревью r1 нет (1001 = 974 прежних + 27 новых self-check); ассерты не
+ослаблялись, зависимостей не добавлялось, продукт/DDL/флаги/прод не затрагивались.
+
+### 10.5 F-BAR-04/05/06 — только backlog
+
+Записаны короткими строками в `plans/backlog.md`: дублирующий assert ключей каталога (и уточнённая
+формулировка §1 этого отчёта), JS-литералы версии в `tests/js/*` вне pytest-гейта, четвёртый
+предсуществующий красный UI-снимок `test_status_section_ui_merge_round1019`. В этой задаче не
+исправлялись осознанно.

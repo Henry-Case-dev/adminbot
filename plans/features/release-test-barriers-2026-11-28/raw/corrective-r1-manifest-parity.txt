@@ -1,0 +1,16 @@
+== sha256 before ==
+2F2E6774B40BF548B98F0653732CF4CA39B2E53ADA1DC2D3AACFC74081AC31BA
+OK: ╨╝╨░╨╜╨╕╤Д╨╡╤Б╤В ╨╖╨░╨┐╨╕╤Б╨░╨╜: C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\release-test-barriers-2026-11--19f1987d0616-5da2a6da\tests\fixtures\routes_contract.json (78 ╨╝╨░╤А╤И╤А╤Г╤В╨╛╨▓)
+== sha256 after emit #1 ==
+2F2E6774B40BF548B98F0653732CF4CA39B2E53ADA1DC2D3AACFC74081AC31BA
+OK: ╨╝╨░╨╜╨╕╤Д╨╡╤Б╤В ╨╖╨░╨┐╨╕╤Б╨░╨╜: C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\release-test-barriers-2026-11--19f1987d0616-5da2a6da\tests\fixtures\routes_contract.json (78 ╨╝╨░╤А╤И╤А╤Г╤В╨╛╨▓)
+== sha256 after emit #2 ==
+2F2E6774B40BF548B98F0653732CF4CA39B2E53ADA1DC2D3AACFC74081AC31BA
+CHECK OK: C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\release-test-barriers-2026-11--19f1987d0616-5da2a6da\tests\fixtures\routes_contract.json ╤Б╨╛╨╛╤В╨▓╨╡╤В╤Б╤В╨▓╤Г╨╡╤В web/api/routes.py
+== parity/collect ==
+manifest routes: 78
+live routes: 78
+equal: True
+duplicate keys: []
+overlapping methods: []
+public without initData: ['/health']
