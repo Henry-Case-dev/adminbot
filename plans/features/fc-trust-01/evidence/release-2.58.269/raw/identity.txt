@@ -1,0 +1,87 @@
+services/database.py
+  idx=526377c8f78db4bc8524ac4f4594d36a9a96719c
+  candidate=526377c8f78db4bc8524ac4f4594d36a9a96719c
+  tip=526377c8f78db4bc8524ac4f4594d36a9a96719c
+  base=1c3056db3bab2cab2728d840356dbbfb85d135d1
+  match_candidate=True
+  match_tip=True
+  bytes_equal_candidate=True
+  sha256=84b82f808043caefe2b73f804b71120cceb5efd2a307839a93619db2546d6d10
+  crlf=0 total_lf=13938
+services/temporal_factcheck.py
+  idx=c617cff8257090e4fa9807cb12236d93173fa902
+  candidate=c617cff8257090e4fa9807cb12236d93173fa902
+  tip=c617cff8257090e4fa9807cb12236d93173fa902
+  base=3c5aa47f7ccab782698ed085f2929614e5572d72
+  match_candidate=True
+  match_tip=True
+  bytes_equal_candidate=True
+  sha256=45175754fb4813f2cf07c6ff1deee5172601b82ef7c4a03efab54234e7400363
+  crlf=0 total_lf=1645
+services/factcheck_orchestrator.py
+  idx=7fbf0eaa67be6477c7a9d108644c8c017c5ade08
+  candidate=7fbf0eaa67be6477c7a9d108644c8c017c5ade08
+  tip=7fbf0eaa67be6477c7a9d108644c8c017c5ade08
+  base=15688f173fe3aeb875a880f46037662009c8d2e7
+  match_candidate=True
+  match_tip=True
+  bytes_equal_candidate=True
+  sha256=13b59e4257269561a77705c343a930d16a33d897a025aa18d3b9c93229360ef7
+  crlf=0 total_lf=2504
+services/factcheck_service.py
+  idx=7590f714fc035572a85872cd4ab99e817e189d52
+  candidate=7590f714fc035572a85872cd4ab99e817e189d52
+  tip=7590f714fc035572a85872cd4ab99e817e189d52
+  base=6f916bb9801e04d6c12b899d23779fbb2dbc70d3
+  match_candidate=True
+  match_tip=True
+  bytes_equal_candidate=True
+  sha256=7866f3341fde9c0c9187574342f02d139c8c261a100e96e715ee931995a53c64
+  crlf=0 total_lf=4982
+handlers/factcheck.py
+  idx=89677641866451f8d940aa15136ab65c1296e77b
+  candidate=89677641866451f8d940aa15136ab65c1296e77b
+  tip=89677641866451f8d940aa15136ab65c1296e77b
+  base=fbe1c7f3f6ef6badc58ec2cf2585403830b39c31
+  match_candidate=True
+  match_tip=True
+  bytes_equal_candidate=True
+  sha256=42a467fc1ddb3660c68a9407148164baae790d13328e8fe20b0160e232f0512e
+  crlf=0 total_lf=1539
+tests/test_fc_trust_s6_run_link.py
+  idx=1b5c061112dafd39bc021b0b84e2c42525e997bb
+  candidate=1b5c061112dafd39bc021b0b84e2c42525e997bb
+  tip=1b5c061112dafd39bc021b0b84e2c42525e997bb
+  base=(absent)
+  match_candidate=True
+  match_tip=True
+  bytes_equal_candidate=True
+  sha256=76199724810fb0dc775d78c8782480d8cd9b2db017745b2eb953661bc332db00
+  crlf=0 total_lf=334
+tests/test_t5150_startup_migrations_round1046.py
+  idx=b96ee6108a71b23eca8b49ec428978997928d5c3
+  candidate=b96ee6108a71b23eca8b49ec428978997928d5c3
+  tip=b96ee6108a71b23eca8b49ec428978997928d5c3
+  base=f707509b680140f67b3db2253d1c44cda90be09e
+  match_candidate=True
+  match_tip=True
+  bytes_equal_candidate=True
+  sha256=0bb655111db2a08a1634613d1a627cbb3c744f375822ef27627a4530140336e7
+  crlf=0 total_lf=404
+services/factcheck_prompts.py
+  sha256=4cd1e893d8c5fed8566ed242af1b1c54d90da91d71bd6dd7b782f1415dde1bb4
+  canon_4cd1e893=True
+  candidate_blob=64bb06c05fc7067b2630951c2b407d5455e631fb
+  base_blob=64bb06c05fc7067b2630951c2b407d5455e631fb
+  unchanged=True
+ddl_files_changed=['services/database.py']
+schema_version_constants=[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50] max=50
+git diff --stat vs base:
+handlers/factcheck.py                            |   4 +
+ services/database.py                             | 132 ++++++++-
+ services/factcheck_orchestrator.py               |  26 +-
+ services/factcheck_service.py                    |   6 +
+ services/temporal_factcheck.py                   |  74 ++++-
+ tests/test_fc_trust_s6_run_link.py               | 334 +++++++++++++++++++++++
+ tests/test_t5150_startup_migrations_round1046.py |   3 +-
+ 7 files changed, 564 insertions(+), 15 deletions(-)

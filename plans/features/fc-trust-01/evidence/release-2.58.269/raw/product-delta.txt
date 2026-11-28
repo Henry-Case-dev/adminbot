@@ -1,0 +1,49 @@
+base=e46aa0696
+candidate=fa3cb0391f53728d1b64961b34d49cf8eee9174e
+product_files_changed=5
+product_files=services/database.py,services/temporal_factcheck.py,services/factcheck_orchestrator.py,services/factcheck_service.py,handlers/factcheck.py
+test_files_changed=2
+test_files=tests/test_fc_trust_s6_run_link.py,tests/test_t5150_startup_migrations_round1046.py
+changed_files_total_vs_base=36
+changed_files=['config/settings.py', 'handlers/factcheck.py', 'plans/docs/param-registry-round1025.meta.md', 'services/database.py', 'services/factcheck_orchestrator.py', 'services/factcheck_service.py', 'services/temporal_factcheck.py', 'tests/test_decision_making_round1026.py', 'tests/test_fc_trust_s6_run_link.py', 'tests/test_image_context_memory_round1026.py', 'tests/test_mca17c_invariants_round1047.py', 'tests/test_q07_field_stats.py', 'tests/test_round1025_f8_registry.py', 'tests/test_scope_selector_round1025.py', 'tests/test_summary_deploy_round1026.py', 'tests/test_summary_fact_package.py', 'tests/test_summary_logging_runid.py', 'tests/test_summary_publish_integration_round1026.py', 'tests/test_summary_test_run.py', 'tests/test_t5150_startup_migrations_round1046.py', 'tests/test_telegram_reactions_round1026.py', 'tests/test_tool_coordinator_round1026.py', 'tests/test_unified_image_request_round1026.py', 'tests/test_webapp_design_tokens_round1025.py', 'tests/test_webapp_f11_round1025.py', 'tests/test_webapp_f6_round1025.py', 'tests/test_webapp_f7_round1025.py', 'tests/test_webapp_f9_round1025.py', 'tests/test_webapp_hotfix10_round1025.py', 'tests/test_webapp_hotfix6_round1025.py', 'tests/test_webapp_hotfix7_round1025.py', 'tests/test_webapp_hotfix8_round1025.py', 'tests/test_webapp_hotfix9_round1025.py', 'tests/test_webapp_round1026_polygon.py', 'tools/ui_mod_acl_m4b2_status_e2e.py', 'tools/ui_mod_acl_m4b3_status_e2e.py']
+bump_touched_files=29
+outside_product_tests_and_bump_files=(none)
+product_or_test_files_inside_bump_set=(none)
+
+numstat_vs_base:
+1	1	config/settings.py
+4	0	handlers/factcheck.py
+1	1	plans/docs/param-registry-round1025.meta.md
+123	9	services/database.py
+23	3	services/factcheck_orchestrator.py
+6	0	services/factcheck_service.py
+72	2	services/temporal_factcheck.py
+1	1	tests/test_decision_making_round1026.py
+334	0	tests/test_fc_trust_s6_run_link.py
+1	1	tests/test_image_context_memory_round1026.py
+1	1	tests/test_mca17c_invariants_round1047.py
+3	3	tests/test_q07_field_stats.py
+1	1	tests/test_round1025_f8_registry.py
+1	1	tests/test_scope_selector_round1025.py
+1	1	tests/test_summary_deploy_round1026.py
+1	1	tests/test_summary_fact_package.py
+1	1	tests/test_summary_logging_runid.py
+1	1	tests/test_summary_publish_integration_round1026.py
+1	1	tests/test_summary_test_run.py
+2	1	tests/test_t5150_startup_migrations_round1046.py
+1	1	tests/test_telegram_reactions_round1026.py
+1	1	tests/test_tool_coordinator_round1026.py
+1	1	tests/test_unified_image_request_round1026.py
+1	1	tests/test_webapp_design_tokens_round1025.py
+1	1	tests/test_webapp_f11_round1025.py
+1	1	tests/test_webapp_f6_round1025.py
+1	1	tests/test_webapp_f7_round1025.py
+1	1	tests/test_webapp_f9_round1025.py
+1	1	tests/test_webapp_hotfix10_round1025.py
+1	1	tests/test_webapp_hotfix6_round1025.py
+1	1	tests/test_webapp_hotfix7_round1025.py
+1	1	tests/test_webapp_hotfix8_round1025.py
+1	1	tests/test_webapp_hotfix9_round1025.py
+2	2	tests/test_webapp_round1026_polygon.py
+3	3	tools/ui_mod_acl_m4b2_status_e2e.py
+1	1	tools/ui_mod_acl_m4b3_status_e2e.py

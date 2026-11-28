@@ -1,0 +1,49 @@
+migrations_or_db_py_changed=['services/database.py']
+max_schema_constant=50 constants=49
+run_link_constant_present=True
+migration_step_present=True
+migration_body_string_literals:
+  v50 (FCT-S6 U1, D-S6-1): сшивка прогона и сохранение провенанса.          Аддитивно, без UPDATE/DELETE/backfill существующих строк:          * `mca_factcheck_ru
+  mca_factcheck_runs
+  mca_factcheck_evidence
+  mca_factcheck_runs
+  [database] migration v50: factcheck_runs.%s added
+  mca_factcheck_evidence
+  [database] migration v50: factcheck_evidence.%s added
+  PRAGMA user_version = 
+  ALTER TABLE mca_factcheck_runs ADD COLUMN 
+  ALTER TABLE mca_factcheck_evidence ADD COLUMN 
+migration_referenced_constants:
+  _FACTCHECK_RUN_LINK_COLUMNS=(('correlation_id', 'TEXT'),)
+  _FACTCHECK_EVIDENCE_LINK_COLUMNS=(('evidence_id', 'TEXT'), ('opened', 'INTEGER'), ('strength', 'TEXT'))
+  _MCA_FACTCHECK_RUN_CORRELATION_INDEX_DDL=CREATE INDEX IF NOT EXISTS idx_mca_factcheck_runs_correlation ON mca_factcheck_runs(correlation_id)
+migration_ddl_statements=3
+  PRAGMA user_version = 
+  ALTER TABLE mca_factcheck_runs ADD COLUMN 
+  ALTER TABLE mca_factcheck_evidence ADD COLUMN 
+migration_body_executed_statements_mentioning_dml:
+  await self.db.execute(f'ALTER TABLE mca_factcheck_runs ADD COLUMN {name} {decl}')
+  await self.db.execute(_MCA_FACTCHECK_RUN_CORRELATION_INDEX_DDL)
+  await self.db.execute(f'ALTER TABLE mca_factcheck_evidence ADD COLUMN {name} {decl}')
+  await self.db.execute(f'PRAGMA user_version = {_SCHEMA_VERSION_FACTCHECK_RUN_LINK}')
+legacy_rows_untouched_no_update_delete=True
+rollback_sql_documented_in_docstring=True
+runtime_dml_added_lines (outside migration):
+  + "UPDATE mca_factcheck_runs SET stage_trace = ?, "
+  + "INSERT INTO mca_factcheck_runs (run_id, correlation_id, "
+  + "INSERT INTO mca_factcheck_evidence (run_id, evidence_id, "
+stage_trace_update_present=True
+insert_column_lists_extended=True
+backfill_statements=(none)
+schema_migrations_rows_only_added_no_delete=True
+web/api/routes.py_sha256=b8f63355495c388a4240f9a96a0bebc3f1a99af663a7883ddfc4ab352a13c78a
+web/app.js_sha256=3631e82de2a82b506b63d13914902678e31a28d1aa1abb7d41c79501c4b0282a
+routes_pin_b8f63355=True
+routes_or_appjs_in_diff=(none)
+rollback_sql_v50_to_v49:
+  DROP INDEX IF EXISTS idx_mca_factcheck_runs_correlation;
+  ALTER TABLE mca_factcheck_runs DROP COLUMN correlation_id;
+  ALTER TABLE mca_factcheck_evidence DROP COLUMN evidence_id;
+  ALTER TABLE mca_factcheck_evidence DROP COLUMN opened;
+  ALTER TABLE mca_factcheck_evidence DROP COLUMN strength;
+  PRAGMA user_version = 49;

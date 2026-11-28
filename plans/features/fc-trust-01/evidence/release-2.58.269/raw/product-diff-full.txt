@@ -1,0 +1,746 @@
+diff --git a/handlers/factcheck.py b/handlers/factcheck.py
+index fbe1c7f3f..896776418 100644
+--- a/handlers/factcheck.py
++++ b/handlers/factcheck.py
+@@ -330,6 +330,10 @@ async def _factcheck_temporal(message: types.Message, bot: Bot,
+                                         if delivery_reply_to is not None
+                                         else None),
+                     correlation_id=(run_id or _ue.new_correlation_id()))
++                # FCT-S6 U1: deliver — фактическая стадия после отправки.
++                if run_id:
++                    await tf.record_delivery_stage(
++                        _db, correlation_id=run_id)
+         logger.info("[factcheck] temporal verdict sent | chat=%s", chat_id)
+         return "verdict"
+     except LLMBadResponseError as exc:
+diff --git a/services/database.py b/services/database.py
+index 1c3056db3..526377c8f 100644
+--- a/services/database.py
++++ b/services/database.py
+@@ -1882,6 +1882,26 @@ _SCHEMA_VERSION_RANDOM_BATCH_PROVENANCE = 48
+ # меняются, старый код таблицу не читает (cold revert безопасен).
+ _SCHEMA_VERSION_SELF_DIAG_SAMPLES = 49
+ 
++#: FCT-S6 U1 (D-S6-1, отдельный релиз): v50 — сшивка run↔pipeline↔отправка.
++#: Аддитивные nullable-колонки: `mca_factcheck_runs.correlation_id`
++#: (= `pipeline_run_id` / `mca_bot_outputs.correlation_id`) + индекс для
++#: выборки по нему; `mca_factcheck_evidence` получает `evidence_id` (ev-N),
++#: `opened`, `strength` (роль `relation` уже существует с v33).
++#: Существующие строки остаются как есть (NULL), backfill нет.
++_SCHEMA_VERSION_FACTCHECK_RUN_LINK = 50
++
++_FACTCHECK_RUN_LINK_COLUMNS: tuple[tuple[str, str], ...] = (
++    ("correlation_id", "TEXT"),
++)
++_FACTCHECK_EVIDENCE_LINK_COLUMNS: tuple[tuple[str, str], ...] = (
++    ("evidence_id", "TEXT"),
++    ("opened", "INTEGER"),
++    ("strength", "TEXT"),
++)
++_MCA_FACTCHECK_RUN_CORRELATION_INDEX_DDL = (
++    "CREATE INDEX IF NOT EXISTS idx_mca_factcheck_runs_correlation "
++    "ON mca_factcheck_runs(correlation_id)")
++
+ _RANDOM_BATCHES_PROVENANCE_COLUMNS: tuple[tuple[str, str], ...] = (
+     ("config_fingerprint", "TEXT"),
+     ("external_ref", "TEXT"),
+@@ -3212,6 +3232,13 @@ class DatabaseService:
+             MigrationStep(_SCHEMA_VERSION_SELF_DIAG_SAMPLES,
+                           self_diag_samples.SELF_DIAG_SAMPLES_MIGRATION_STEP_NAME,
+                           lambda svc: svc._migrate_self_diag_samples_v49()),
++            # FCT-S6 U1 (D-S6-1, отдельный релиз): v50 — сшивка durable
++            # прогона с `pipeline_run_id`/`mca_bot_outputs.correlation_id` и
++            # сохранение провенанса evidence (ev-N/открыт/сила). Только
++            # аддитивные nullable-колонки + индекс; строки не переписываются.
++            MigrationStep(_SCHEMA_VERSION_FACTCHECK_RUN_LINK,
++                          "factcheck_run_link_v50",
++                          lambda svc: svc._migrate_factcheck_run_link_v50()),
+         ]
+ 
+     @staticmethod
+@@ -3858,6 +3885,87 @@ class DatabaseService:
+             f"PRAGMA user_version = {_SCHEMA_VERSION_SELF_DIAG_SAMPLES}")
+         await self.db.commit()
+ 
++    async def _migrate_factcheck_run_link_v50(self) -> None:
++        """v50 (FCT-S6 U1, D-S6-1): сшивка прогона и сохранение провенанса.
++
++        Аддитивно, без UPDATE/DELETE/backfill существующих строк:
++
++        * `mca_factcheck_runs.correlation_id TEXT` — тот же id, что
++          `pipeline_run_id` событий и `mca_bot_outputs.correlation_id`;
++          индекс `idx_mca_factcheck_runs_correlation` для выборки/join;
++        * `mca_factcheck_evidence.evidence_id TEXT` (ev-N текущего прогона),
++          `opened INTEGER`, `strength TEXT` (колонка `relation` существует
++          с v33 и теперь реально заполняется).
++
++        Идемпотентно (`PRAGMA table_info`-guard), повтор — no-op, PG — no-op
++        (числовой SQLite-ряд). Старый код колонки не читает — cold revert
++        безопасен.
++
++        Откат (ручной, документирован в evidence):
++        `DROP INDEX idx_mca_factcheck_runs_correlation;`
++        `ALTER TABLE mca_factcheck_runs DROP COLUMN correlation_id;`
++        `ALTER TABLE mca_factcheck_evidence DROP COLUMN evidence_id/opened/strength;`
++        затем `PRAGMA user_version = 49`. Данные строк не меняются."""
++        if await self._table_exists("mca_factcheck_runs"):
++            cols = await self._table_columns("mca_factcheck_runs")
++            for name, decl in _FACTCHECK_RUN_LINK_COLUMNS:
++                if name in cols:
++                    continue
++                await self.db.execute(
++                    f"ALTER TABLE mca_factcheck_runs ADD COLUMN {name} {decl}")
++                logger.info("[database] migration v50: factcheck_runs.%s added",
++                            name)
++            await self.db.execute(_MCA_FACTCHECK_RUN_CORRELATION_INDEX_DDL)
++        if await self._table_exists("mca_factcheck_evidence"):
++            cols = await self._table_columns("mca_factcheck_evidence")
++            for name, decl in _FACTCHECK_EVIDENCE_LINK_COLUMNS:
++                if name in cols:
++                    continue
++                await self.db.execute(
++                    "ALTER TABLE mca_factcheck_evidence ADD COLUMN "
++                    f"{name} {decl}")
++                logger.info("[database] migration v50: factcheck_evidence.%s "
++                            "added", name)
++        await self.db.commit()
++        await self.db.execute(
++            f"PRAGMA user_version = {_SCHEMA_VERSION_FACTCHECK_RUN_LINK}")
++        await self.db.commit()
++
++    async def append_factcheck_run_stage(self, *, correlation_id: str,
++                                         stage: str, outcome: str) -> bool:
++        """Дописать стадию в `stage_trace` прогона по correlation_id.
++
++        FCT-S6 U1: `deliver` становится известен только после фактической
++        отправки, поэтому run пишется до доставки, а трасса дополняется
++        append-only строкой (вердикт/текст/evidence не меняются)."""
++        if not correlation_id:
++            return False
++
++        async def _body(conn):
++            cur = await conn.execute(
++                "SELECT run_id, stage_trace FROM mca_factcheck_runs "
++                "WHERE correlation_id = ? ORDER BY created_at DESC, run_id "
++                "DESC LIMIT 1", (str(correlation_id),))
++            row = await cur.fetchone()
++            if row is None:
++                return False
++            try:
++                trace = json.loads(row["stage_trace"] or "[]")
++            except (TypeError, ValueError):
++                trace = []
++            if not isinstance(trace, list):
++                trace = []
++            trace.append({"stage": str(stage), "outcome": str(outcome)})
++            await conn.execute(
++                "UPDATE mca_factcheck_runs SET stage_trace = ?, "
++                "updated_at = ? WHERE run_id = ?",
++                (json.dumps(trace, ensure_ascii=False), int(time.time()),
++                 row["run_id"]))
++            return True
++
++        return bool(await self.write_transaction(
++            _body, op_name="append_factcheck_run_stage"))
++
+     async def _graph_facts_columns(self) -> set:
+         """Имена колонок `graph_facts` (guard для ALTER ADD COLUMN v17)."""
+         cursor = await self.db.execute("PRAGMA table_info(graph_facts)")
+@@ -5011,7 +5119,8 @@ class DatabaseService:
+ 
+         async def _body(conn):
+             cur = await conn.execute(
+-                "INSERT INTO mca_factcheck_runs (run_id, access_scope, "
++                "INSERT INTO mca_factcheck_runs (run_id, correlation_id, "
++                "access_scope, "
+                 "chat_id, trigger_tg_message_id, target_tg_message_id, "
+                 "target_revision, target_content_hash, claim_text, "
+                 "claim_span, source_type, attribution, origin_type, "
+@@ -5024,10 +5133,10 @@ class DatabaseService:
+                 "verdict_text, verdict_uncertainty, stage_trace, "
+                 "fallback_used, cache_hit, pipeline_version, "
+                 "tz_resolution_version, reason, revision, created_at, "
+-                "updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?"
+-                ",?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
++                "updated_at) VALUES (" + ",".join(["?"] * 40) + ") "
+                 "ON CONFLICT(run_id) DO NOTHING",
+-                (run_id, str(rec.get("access_scope") or "global"),
++                (run_id, rec.get("correlation_id"),
++                 str(rec.get("access_scope") or "global"),
+                  rec.get("chat_id"), rec.get("trigger_tg_message_id"),
+                  rec.get("target_tg_message_id"), rec.get("target_revision"),
+                  rec.get("target_content_hash"), rec.get("claim_text"),
+@@ -5070,17 +5179,22 @@ class DatabaseService:
+             now = int(time.time())
+             for row in rows[:max(0, int(max_rows))]:
+                 await conn.execute(
+-                    "INSERT INTO mca_factcheck_evidence (run_id, claim_part, "
++                    "INSERT INTO mca_factcheck_evidence (run_id, evidence_id, "
++                    "claim_part, "
+                     "url, support, source_ref, published_at, "
+                     "published_at_source, retrieved_at, temporal_relevance, "
+-                    "relation, source_kind, created_at) "
+-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+-                    (run_id, row.get("claim_part"), row.get("url"),
++                    "relation, source_kind, opened, strength, created_at) "
++                    "VALUES (" + ",".join(["?"] * 15) + ")",
++                    (run_id, row.get("evidence_id"), row.get("claim_part"),
++                     row.get("url"),
+                      row.get("support"),
+                      _json_dumps_or_none(row.get("source_ref")),
+                      row.get("published_at"), row.get("published_at_source"),
+                      row.get("retrieved_at"), row.get("temporal_relevance"),
+-                     row.get("relation"), row.get("source_kind"), now))
++                     row.get("relation"), row.get("source_kind"),
++                     (1 if row.get("opened") else 0)
++                     if row.get("opened") is not None else None,
++                     row.get("strength"), now))
+                 inserted += 1
+             return inserted
+ 
+diff --git a/services/factcheck_orchestrator.py b/services/factcheck_orchestrator.py
+index 15688f173..7fbf0eaa6 100644
+--- a/services/factcheck_orchestrator.py
++++ b/services/factcheck_orchestrator.py
+@@ -1911,7 +1911,9 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
+                                            search_results=search_results,
+                                            target_text=external_claim,
+                                            cache_input_text=claim_text,
+-                                           retrieval=retrieval_outcome)
++                                           retrieval=retrieval_outcome,
++                                           db=db,
++                                           correlation_id=pipeline_run_id)
+ 
+     # 6. Presentation (egress-whitelist) → 7. Delivery.
+     # CFG-06 W4/W6: EvidenceMap из единого контура — только когда ветка не
+@@ -2015,6 +2017,11 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
+                                     if presentation.reply_to_message_id
+                                     else None),
+                 correlation_id=pipeline_run_id)
++            # FCT-S6 U1: `deliver` — фактическая стадия после подтверждённой
++            # отправки; дописывается в stage_trace того же прогона.
++            from services import temporal_factcheck as _tf_deliver
++            await _tf_deliver.record_delivery_stage(
++                db, correlation_id=pipeline_run_id)
+     # P0-FACTCHECK-CORRECTIVE (§6): кеш готовых вердиктов (legacy slug
+     # `factcheck`) удалён — повторная проверка всегда выполняется заново.
+     # Защита от двойной доставки того же Telegram update — уже СУЩЕСТВУЮЩАЯ
+@@ -2215,7 +2222,8 @@ async def _run_envelope_branch(req: FactcheckRequest, service, db, bot,
+     # прежний default.
+     await tf.record_temporal_run(
+         db, run, scope=scope, cache_hit=False,
+-        max_evidence=max(len(run.evidence_rows or ()), 1))
++        max_evidence=max(len(run.evidence_rows or ()), 1),
++        correlation_id=run_id)
+     refs = tuple(
+         EvidenceRef(evidence_id=str(r.get("evidence_id") or ""),
+                     url=r.get("url"), support=str(r.get("support") or ""),
+@@ -2252,7 +2260,8 @@ async def _run_legacy_branch(req: FactcheckRequest, service,
+                              feed, *, search_results: str | None = None,
+                              target_text: str | None = None,
+                              cache_input_text: str | None = None,
+-                             retrieval=None
++                             retrieval=None,
++                             db=None, correlation_id: str | None = None
+                              ) -> CheckedVerdict:
+     """Legacy-ветка (fallback/откат): ТОТ ЖЕ вызов service.check_claim с теми
+     же аргументами, что прод-путь 2.58.98 (байт-паритет ветки). Кеш готовых
+@@ -2275,6 +2284,17 @@ async def _run_legacy_branch(req: FactcheckRequest, service,
+         claim_text, req.user_hint, req.forward_source,
+         chat_id=req.chat_id, chat_context=feed or None,
+         search_results=search_results)
++    # FCT-S6 U1: legacy-ветка тоже оставляет durable run (минимальный,
++    # честный маршрут `legacy_single`), сшитый correlation_id с событиями
++    # и отправленным текстом. Fail-open: запись не рвёт ответ.
++    if db is not None:
++        from services import temporal_factcheck as _tf_legacy
++        await _tf_legacy.record_legacy_run(
++            db, correlation_id=correlation_id, chat_id=req.chat_id,
++            trigger_tg_message_id=req.trigger_tg_message_id,
++            target_tg_message_id=req.target_tg_message_id,
++            claim_text=claim_text, verdict_text=str(verdict or ""),
++            scope=f"chat:{req.chat_id}")
+     claims_cov = tuple(getattr(retrieval, "claims", ()) or ())
+     execution_status, execution_cause, proof_basis = derive_execution_state(
+         retrieval=retrieval, claims=claims_cov)
+diff --git a/services/factcheck_service.py b/services/factcheck_service.py
+index 6f916bb98..7590f714f 100644
+--- a/services/factcheck_service.py
++++ b/services/factcheck_service.py
+@@ -527,11 +527,16 @@ def _evidence_delivery(retrieval, *, route: RouteCapacity | None,
+                     str(getattr(ref, "support", "") or "") for ref in refs}
+     opened = _evidence_opening_index(retrieval)
+     strength = {}
++    relation = {}
+     for claim in tuple(getattr(retrieval, "claims", ()) or ()):
+         for item in tuple(getattr(claim, "evidence", ()) or ()):
+             eid = str(getattr(item, "evidence_id", "") or "")
+             if eid and getattr(item, "strength", ""):
+                 strength[eid] = str(item.strength)
++            if eid and getattr(item, "role", ""):
++                # FCT-S6 U1: роль evidence сохраняется в durable-записи
++                # (колонка `relation` v33 до этого оставалась NULL).
++                relation[eid] = str(item.role)
+     enriched = []
+     for row in rows:
+         eid = str(row.get("evidence_id") or "")
+@@ -541,6 +546,7 @@ def _evidence_delivery(retrieval, *, route: RouteCapacity | None,
+             "support": support,
+             "opened": bool(opened.get(eid, False)),
+             "strength": strength.get(eid, ""),
++            "relation": relation.get(eid) or row.get("relation"),
+         })
+     return _pack_evidence(enriched, budget_chars=budget, route=route,
+                           degrade_rows=_temporal_max_evidence())
+diff --git a/services/temporal_factcheck.py b/services/temporal_factcheck.py
+index 3c5aa47f7..c617cff82 100644
+--- a/services/temporal_factcheck.py
++++ b/services/temporal_factcheck.py
+@@ -1519,17 +1519,27 @@ def evidence_rows_from_refs(refs, *, fallback_results: str | None = None,
+ async def record_temporal_run(db, result: TemporalRunResult, *,
+                               scope: str = "global",
+                               cache_hit: bool = False,
+-                              max_evidence: int = 20) -> str | None:
++                              max_evidence: int = 20,
++                              correlation_id: str | None = None) -> str | None:
+     """Durable run+evidence v33 (D3/D14). Fail-open: БД недоступна → None
+-    (вердикт пользователю не блокируется); run_id генерируется здесь."""
++    (вердикт пользователю не блокируется); run_id генерируется здесь.
++
++    FCT-S6 U1: `correlation_id` — тот же id, что `pipeline_run_id` событий и
++    `mca_bot_outputs.correlation_id`; без него строка остаётся NULL
++    (обратная совместимость существующих вызовов)."""
+     if db is None:
+         return None
+     run_id = "tfr-" + uuid.uuid4().hex[:16]
++    # FCT-S6 U1: без явного pipeline id строка ссылается на собственный
++    # run_id — так manual-путь, чей ledger использует run_id, остаётся
++    # сшитым, а correlation_id никогда не теряется у новых записей.
++    correlation_id = str(correlation_id or run_id)
+     env = result.envelope
+     verdict = result.verdict
+     try:
+         await db.record_factcheck_run({
+             "run_id": run_id,
++            "correlation_id": correlation_id,
+             "access_scope": scope,
+             "chat_id": env.chat_id,
+             "trigger_tg_message_id": env.trigger_tg_message_id,
+@@ -1573,3 +1583,63 @@ async def record_temporal_run(db, result: TemporalRunResult, *,
+     except Exception:
+         logger.warning("[temporal] run record failed", exc_info=True)
+         return None
++
++
++async def record_legacy_run(db, *, correlation_id: str | None,
++                            chat_id: int | None = None,
++                            trigger_tg_message_id: int | None = None,
++                            target_tg_message_id: int | None = None,
++                            claim_text: str = "",
++                            verdict_text: str = "",
++                            factual_verdict: str | None = None,
++                            reason: str | None = None,
++                            scope: str = "global") -> str | None:
++    """FCT-S6 U1: минимальная durable run-строка legacy-ветки.
++
++    Legacy-путь не строит envelope, поэтому пишется только фактически
++    известное: предмет/чат, доставленный текст, вердикт (если enum есть),
++    честная стадия `verdict`. `correlation_id` — `pipeline_run_id` прогона;
++    `pipeline_version='legacy_single'` отличает маршрут без выдуманной
++    envelope-даты. Fail-open: ошибка записи не рвёт ответ."""
++    if db is None:
++        return None
++    run_id = "tfr-" + uuid.uuid4().hex[:16]
++    try:
++        await db.record_factcheck_run({
++            "run_id": run_id,
++            "correlation_id": correlation_id,
++            "access_scope": scope,
++            "chat_id": chat_id,
++            "trigger_tg_message_id": trigger_tg_message_id,
++            "target_tg_message_id": target_tg_message_id,
++            "claim_text": claim_text,
++            "source_type": "text" if claim_text else None,
++            "factual_verdict": factual_verdict,
++            "verdict_text": verdict_text,
++            "stage_trace": ({"stage": "verdict", "outcome": "success"},),
++            "pipeline_version": "legacy_single",
++            "reason": reason,
++        })
++        return run_id
++    except Exception:
++        logger.warning("[temporal] legacy run record failed", exc_info=True)
++        return None
++
++
++async def record_delivery_stage(db, *, correlation_id: str | None,
++                                outcome: str = "success") -> bool:
++    """FCT-S6 U1: дописать фактическую стадию `deliver` в run трассу.
++
++    Вызывается ТОЛЬКО после подтверждённой отправки; fail-open, R17-safe
++    (только стадия/исход, без текста). Прогон ищется по `correlation_id` —
++    это же id связывает события и `mca_bot_outputs`."""
++    if db is None or not correlation_id:
++        return False
++    try:
++        return bool(await db.append_factcheck_run_stage(
++            correlation_id=str(correlation_id), stage="deliver",
++            outcome=str(outcome or "success")))
++    except Exception:
++        logger.warning("[temporal] delivery stage append failed",
++                       exc_info=True)
++        return False
+diff --git a/tests/test_fc_trust_s6_run_link.py b/tests/test_fc_trust_s6_run_link.py
+new file mode 100644
+index 000000000..1b5c06111
+--- /dev/null
++++ b/tests/test_fc_trust_s6_run_link.py
+@@ -0,0 +1,334 @@
++"""FCT-S6 U1 — сшивка прогонов и звенья трассы (28.11.2026).
++
++Источник: `plans/features/fc-trust-01/evidence/fct-s5-s6-scoping-2026-11-28/
++scoping.md` §S6/U1 + D-S6-1 (schema-изменение — отдельный релиз v50) и
++D-S6-3 (события — только id/коды).
++
++Проверяется наблюдаемый результат:
++
++* миграция v49→v50 аддитивна: `mca_factcheck_runs.correlation_id` + индекс,
++  `mca_factcheck_evidence.evidence_id/opened/strength`; существующие строки
++  не меняются, `user_version` 49→50, повтор — no-op; откат SQL обратим;
++* envelope- и legacy-прогоны пишут durable run с `correlation_id` =
++  `pipeline_run_id`/`mca_bot_outputs.correlation_id`;
++* evidence сохраняет роль (`relation`), `opened`, `strength`, `ev-N`;
++* `deliver` появляется в `stage_trace` только после подтверждённой отправки.
++"""
++from __future__ import annotations
++
++import json
++import sqlite3
++
++import pytest
++
++import services.memory_backup as memory_backup_mod
++from services import bot_output_ledger as bol
++from services import database as dbmod
++from services import factcheck_orchestrator as orch
++from services import temporal_factcheck as tf
++from services.database import DatabaseService, _SCHEMA_MIGRATIONS_DDL
++
++CHAT_ID = -100777
++
++
++async def _noop_backup(db, *, target_version=None):
++    return None
++
++
++@pytest.fixture
++def fast_guard(monkeypatch):
++    monkeypatch.setattr(memory_backup_mod, "migration_backup", _noop_backup)
++
++
++def _make_v49_db(path) -> None:
++    """Копия схемы v49: baseline + v33-таблицы фактчека + две старые строки."""
++    conn = sqlite3.connect(str(path))
++    try:
++        conn.executescript(DatabaseService._SCHEMA_SQL)
++        conn.execute(_SCHEMA_MIGRATIONS_DDL)
++        conn.execute(dbmod._MCA_FACTCHECK_RUNS_DDL)
++        conn.execute(dbmod._MCA_FACTCHECK_EVIDENCE_DDL)
++        for ddl in (dbmod._MCA_FACTCHECK_RUNS_INDEX_DDL
++                    + dbmod._MCA_FACTCHECK_EVIDENCE_INDEX_DDL):
++            conn.execute(ddl)
++        conn.execute(
++            "INSERT INTO mca_factcheck_runs (run_id, access_scope, chat_id, "
++            "claim_text, factual_verdict, verdict_text, stage_trace, "
++            "created_at, updated_at) VALUES "
++            "('tfr-old', 'chat:1', 1, 'старый тезис', 'refuted', "
++            "'старый ответ', '[{\"stage\": \"verdict\"}]', 1, 1)")
++        conn.execute(
++            "INSERT INTO mca_factcheck_evidence (run_id, claim_part, url, "
++            "support, relation, source_kind, created_at) VALUES "
++            "('tfr-old', 'c1', 'https://old.example/a', 'старая выдержка', "
++            "'supports', 'secondary', 1)")
++        conn.execute(
++            "INSERT INTO schema_migrations (version, name, applied_at, "
++            "checksum) VALUES (49, 'self_diag_samples_v49', "
++            "strftime('%s','now'), '')")
++        conn.execute("PRAGMA user_version = 49")
++        conn.commit()
++    finally:
++        conn.close()
++
++
++async def _columns(conn, table: str) -> set:
++    cur = await conn.execute(f"PRAGMA table_info({table})")
++    return {row["name"] for row in await cur.fetchall()}
++
++
++# ── Миграция v49 → v50 ──────────────────────────────────────────────────────
++
++class TestMigrationV50:
++    @pytest.mark.asyncio
++    async def test_v49_to_v50_adds_columns_and_keeps_rows(self, tmp_path,
++                                                          fast_guard):
++        path = tmp_path / "v49.db"
++        _make_v49_db(path)
++        svc = DatabaseService(str(path))
++        await svc.initialize()
++        try:
++            cur = await svc.db.execute("PRAGMA user_version")
++            assert (await cur.fetchone())[0] == 50
++            run_cols = await _columns(svc.db, "mca_factcheck_runs")
++            ev_cols = await _columns(svc.db, "mca_factcheck_evidence")
++            assert "correlation_id" in run_cols
++            assert {"evidence_id", "opened", "strength"} <= ev_cols
++            cur = await svc.db.execute(
++                "SELECT name FROM sqlite_master WHERE type='index' "
++                "AND name='idx_mca_factcheck_runs_correlation'")
++            assert await cur.fetchone() is not None
++            # существующие строки не переписаны; новые колонки NULL
++            old_run = await svc.get_factcheck_run("tfr-old")
++            assert old_run["claim_text"] == "старый тезис"
++            assert old_run["factual_verdict"] == "refuted"
++            assert old_run["correlation_id"] is None
++            assert old_run["stage_trace"] == '[{"stage": "verdict"}]'
++            old_ev = await svc.get_factcheck_evidence("tfr-old")
++            assert old_ev[0]["url"] == "https://old.example/a"
++            assert old_ev[0]["relation"] == "supports"
++            assert old_ev[0]["evidence_id"] is None
++            assert old_ev[0]["opened"] is None
++            cur = await svc.db.execute(
++                "SELECT COUNT(*) AS c FROM mca_factcheck_runs")
++            assert (await cur.fetchone())["c"] == 1
++        finally:
++            await svc.close()
++
++    @pytest.mark.asyncio
++    async def test_reapply_is_noop(self, tmp_path, fast_guard):
++        path = tmp_path / "v49_retry.db"
++        _make_v49_db(path)
++        first = DatabaseService(str(path))
++        await first.initialize()
++        await first.close()
++        second = DatabaseService(str(path))
++        await second.initialize()
++        try:
++            cur = await second.db.execute("PRAGMA user_version")
++            assert (await cur.fetchone())[0] == 50
++            cur = await second.db.execute(
++                "SELECT COUNT(*) AS c FROM schema_migrations WHERE version=50")
++            assert (await cur.fetchone())["c"] == 1
++        finally:
++            await second.close()
++
++    @pytest.mark.asyncio
++    async def test_rollback_sql_restores_v49_shape(self, tmp_path,
++                                                   fast_guard):
++        """Откат: DROP INDEX + DROP COLUMN, данные и старый SELECT целы."""
++        path = tmp_path / "v50_rollback.db"
++        _make_v49_db(path)
++        svc = DatabaseService(str(path))
++        await svc.initialize()
++        await svc.close()
++        conn = sqlite3.connect(str(path))
++        try:
++            conn.execute(
++                "DROP INDEX IF EXISTS idx_mca_factcheck_runs_correlation")
++            conn.execute(
++                "ALTER TABLE mca_factcheck_runs DROP COLUMN correlation_id")
++            for column in ("evidence_id", "opened", "strength"):
++                conn.execute(
++                    f"ALTER TABLE mca_factcheck_evidence DROP COLUMN {column}")
++            conn.execute("PRAGMA user_version = 49")
++            conn.commit()
++            run_cols = {r[1] for r in
++                        conn.execute("PRAGMA table_info(mca_factcheck_runs)")}
++            ev_cols = {r[1] for r in
++                       conn.execute("PRAGMA table_info(mca_factcheck_evidence)")}
++            assert "correlation_id" not in run_cols
++            assert not ({"evidence_id", "opened", "strength"} & ev_cols)
++            row = conn.execute(
++                "SELECT claim_text, factual_verdict FROM mca_factcheck_runs "
++                "WHERE run_id='tfr-old'").fetchone()
++            assert row == ("старый тезис", "refuted")
++            ev = conn.execute(
++                "SELECT url, relation FROM mca_factcheck_evidence "
++                "WHERE run_id='tfr-old'").fetchone()
++            assert ev == ("https://old.example/a", "supports")
++            version = conn.execute("PRAGMA user_version").fetchone()[0]
++            assert version == 49
++        finally:
++            conn.close()
++
++
++# ── Сшивка прогона: correlation_id и evidence-провенанс ────────────────────
++
++def _env(**overrides):
++    base = dict(
++        claim_id="c-1", chat_id=CHAT_ID, target_tg_message_id=10,
++        target_revision=1, target_content_hash="hash", trigger_tg_message_id=11,
++        claim_text="в 2022 году ввели новый налог", claim_span=None,
++        source_type="text", attribution={}, origin_type=None,
++        origin_sender_user_id=None, origin_chat_id=None,
++        origin_display_name=None, repost_received_at=None,
++        original_published_at=None, original_published_precision=None,
++        claim_period_from=None, claim_period_to=None,
++        claim_period_precision=None, date_source="unknown",
++        date_precision="unknown", date_timezone=None, date_uncertainty={},
++        requested_mode="contextual", analysis_as_of=1760000000)
++    base.update(overrides)
++    return tf.TemporalClaimEnvelope(**base)
++
++
++def _verdict():
++    return tf.TemporalVerdict(
++        factual_verdict="supported", temporal_status="current",
++        evaluated_period={"from": 1665277000, "to": 1665277000,
++                          "precision": "day"},
++        assessment_mode="contextual", as_of=1760000000,
++        evidence_refs=("ev-1",), uncertainty={}, parts=(), reason=None)
++
++
++class _EnvelopeService:
++    def __init__(self, run):
++        self.run = run
++
++    async def check_claim_envelope(self, envelope, chat_context=None,
++                                   run_id=None):
++        return self.run
++
++
++class _LegacyService:
++    async def check_claim(self, *args, **kwargs):
++        return "legacy verdict text"
++
++
++def _run_result():
++    evidence_row = {
++        "evidence_id": "ev-1", "claim_part": "c1",
++        "url": "https://example.org/a", "support": "выдержка",
++        "published_at": 1665277000, "published_at_source": "page",
++        "retrieved_at": 1760000001, "temporal_relevance": None,
++        "relation": "supports", "source_kind": "secondary",
++        "opened": True, "strength": "direct",
++    }
++    return tf.TemporalRunResult(
++        envelope=_env(), verdict=_verdict(), verdict_text="ответ",
++        evidence_rows=(evidence_row,),
++        stage_trace=({"stage": "verdict", "outcome": "success"},))
++
++
++class TestRunLink:
++    @pytest.mark.asyncio
++    async def test_envelope_run_links_pipeline_and_ledger(self, tmp_path):
++        db = DatabaseService(str(tmp_path / "link.db"))
++        await db.initialize()
++        try:
++            req = orch.FactcheckRequest(
++                chat_id=CHAT_ID, trigger_tg_message_id=11,
++                target_tg_message_id=10, target_text="тезис")
++            await orch._run_envelope_branch(
++                req, _EnvelopeService(_run_result()), db, None, _env(),
++                None, tf, None, run_id="corr-env")
++            runs = await db.list_factcheck_runs(chat_id=CHAT_ID)
++            assert len(runs) == 1
++            stored = runs[0]
++            assert stored["correlation_id"] == "corr-env"
++            # evidence провенанс сохранён (не только в публичном тексте)
++            evidence = await db.get_factcheck_evidence(stored["run_id"])
++            assert evidence[0]["evidence_id"] == "ev-1"
++            assert evidence[0]["relation"] == "supports"
++            assert evidence[0]["opened"] == 1
++            assert evidence[0]["strength"] == "direct"
++            # тот же correlation_id — в ledger отправленного текста
++            from unittest.mock import patch
++            with patch.object(bol, "ledger_enabled", lambda: True):
++                await bol.record_factcheck_output(
++                    db, chat_id=CHAT_ID, tg_message_id=60, text="ответ",
++                    correlation_id="corr-env")
++            cur = await db.db.execute(
++                "SELECT correlation_id FROM mca_bot_outputs WHERE chat_id = ?",
++                (CHAT_ID,))
++            ledger_ids = {r["correlation_id"] for r in await cur.fetchall()}
++            assert "corr-env" in ledger_ids
++        finally:
++            await db.close()
++
++    @pytest.mark.asyncio
++    async def test_deliver_stage_appended_after_send(self, tmp_path):
++        db = DatabaseService(str(tmp_path / "deliver.db"))
++        await db.initialize()
++        try:
++            req = orch.FactcheckRequest(
++                chat_id=CHAT_ID, trigger_tg_message_id=11,
++                target_tg_message_id=10, target_text="тезис")
++            await orch._run_envelope_branch(
++                req, _EnvelopeService(_run_result()), db, None, _env(),
++                None, tf, None, run_id="corr-deliver")
++            run = (await db.list_factcheck_runs(chat_id=CHAT_ID))[0]
++            trace = json.loads(run["stage_trace"])
++            assert all(item["stage"] != "deliver" for item in trace)
++            assert await tf.record_delivery_stage(
++                db, correlation_id="corr-deliver")
++            run = (await db.list_factcheck_runs(chat_id=CHAT_ID))[0]
++            trace = json.loads(run["stage_trace"])
++            assert trace[-1]["stage"] == "deliver"
++            assert trace[-1]["outcome"] == "success"
++        finally:
++            await db.close()
++
++    @pytest.mark.asyncio
++    async def test_legacy_branch_writes_run(self, tmp_path):
++        db = DatabaseService(str(tmp_path / "legacy.db"))
++        await db.initialize()
++        try:
++            req = orch.FactcheckRequest(
++                chat_id=CHAT_ID, trigger_tg_message_id=11,
++                target_tg_message_id=10, target_text="legacy тезис")
++            verdict = await orch._run_legacy_branch(
++                req, _LegacyService(), None, db=db,
++                correlation_id="corr-legacy")
++            assert verdict.route == "legacy_single"
++            runs = await db.list_factcheck_runs(chat_id=CHAT_ID)
++            assert len(runs) == 1
++            run = runs[0]
++            assert run["correlation_id"] == "corr-legacy"
++            assert run["pipeline_version"] == "legacy_single"
++            assert run["claim_text"] == "legacy тезис"
++            assert run["verdict_text"] == "legacy verdict text"
++            assert json.loads(run["stage_trace"]) == [
++                {"stage": "verdict", "outcome": "success"}]
++            assert await tf.record_delivery_stage(
++                db, correlation_id="corr-legacy")
++            run = (await db.list_factcheck_runs(chat_id=CHAT_ID))[0]
++            assert json.loads(run["stage_trace"])[-1] == {
++                "stage": "deliver", "outcome": "success"}
++        finally:
++            await db.close()
++
++    @pytest.mark.asyncio
++    async def test_record_temporal_run_without_pipeline_id_self_links(
++            self, tmp_path):
++        """Manual-путь: run связывается со своим run_id, который уходит в
++        ledger — звено не теряется."""
++        db = DatabaseService(str(tmp_path / "manual.db"))
++        await db.initialize()
++        try:
++            run_id = await tf.record_temporal_run(db, _run_result(),
++                                                  scope="chat:1")
++            stored = await db.get_factcheck_run(run_id)
++            assert stored["correlation_id"] == run_id
++        finally:
++            await db.close()
+diff --git a/tests/test_t5150_startup_migrations_round1046.py b/tests/test_t5150_startup_migrations_round1046.py
+index f707509b6..b96ee6108 100644
+--- a/tests/test_t5150_startup_migrations_round1046.py
++++ b/tests/test_t5150_startup_migrations_round1046.py
+@@ -270,7 +270,8 @@ async def test_e_v32_db_applies_v33_once_with_guard(tmp_path, caplog):
+         cur = await svc.db.execute(
+             "SELECT COUNT(*) AS c FROM sqlite_master WHERE type='index' "
+             "AND name LIKE 'idx_mca_factcheck%'")
+-        assert (await cur.fetchone())["c"] == 3
++        # v33: chat/scope/evidence; v50 (FCT-S6 U1): correlation_id.
++        assert (await cur.fetchone())["c"] == 4
+     finally:
+         await svc.close()
+ 
