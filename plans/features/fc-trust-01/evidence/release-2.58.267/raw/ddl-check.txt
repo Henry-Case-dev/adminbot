@@ -1,0 +1,14 @@
+migrations_or_db_py_changed=(none)
+schema_constants:
+services\agentic_events.py: SCHEMA_VERSION = "1"
+services\key_history.py: SCHEMA_VERSION = 1
+services\mca_events.py: SCHEMA_VERSION = "2"
+services\mca_sample_library.py: SCHEMA_VERSION_HUMOR_SAMPLES = 37
+services\meme_initiative.py: SCHEMA_VERSION_TARGET = 40
+services\summary_fact_package.py: SCHEMA_VERSION = 2
+services\summary_l1_contract.py: SCHEMA_VERSION = 2
+services\summary_l2_writer.py: SCHEMA_VERSION = 1
+services\summary_test_run.py: SCHEMA_VERSION = 1
+ddl_delta_lines=0
+(no DDL statements in diff)
+max_schema_constant=49 (services/database.py:_SCHEMA_VERSION_SELF_DIAG_SAMPLES)

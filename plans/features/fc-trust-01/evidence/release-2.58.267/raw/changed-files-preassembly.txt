@@ -1,0 +1,73 @@
+base=cd2245fdb
+head=7b835b838245f903e92ba6ab752e126e4350fd9e
+version=2.58.267
+dirty_tracked=False
+--- name-status base..head:
+M	config/settings.py
+M	plans/docs/param-registry-round1025.meta.md
+M	services/factcheck_orchestrator.py
+M	services/factcheck_renderer.py
+M	services/search_aggregator.py
+M	tests/test_decision_making_round1026.py
+A	tests/test_fc_trust_render.py
+M	tests/test_image_context_memory_round1026.py
+M	tests/test_mca17c_invariants_round1047.py
+M	tests/test_q07_field_stats.py
+M	tests/test_round1025_f8_registry.py
+M	tests/test_scope_selector_round1025.py
+M	tests/test_summary_deploy_round1026.py
+M	tests/test_summary_fact_package.py
+M	tests/test_summary_logging_runid.py
+M	tests/test_summary_publish_integration_round1026.py
+M	tests/test_summary_test_run.py
+M	tests/test_telegram_reactions_round1026.py
+M	tests/test_tool_coordinator_round1026.py
+M	tests/test_unified_image_request_round1026.py
+M	tests/test_webapp_design_tokens_round1025.py
+M	tests/test_webapp_f11_round1025.py
+M	tests/test_webapp_f6_round1025.py
+M	tests/test_webapp_f7_round1025.py
+M	tests/test_webapp_f9_round1025.py
+M	tests/test_webapp_hotfix10_round1025.py
+M	tests/test_webapp_hotfix6_round1025.py
+M	tests/test_webapp_hotfix7_round1025.py
+M	tests/test_webapp_hotfix8_round1025.py
+M	tests/test_webapp_hotfix9_round1025.py
+M	tests/test_webapp_round1026_polygon.py
+M	tools/ui_mod_acl_m4b2_status_e2e.py
+M	tools/ui_mod_acl_m4b3_status_e2e.py
+--- stat:
+ config/settings.py                                 |   2 +-
+ plans/docs/param-registry-round1025.meta.md        |   2 +-
+ services/factcheck_orchestrator.py                 |  17 ++
+ services/factcheck_renderer.py                     | 210 +++++++++++--
+ services/search_aggregator.py                      |   2 +-
+ tests/test_decision_making_round1026.py            |   2 +-
+ tests/test_fc_trust_render.py                      | 338 +++++++++++++++++++++
+ tests/test_image_context_memory_round1026.py       |   2 +-
+ tests/test_mca17c_invariants_round1047.py          |   2 +-
+ tests/test_q07_field_stats.py                      |   6 +-
+ tests/test_round1025_f8_registry.py                |   2 +-
+ tests/test_scope_selector_round1025.py             |   2 +-
+ tests/test_summary_deploy_round1026.py             |   2 +-
+ tests/test_summary_fact_package.py                 |   2 +-
+ tests/test_summary_logging_runid.py                |   2 +-
+ .../test_summary_publish_integration_round1026.py  |   2 +-
+ tests/test_summary_test_run.py                     |   2 +-
+ tests/test_telegram_reactions_round1026.py         |   2 +-
+ tests/test_tool_coordinator_round1026.py           |   2 +-
+ tests/test_unified_image_request_round1026.py      |   2 +-
+ tests/test_webapp_design_tokens_round1025.py       |   2 +-
+ tests/test_webapp_f11_round1025.py                 |   2 +-
+ tests/test_webapp_f6_round1025.py                  |   2 +-
+ tests/test_webapp_f7_round1025.py                  |   2 +-
+ tests/test_webapp_f9_round1025.py                  |   2 +-
+ tests/test_webapp_hotfix10_round1025.py            |   2 +-
+ tests/test_webapp_hotfix6_round1025.py             |   2 +-
+ tests/test_webapp_hotfix7_round1025.py             |   2 +-
+ tests/test_webapp_hotfix8_round1025.py             |   2 +-
+ tests/test_webapp_hotfix9_round1025.py             |   2 +-
+ tests/test_webapp_round1026_polygon.py             |   4 +-
+ tools/ui_mod_acl_m4b2_status_e2e.py                |   6 +-
+ tools/ui_mod_acl_m4b3_status_e2e.py                |   2 +-
+ 33 files changed, 578 insertions(+), 57 deletions(-)
