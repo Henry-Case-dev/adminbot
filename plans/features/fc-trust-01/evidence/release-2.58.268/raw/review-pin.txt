@@ -1,0 +1,5 @@
+review_path=plans/features/fc-trust-01/evidence/fct-s5-u1-2026-11-28/review-r1/review-r1.md
+review_commit=62cce15ed
+sha256=fdfd805c0fc065b05f7a09abaeb35adc74f76b6c90bd4f827ca828b5778a303c
+prefix_fdfd805c=True
+verdict=['## VERDICT: APPROVED_FOR_RELEASE_PREPARATION']

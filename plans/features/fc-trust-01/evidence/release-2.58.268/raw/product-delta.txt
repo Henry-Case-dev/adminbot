@@ -1,0 +1,41 @@
+base=9709b14af
+candidate=a0a34dcd32a3c55004c0f4c1f88cc9b2283391ae
+product_files_changed=2
+product_files=services/factcheck_service.py,tests/test_fc_trust_s5_writer.py
+changed_files_total_vs_base=31
+bump_touched_files=29
+outside_product_and_bump_files=(none)
+product_files_inside_bump_set=(none)
+
+numstat_vs_base:
+1	1	config/settings.py
+1	1	plans/docs/param-registry-round1025.meta.md
+122	0	services/factcheck_service.py
+1	1	tests/test_decision_making_round1026.py
+234	0	tests/test_fc_trust_s5_writer.py
+1	1	tests/test_image_context_memory_round1026.py
+1	1	tests/test_mca17c_invariants_round1047.py
+3	3	tests/test_q07_field_stats.py
+1	1	tests/test_round1025_f8_registry.py
+1	1	tests/test_scope_selector_round1025.py
+1	1	tests/test_summary_deploy_round1026.py
+1	1	tests/test_summary_fact_package.py
+1	1	tests/test_summary_logging_runid.py
+1	1	tests/test_summary_publish_integration_round1026.py
+1	1	tests/test_summary_test_run.py
+1	1	tests/test_telegram_reactions_round1026.py
+1	1	tests/test_tool_coordinator_round1026.py
+1	1	tests/test_unified_image_request_round1026.py
+1	1	tests/test_webapp_design_tokens_round1025.py
+1	1	tests/test_webapp_f11_round1025.py
+1	1	tests/test_webapp_f6_round1025.py
+1	1	tests/test_webapp_f7_round1025.py
+1	1	tests/test_webapp_f9_round1025.py
+1	1	tests/test_webapp_hotfix10_round1025.py
+1	1	tests/test_webapp_hotfix6_round1025.py
+1	1	tests/test_webapp_hotfix7_round1025.py
+1	1	tests/test_webapp_hotfix8_round1025.py
+1	1	tests/test_webapp_hotfix9_round1025.py
+2	2	tests/test_webapp_round1026_polygon.py
+3	3	tools/ui_mod_acl_m4b2_status_e2e.py
+1	1	tools/ui_mod_acl_m4b3_status_e2e.py

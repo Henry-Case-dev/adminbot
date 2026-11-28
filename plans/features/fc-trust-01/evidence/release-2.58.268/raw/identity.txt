@@ -1,0 +1,27 @@
+services/factcheck_service.py
+  idx=6f916bb9801e04d6c12b899d23779fbb2dbc70d3
+  candidate=6f916bb9801e04d6c12b899d23779fbb2dbc70d3
+  base=64cedab6a708a12393699f55a00e88b281c7f2c8
+  match=True
+  bytes_equal=True
+  sha256=8d366068a721c9a4952b4665cba49f6abfcbde333ed8061098462c6a1c036474
+  crlf=0 lines=4976
+tests/test_fc_trust_s5_writer.py
+  idx=4e1390cfec76130b15c659f8864f6352be06e4cd
+  candidate=4e1390cfec76130b15c659f8864f6352be06e4cd
+  base=(absent)
+  match=True
+  bytes_equal=True
+  sha256=3e0e9a32a601dc4ed8d34893cc77b0768e427c40822734f5f3b00828787e631b
+  crlf=0 lines=234
+services/factcheck_prompts.py
+  sha256=4cd1e893d8c5fed8566ed242af1b1c54d90da91d71bd6dd7b782f1415dde1bb4
+  canon_4cd1e893=True
+  candidate_blob=64bb06c05fc7067b2630951c2b407d5455e631fb
+  head_blob=64bb06c05fc7067b2630951c2b407d5455e631fb
+  unchanged=True
+migrations_or_db_py_changed=(none)
+git diff --stat vs base:
+services/factcheck_service.py    | 122 ++++++++++++++++++++
+ tests/test_fc_trust_s5_writer.py | 234 +++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 356 insertions(+)

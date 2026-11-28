@@ -1,0 +1,380 @@
+diff --git a/services/factcheck_service.py b/services/factcheck_service.py
+index 64cedab6a..6f916bb98 100644
+--- a/services/factcheck_service.py
++++ b/services/factcheck_service.py
+@@ -633,6 +633,122 @@ def _human_evaluated_period(period: dict | None) -> str:
+     return ""
+ 
+ 
++# ── FCT-801 (S5 U1): даты публикации/фактические даты доказательств ─────────
++# Writer видит РЕАЛЬНЫЕ даты из уже существующих полей evidence (U1:
++# published_at_source/claim_valid_*/retrieved_at/original_posted_at/timezone/
++# timestamp_source/confidence). Никаких новых запросов, никаких подстановок
++# now(): неизвестная дата просто не попадает в payload (честный unknown).
++
++_WRITER_DATE_SOURCE_HUMAN = {
++    "page": "со страницы",
++    "html_meta": "из метаданных страницы",
++    "json_ld": "из разметки страницы",
++    "url_path": "из адреса страницы",
++    "provider": "из поисковой выдачи",
++    "planner_fetch": "из открытой страницы",
++}
++_WRITER_DATE_CONFIDENCE_HUMAN = {
++    "high": "высокая",
++    "medium": "средняя",
++    "low": "низкая",
++}
++
++
++def _fmt_writer_date(ts) -> str:
++    """unix ts → «ДД.ММ.ГГГГ» (формат существующего `period`); нет даты → ''.
++
++    `None`/пусто/битое значение — не дата, а не «сегодня»: подстановки now()
++    здесь нет по построению."""
++    if ts is None or ts == "":
++        return ""
++    try:
++        value = int(ts)
++    except (TypeError, ValueError, OverflowError):
++        return ""
++    if value <= 0:
++        return ""
++    try:
++        return datetime.datetime.fromtimestamp(
++            value, datetime.timezone.utc).strftime("%d.%m.%Y")
++    except (OSError, OverflowError, ValueError):
++        return ""
++
++
++def _writer_dates_payload(evidence, env) -> dict:
++    """FCT-801 (S5 U1): компактный блок дат для Writer payload.
++
++    * ``original_publication`` — дата публикации оригинала (из evidence
++      ``original_posted_at``, иначе из уже установленного envelope);
++    * ``evidence[]`` — по каждому доказательству с URL: реальная дата
++      публикации/оригинала, период действия тезиса, момент получения и
++      происхождение/надёжность даты — ТОЛЬКО известные значения.
++
++    Пустой блок → ``{}`` (ключ ``dates`` в payload не появляется)."""
++    rows = [row for row in (evidence or ()) if isinstance(row, dict)]
++    original = ""
++    for row in rows:
++        if not str(row.get("url") or "").strip():
++            # Без URL строка не проверяемое доказательство — её дата не
++            # выдаётся за дату публикации оригинала.
++            continue
++        original = _fmt_writer_date(row.get("original_posted_at"))
++        if original:
++            break
++    if not original:
++        original = _fmt_writer_date(
++            getattr(env, "original_published_at", None))
++    info: dict = {}
++    if original:
++        info["original_publication"] = original
++    items: list[dict] = []
++    seen: set[str] = set()
++    for row in rows:
++        url = str(row.get("url") or "").strip()
++        if not url:
++            # Без URL строка не доказательство (её нельзя проверить).
++            continue
++        evidence_id = str(row.get("evidence_id") or "")
++        if evidence_id and evidence_id in seen:
++            continue
++        item: dict = {}
++        if evidence_id:
++            item["evidence_id"] = evidence_id
++        published_at = _fmt_writer_date(row.get("published_at"))
++        if published_at:
++            item["published_at"] = published_at
++        original_posted = _fmt_writer_date(row.get("original_posted_at"))
++        if original_posted:
++            item["original_posted_at"] = original_posted
++        claim_period = _human_evaluated_period({
++            "from": row.get("claim_valid_from"),
++            "to": row.get("claim_valid_to")})
++        if claim_period:
++            item["claim_period"] = claim_period
++        retrieved_at = _fmt_writer_date(row.get("retrieved_at"))
++        if retrieved_at:
++            item["retrieved_at"] = retrieved_at
++        timezone_value = str(row.get("timezone") or "").strip()
++        if timezone_value:
++            item["timezone"] = timezone_value
++        source = str(row.get("published_at_source")
++                     or row.get("timestamp_source") or "").strip()
++        if source and source not in ("unknown", "date_parse_failed"):
++            source_human = _WRITER_DATE_SOURCE_HUMAN.get(source)
++            if source_human:
++                item["date_source"] = source_human
++        confidence = str(row.get("timestamp_confidence") or "").strip()
++        confidence_human = _WRITER_DATE_CONFIDENCE_HUMAN.get(confidence)
++        if confidence_human:
++            item["date_confidence"] = confidence_human
++        if len(item) > (1 if evidence_id else 0):
++            items.append(item)
++            if evidence_id:
++                seen.add(evidence_id)
++    if items:
++        info["evidence"] = items
++    return info
++
++
+ # ── P0-FACTCHECK (owner 24.10.2026 §3.3/§3.5/§3.6): материал изображения ──────
+ # Текст с картинки приходит в анализ ЧЕРЕЗ СУЩЕСТВУЮЩИЙ Vision-контур
+ # (`mca_vision.render_media_context_async`: OCR + визуальное описание уже
+@@ -4588,6 +4704,12 @@ class FactCheckService:
+                 "as_of_utc": time_snap.as_of_utc.strftime(
+                     "%Y-%m-%dT%H:%M:%S+00:00"),
+             }
++        # FCT-801 (S5 U1): даты публикации оригинала и фактическая дата
++        # доказательств — из уже собранных полей evidence (без новых запросов).
++        # Неизвестная дата не подменяется now(): блока просто нет.
++        dates_payload = _writer_dates_payload(evidence, env)
++        if dates_payload:
++            payload["dates"] = dates_payload
+         # RLR R-03.4/R-06/§3.4: проверенный набор чисел — из структурного
+         # payload'а, evidence этого прогона и дат envelope; уходит Writer'у
+         # ЯВНО до генерации. Post-L2 numeric-правки здесь нет.
+diff --git a/tests/test_fc_trust_s5_writer.py b/tests/test_fc_trust_s5_writer.py
+new file mode 100644
+index 000000000..4e1390cfe
+--- /dev/null
++++ b/tests/test_fc_trust_s5_writer.py
+@@ -0,0 +1,234 @@
++"""FCT-S5 U1 — даты в Writer payload (FCT-801), 28.11.2026.
++
++Источник: `plans/features/fc-trust-01/evidence/fct-s5-s6-scoping-2026-11-28/
++scoping.md` sha `e49fbf01…` §S5 + D-S5-1 (можно `factcheck_service.py`;
++`factcheck_prompts.py` не трогать).
++
++Проверяется наблюдаемый Writer payload `_temporal_verbalize`:
++
++* дата публикации оригинала и фактические даты доказательств берутся ТОЛЬКО
++  из уже собранных полей evidence U1 (`published_at_source`,
++  `claim_valid_from/to`, `retrieved_at`, `original_posted_at`, `timezone`,
++  `timestamp_source/confidence`);
++* неизвестная дата не подменяется `now()`/текущим годом — поля просто нет;
++* канон промптов не изменён (пин байтов `factcheck_prompts.py`).
++"""
++from __future__ import annotations
++
++import dataclasses
++import hashlib
++import json
++
++import pytest
++
++from services import factcheck_service as fs
++from services import temporal_factcheck as tf
++
++CHAT_ID = -100777
++PROMPT_CANON_SHA256 = (
++    "4cd1e893d8c5fed8566ed242af1b1c54d90da91d71bd6dd7b782f1415dde1bb4")
++
++
++def _env(**kwargs):
++    base = dict(
++        claim_id="c-1", chat_id=CHAT_ID, target_tg_message_id=900,
++        target_revision=None, target_content_hash=None,
++        trigger_tg_message_id=901,
++        claim_text="в Килякете выпало 120 мм осадков за сутки",
++        claim_span=None, source_type="text", attribution={},
++        origin_type=None, origin_sender_user_id=None, origin_chat_id=None,
++        origin_display_name=None, repost_received_at=None,
++        original_published_at=None, original_published_precision=None,
++        claim_period_from=None, claim_period_to=None,
++        claim_period_precision=None, date_source="unknown",
++        date_precision="unknown", date_timezone=None, date_uncertainty={},
++        requested_mode="contextual", analysis_as_of=1760900000)
++    base.update(kwargs)
++    return tf.TemporalClaimEnvelope(**base)
++
++
++def _verdict(**kwargs):
++    base = dict(
++        factual_verdict="refuted", temporal_status="unknown",
++        evaluated_period={"from": None, "to": None, "precision": "unknown"},
++        assessment_mode="contextual", as_of=1760900000,
++        evidence_refs=("ev-1",), uncertainty={}, parts=(), reason=None)
++    base.update(kwargs)
++    return tf.TemporalVerdict(**base)
++
++
++class _Capture:
++    def __init__(self):
++        self.messages = None
++
++    async def __call__(self, _generate, messages, **kwargs):
++        self.messages = messages
++        return "готовый ответ", {"attempts": 1, "retries": 0, "hits": [],
++                                 "fallback": False}
++
++
++async def _writer_payload(monkeypatch, evidence=(), env=None):
++    cap = _Capture()
++    monkeypatch.setattr(fs, "verbalize_validated", cap)
++
++    async def _compose(chat_id, *, writer, base_prompt):
++        return base_prompt
++
++    async def _no_critique(chat_id, policy):
++        return ""
++
++    monkeypatch.setattr(fs, "_compose_genre_speech", _compose)
++    monkeypatch.setattr(fs, "_critique_section_block", _no_critique)
++    service = fs.FactCheckService(None, None, None)
++    await service._temporal_verbalize(
++        env or _env(), _verdict(), False, None, evidence=evidence)
++    system, user = (m["content"] for m in cap.messages)
++    assert user.startswith("ВЕРДИКТ (JSON):\n")
++    return json.loads(user[len("ВЕРДИКТ (JSON):\n"):])
++
++
++# ── FCT-801: известная дата доходит до Writer ──────────────────────────────
++
++class TestKnownDates:
++    @pytest.mark.asyncio
++    async def test_known_dates_reach_writer_payload(self, monkeypatch):
++        evidence = ({
++            "evidence_id": "ev-1",
++            "url": "https://example.org/a",
++            "published_at": 1767225600,          # 01.01.2026 UTC
++            "published_at_source": "page",
++            "original_posted_at": 1735689600,    # 01.01.2025 UTC
++            "claim_valid_from": 1767225600,
++            "claim_valid_to": 1767312000,        # 02.01.2026 UTC
++            "retrieved_at": 1767398400,          # 03.01.2026 UTC
++            "timezone": "Europe/Moscow",
++            "timestamp_source": "page",
++            "timestamp_confidence": "high",
++        },)
++        payload = await _writer_payload(monkeypatch, evidence)
++        assert payload["dates"]["original_publication"] == "01.01.2025"
++        assert payload["dates"]["evidence"] == [{
++            "evidence_id": "ev-1",
++            "published_at": "01.01.2026",
++            "original_posted_at": "01.01.2025",
++            "claim_period": "с 01.01.2026 по 02.01.2026",
++            "retrieved_at": "03.01.2026",
++            "timezone": "Europe/Moscow",
++            "date_source": "со страницы",
++            "date_confidence": "высокая",
++        }]
++        # технические коды оси дат не публикуются Writer'у
++        encoded = json.dumps(payload, ensure_ascii=False)
++        for code in ("json_ld", "html_meta", "date_parse_failed", "unknown",
++                     "planner_fetch", "timestamp_confidence"):
++            assert code not in encoded
++
++    @pytest.mark.asyncio
++    async def test_envelope_original_date_used_when_evidence_silent(
++            self, monkeypatch):
++        env = _env(original_published_at=1735689600)
++        payload = await _writer_payload(monkeypatch, evidence=(), env=env)
++        assert payload["dates"] == {"original_publication": "01.01.2025"}
++
++    @pytest.mark.asyncio
++    async def test_medium_confidence_is_humanized(self, monkeypatch):
++        evidence = ({
++            "evidence_id": "ev-1",
++            "url": "https://example.org/a",
++            "published_at": 1767225600,
++            "published_at_source": "provider",
++            "timestamp_confidence": "medium",
++        },)
++        payload = await _writer_payload(monkeypatch, evidence)
++        item = payload["dates"]["evidence"][0]
++        assert item["date_source"] == "из поисковой выдачи"
++        assert item["date_confidence"] == "средняя"
++        assert "provider" not in json.dumps(payload, ensure_ascii=False)
++
++
++# ── FCT-801: неизвестная дата остаётся неизвестной ─────────────────────────
++
++class TestUnknownDates:
++    @pytest.mark.asyncio
++    async def test_unknown_dates_add_no_field_and_no_now(self, monkeypatch):
++        evidence = ({
++            "evidence_id": "ev-1",
++            "url": "https://example.org/a",
++            "published_at": None,
++            "published_at_source": None,
++            "original_posted_at": None,
++            "claim_valid_from": None,
++            "claim_valid_to": None,
++            "retrieved_at": None,
++            "timezone": "",
++            "timestamp_source": "",
++            "timestamp_confidence": "unknown",
++        },)
++        payload = await _writer_payload(monkeypatch, evidence)
++        assert "dates" not in payload
++        assert "01.01.2026" not in json.dumps(payload, ensure_ascii=False)
++
++    @pytest.mark.asyncio
++    async def test_retrieval_date_never_replaces_publication_date(
++            self, monkeypatch):
++        """Фактический момент получения не выдаётся за дату публикации."""
++        evidence = ({
++            "evidence_id": "ev-1",
++            "url": "https://example.org/a",
++            "published_at": None,
++            "original_posted_at": None,
++            "retrieved_at": 1767225600,          # 01.01.2026 UTC
++            "timestamp_source": "",
++            "timestamp_confidence": "unknown",
++        },)
++        payload = await _writer_payload(monkeypatch, evidence)
++        assert "original_publication" not in payload["dates"]
++        item = payload["dates"]["evidence"][0]
++        assert "published_at" not in item
++        assert "original_posted_at" not in item
++        assert item["retrieved_at"] == "01.01.2026"
++
++    @pytest.mark.asyncio
++    async def test_rows_without_url_do_not_become_publication_dates(
++            self, monkeypatch):
++        evidence = ({
++            "evidence_id": "ev-1",
++            "url": None,
++            "published_at": 1735689600,
++            "original_posted_at": 1735689600,
++        },)
++        payload = await _writer_payload(monkeypatch, evidence)
++        assert "dates" not in payload
++
++
++# ── D-S5-1: канон промптов не изменён ─────────────────────────────────────
++
++class TestPromptCanonUntouched:
++    def test_factcheck_prompts_bytes_unchanged(self):
++        data = open("services/factcheck_prompts.py", "rb").read()
++        assert hashlib.sha256(data).hexdigest() == PROMPT_CANON_SHA256
++
++    @pytest.mark.asyncio
++    async def test_writer_payload_introduces_no_new_instruction_text(
++            self, monkeypatch):
++        """Даты — данные payload, а не новая инструкция модели."""
++        cap = _Capture()
++        monkeypatch.setattr(fs, "verbalize_validated", cap)
++
++        async def _compose(chat_id, *, writer, base_prompt):
++            return base_prompt
++
++        async def _no_critique(chat_id, policy):
++            return ""
++
++        monkeypatch.setattr(fs, "_compose_genre_speech", _compose)
++        monkeypatch.setattr(fs, "_critique_section_block", _no_critique)
++        service = fs.FactCheckService(None, None, None)
++        await service._temporal_verbalize(
++            _env(), _verdict(), False, None,
++            evidence=({"evidence_id": "ev-1", "url": "https://e.org/a",
++                       "published_at": 1767225600},))
++        system = cap.messages[0]["content"]
++        assert "FCT-801" not in system
++        assert "дата публикации оригинала" not in system
++        assert "server_time" not in system
