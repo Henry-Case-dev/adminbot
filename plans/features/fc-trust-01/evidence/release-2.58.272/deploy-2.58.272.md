@@ -59,6 +59,23 @@ APPJS_BYTES=2744085
 Публично: `https://admin-bot.duckdns.org/web/app.js` → **200**, `2744085` B (== размер на диске,
 == кандидат).
 
+Отдельный прогон `raw/deploy-prod-blobs.txt` подтверждает то же **на самом проде** для полного
+набора файлов кандидата (блобы `git rev-parse HEAD:<path>` + sha256 на диске):
+
+```
+92bb8a72…  web/api/routes.py                     sha256 5c20750a…  == ожидаемо
+8d3c535e…  web/app.js                            sha256 20e87aa8…  == ожидаемо
+90499d81…  web/index.html                        sha256 b8570e5d…  == ожидаемо
+c40ed631…  config/settings.py                    sha256 ca3bc66d…  == ожидаемо
+5f1870e3…  services/factcheck_orchestrator.py    sha256 01bb941b…  == ожидаемо
+64bb06c0…  services/factcheck_prompts.py         sha256 4cd1e893…  == база (не менялся)
+2a74fbbd…  tests/test_fc_trust_s6_aggregate_api.py sha256 f4ec5b19…  == кандидат
+dee8b9dd…  tests/test_mca23_planned_vs_actual.py   sha256 a155eb35…  == кандидат
+bc76ccef…  tests/test_round1025_f8_registry.py     sha256 875d861e…  == кандидат + версия
+0dc8ac3a…  tests/fixtures/round1025/f8_baseline.json sha256 3e22a537… == кандидат
+HEAD=a2195fe3f9…  DIRTY_TRACKED=0
+```
+
 ## 3. Здоровье, эндпоинт, журнал
 
 `raw/deploy-health.txt`, `raw/deploy-journal.txt`:
@@ -163,6 +180,8 @@ TMP_AFTER=0
 
 Своих временных файлов деплой не оставлял (скрипты шли через stdin, без файлов на сервере;
 rollback-worktree удалён). Никаких `nohup`/фоновых процессов не запускалось.
+
+Контрольный прогон `raw/deploy-prod-blobs.txt`: `TMP_SCRATCH=0 WORKTREES=1 ORPHANS=0`.
 
 ## 9. Что осталось непроверенным (честно)
 
