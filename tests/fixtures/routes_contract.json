@@ -21,6 +21,7 @@
       "init_data": true,
       "checks": [
         "get_tma_user",
+        "guard_admin_lockout",
         "requires_global_admin"
       ]
     },
@@ -32,6 +33,7 @@
       "init_data": true,
       "checks": [
         "get_tma_user",
+        "guard_admin_lockout",
         "requires_global_admin"
       ]
     },
@@ -43,6 +45,10 @@
       "init_data": true,
       "checks": [
         "_ensure_keyvalue_object",
+        "can_access_chat",
+        "can_edit_param",
+        "can_view_param",
+        "gate_authorization",
         "get_tma_user"
       ]
     },
@@ -56,6 +62,9 @@
         "_meme_template_guard",
         "_random_selector_guard",
         "_recheck_config_chat_rights",
+        "can_access_chat",
+        "can_edit_param",
+        "can_view_key_value",
         "get_tma_user",
         "user_is_global_admin"
       ]
@@ -110,6 +119,7 @@
       ],
       "init_data": true,
       "checks": [
+        "can_access_chat",
         "get_tma_user"
       ]
     },
@@ -120,6 +130,7 @@
       ],
       "init_data": true,
       "checks": [
+        "can_access_chat",
         "get_tma_user"
       ]
     },
@@ -150,6 +161,7 @@
       ],
       "init_data": true,
       "checks": [
+        "can_access_chat",
         "get_tma_user"
       ]
     },
@@ -160,6 +172,8 @@
       ],
       "init_data": true,
       "checks": [
+        "can_access_chat",
+        "can_edit_param",
         "get_tma_user"
       ]
     },
@@ -224,6 +238,7 @@
       ],
       "init_data": true,
       "checks": [
+        "can_access_chat",
         "get_tma_user"
       ]
     },
@@ -234,6 +249,7 @@
       ],
       "init_data": true,
       "checks": [
+        "can_access_chat",
         "get_tma_user"
       ]
     },
@@ -278,6 +294,7 @@
       "init_data": true,
       "checks": [
         "_ctx_global_admin",
+        "can_access_chat",
         "get_tma_user"
       ]
     },
@@ -459,7 +476,8 @@
       ],
       "init_data": true,
       "checks": [
-        "get_tma_user"
+        "get_tma_user",
+        "match_permission"
       ]
     },
     {
@@ -469,6 +487,7 @@
       ],
       "init_data": true,
       "checks": [
+        "can_access_chat",
         "get_tma_user"
       ]
     },
@@ -479,7 +498,8 @@
       ],
       "init_data": true,
       "checks": [
-        "get_tma_user"
+        "get_tma_user",
+        "match_permission"
       ]
     },
     {
@@ -500,7 +520,8 @@
       ],
       "init_data": true,
       "checks": [
-        "get_tma_user"
+        "get_tma_user",
+        "match_permission"
       ]
     },
     {
@@ -510,7 +531,8 @@
       ],
       "init_data": true,
       "checks": [
-        "get_tma_user"
+        "get_tma_user",
+        "match_permission"
       ]
     },
     {
@@ -520,6 +542,7 @@
       ],
       "init_data": true,
       "checks": [
+        "can_access_chat",
         "get_tma_user"
       ]
     },
@@ -530,6 +553,7 @@
       ],
       "init_data": true,
       "checks": [
+        "can_access_chat",
         "get_tma_user"
       ]
     },
@@ -697,7 +721,10 @@
       "init_data": true,
       "checks": [
         "get_tma_user",
-        "requires_global_admin"
+        "guard_admin_lockout",
+        "guard_last_wildcard",
+        "requires_global_admin",
+        "validate_permissions"
       ]
     },
     {
@@ -708,6 +735,7 @@
       "init_data": true,
       "checks": [
         "get_tma_user",
+        "match_permission",
         "requires_permission:access"
       ]
     },
@@ -719,6 +747,7 @@
       "init_data": true,
       "checks": [
         "get_tma_user",
+        "guard_last_wildcard",
         "requires_global_admin"
       ]
     },
@@ -740,6 +769,7 @@
       ],
       "init_data": true,
       "checks": [
+        "can_access_chat",
         "get_tma_user"
       ]
     },
@@ -792,6 +822,7 @@
       "init_data": true,
       "checks": [
         "_ctx_global_admin",
+        "can_view_key_value",
         "get_tma_user"
       ]
     },
@@ -803,6 +834,7 @@
       "init_data": true,
       "checks": [
         "_ctx_global_admin",
+        "can_view_key_value",
         "get_tma_user"
       ]
     },
@@ -814,6 +846,7 @@
       "init_data": true,
       "checks": [
         "_ctx_global_admin",
+        "can_view_key_value",
         "get_tma_user"
       ]
     },

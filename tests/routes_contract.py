@@ -51,28 +51,46 @@ EXPLICIT_GUARD_CALLS = frozenset({
     "_prompt_require_view",
     "_prompt_require_revision_view",
     "_require_chat_access",
+    "can_access_chat",
+    "gate_authorization",
     "get_tma_user",
+    "guard_admin_lockout",
+    "guard_last_wildcard",
+    "match_permission",
     "requires_global_admin",
     "requires_permission",
     "requires_recovery",
     "user_is_global_admin",
+    "validate_permissions",
 })
 # Прежнее имя набора сохранено как совместимый алиас.
 GUARD_CALLS = EXPLICIT_GUARD_CALLS
 
-# Эвристика имени inline-проверки доступа. Проверка, названная по этим
-# соглашениям, попадает в ``checks`` без ручного добавления в whitelist —
-# следующая inline-проверка не выпадет из контракта.
+# Эвристика имени inline-проверки доступа (контекст ВЫЗОВА). Проверка,
+# названная по этим соглашениям, попадает в ``checks`` без ручного добавления
+# в whitelist — следующая inline-проверка не выпадет из контракта.
 _GUARD_NAME_RE = re.compile(
     r"(?:^|_)requires?_"      # requires_permission, _prompt_require_edit
     r"|^_?assert"             # _assert_*, assert_*
     r"|_guard$"               # _random_selector_guard, _meme_template_guard
     r"|_rights$"              # _recheck_config_chat_rights, _recheck_meme_rights
+    r"|^can_"                 # can_access_chat, can_edit_param, can_view_key_value
+    r"|^guard_"               # guard_admin_lockout, guard_last_wildcard
+)
+# Подмножество для guard'ов, переданных ПО ССЫЛКЕ (callback/recheck=...):
+# здесь широкие call-only шаблоны (``^can_``/``_access$``) не применяются,
+# иначе локальные переменные и модули (``can_write``, ``prompt_access``,
+# ``global_access``) попали бы в checks.
+_GUARD_CALLBACK_RE = re.compile(
+    r"(?:^|_)requires?_"
+    r"|^_?assert"
+    r"|_guard$"
+    r"|_rights$"
 )
 
 
 def is_guard_call_name(name: str) -> bool:
-    """Имя вызова/ссылки похоже на проверку доступа (whitelist + эвристика)."""
+    """Имя ВЫЗОВА похоже на проверку доступа (whitelist + эвристика)."""
     if not name:
         return False
     if name in EXPLICIT_GUARD_CALLS:
@@ -87,6 +105,22 @@ def is_guard_call_name(name: str) -> bool:
             return True
         if name.endswith(("_global_admin", "_hidden_admin")):
             return True
+    return False
+
+
+def _is_guard_callback_name(name: str) -> bool:
+    """Имя guard'а, переданного по ссылке (а не имени локальной переменной)."""
+    if not name:
+        return False
+    if name in EXPLICIT_GUARD_CALLS:
+        return True
+    if _GUARD_CALLBACK_RE.search(name):
+        return True
+    if name.endswith("_admin") and (
+        name.startswith(("_", "is_", "user_is_"))
+        or name.endswith(("_global_admin", "_hidden_admin"))
+    ):
+        return True
     return False
 
 
@@ -143,7 +177,7 @@ def _source_checks(fn: ast.AST, module_funcs: dict[str, ast.AST] | None = None) 
         if (isinstance(node, ast.Name)
                 and isinstance(node.ctx, ast.Load)
                 and node.id not in called
-                and is_guard_call_name(node.id)):
+                and _is_guard_callback_name(node.id)):
             checks.add(node.id)
     if module_funcs:
         for helper in sorted(helpers):

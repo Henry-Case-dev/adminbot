@@ -96,6 +96,16 @@ class TestGuardHeuristic:
         "_ctx_global_admin",
         "user_is_global_admin",
         "_assert_some_access",
+        # corrective r2 (F-BAR-07): чат-изоляция и аналогичные access-хелперы.
+        "can_access_chat",
+        "can_edit_param",
+        "can_view_key_value",
+        "can_view_param",
+        "gate_authorization",
+        "guard_admin_lockout",
+        "guard_last_wildcard",
+        "validate_permissions",
+        "match_permission",
     ])
     def test_access_check_names_are_visible(self, name):
         assert rc.is_guard_call_name(name), name
@@ -107,9 +117,44 @@ class TestGuardHeuristic:
         "get_cache",
         "required",
         "build_prompt_catalog",
+        "gate_snapshot",
+        "gate_state",
+        "validate_value_rule",
+        "get_permissions",
+        "_persona_access",   # резолвер ctx, не enforcement-проверка
     ])
     def test_business_helpers_are_not_guards(self, name):
         assert not rc.is_guard_call_name(name), name
+
+    @pytest.mark.parametrize("name", [
+        "prompt_access",     # модуль, а не guard
+        "global_access",     # локальная переменная
+        "can_write",         # локальная переменная (capability)
+        "can_read",
+        "can_edit",
+        "_persona_access",
+    ])
+    def test_references_are_not_guard_callbacks(self, name):
+        # Callback-правило не должно ловить модули/локальные переменные.
+        assert not rc._is_guard_callback_name(name), name
+
+    def test_can_access_chat_gate_is_derived_from_handler_source(self):
+        # X1 (F-BAR-07) на уровне вывода checks: снятие chat-isolation
+        # gate меняет производный набор, значит контракт обязан упасть.
+        import ast as _ast
+
+        with_gate = _ast.parse(
+            "async def handler(request, user):\n"
+            "    ctx = await _persona_access(request, user, None)\n"
+            "    if not access_srv.can_access_chat(ctx, chat_id):\n"
+            "        raise HTTPException(status_code=403)\n"
+        ).body[0]
+        without_gate = _ast.parse(
+            "async def handler(request, user):\n"
+            "    ctx = await _persona_access(request, user, None)\n"
+        ).body[0]
+        assert "can_access_chat" in rc._source_checks(with_gate)
+        assert "can_access_chat" not in rc._source_checks(without_gate)
 
     def test_manifest_records_former_inline_guards(self):
         # F-BAR-02: раньше эти вызовы были невидимы контракту (M6 проходил
@@ -124,6 +169,31 @@ class TestGuardHeuristic:
             ("/initiative/meme-settings", ("POST",))]
         assert "_recheck_meme_rights" in declared[
             ("/initiative/meme-settings", ("POST",))]
+
+    def test_manifest_records_chat_isolation_checks(self):
+        # F-BAR-07: 7 маршрутов, где чат-изоляция держится на
+        # access_srv.can_access_chat, обязаны это фиксировать в контракте.
+        declared = {(row["path"], tuple(row["methods"])): row["checks"]
+                    for row in rc.load_manifest()["routes"]}
+        for key in [
+            ("/config/time", ("GET",)),
+            ("/config/time", ("POST",)),
+            ("/direct/context-diagnostics", ("GET",)),
+            ("/direct/turn-diagnostics", ("GET",)),
+            ("/config/keys/status", ("GET",)),
+            ("/config/overrides-map", ("GET",)),
+            ("/status", ("GET",)),
+        ]:
+            assert "can_access_chat" in declared[key], key
+
+    def test_manifest_records_analogous_access_helpers(self):
+        declared = {(row["path"], tuple(row["methods"])): row["checks"]
+                    for row in rc.load_manifest()["routes"]}
+        assert "gate_authorization" in declared[("/config", ("GET",))]
+        assert "guard_admin_lockout" in declared[("/admins", ("POST",))]
+        assert "guard_last_wildcard" in declared[("/roles", ("POST",))]
+        assert "validate_permissions" in declared[("/roles", ("POST",))]
+        assert "match_permission" in declared[("/roles/tree", ("GET",))]
 
 
 class TestManifestEmission:
