@@ -105,6 +105,24 @@ class FakeCache:
         self.store[key] = payload
 
 
+def _no_relevant_evidence_retrieval(claim_id="c1"):
+    """§5.7 сценарий, каким он и задуман: поиск ВЫПОЛНЕН, релевантных
+    источников нет. Это содержательный ``insufficient_evidence``-исход, а не
+    технический сбой провайдера (FCT-603): иначе опубликованный заголовок
+    честно называет сбой поиска, и «недостаточно данных» ожидать нельзя."""
+    claim = fsp.ClaimUnit(claim_id=claim_id,
+                          text="стикер с вирусом крадёт данные с телефона")
+    coverage = fsp.ClaimCoverage(
+        claim=claim, search_status=fsp.CLAIM_SEARCH_SEARCHED,
+        status_detail=fsp.CLAIM_STATUS_NO_RELEVANT_SOURCES,
+        outcome=fsp.CLAIM_OUTCOME_INSUFFICIENT,
+        reason_code="insufficient_evidence")
+    return fsp.RetrievalOutcome(
+        evidence_map=None, search_text="", queries_attempted=1, queries_used=0,
+        refs_collected=0, fetch_errors=0, budget_exhausted=False,
+        claims=(coverage,))
+
+
 def _make_msg(text=None, caption=None, message_id=1, user_id=USER_ID,
               reply_to_message=None, forward_origin=None, media_group_id=None):
     msg = MagicMock()
@@ -442,6 +460,17 @@ class TestScenario7InsufficientEvidence:
         monkeypatch.setattr(mca_gates, "temporal_factcheck_enabled",
                             lambda: True)
 
+        async def _fake_retrieval(plan, *, aggregator):
+            # Сценарий §5.7 — «поиск ничего надёжного не подтвердил», а не
+            # сбой поиска. С FCT-S6 U3 (28.11.2026) v2-путь включён заводским
+            # значением, поэтому офлайн-двойник service.aggregator иначе даёт
+            # provider_error, и честный опубликованный заголовок — «Проверка
+            # не завершена: поиск недоступен» (FCT-603), а не «недостаточно
+            # данных».
+            return _no_relevant_evidence_retrieval()
+
+        monkeypatch.setattr(fsp, "run_retrieval", _fake_retrieval)
+
         service = _verdict_service()
         service.check_claim_envelope = AsyncMock(return_value=run_ns)
         req = orch.FactcheckRequest(
@@ -458,6 +487,7 @@ class TestScenario7InsufficientEvidence:
         sent = bot.send_message.await_args.args[1]
         assert sent not in FACTCHECK_NO_CLAIM_PHRASES
         assert "недостаточно данных" in sent.lower()
+        assert "проверка не завершена" not in sent.lower()
         assert any("verdict_stage=insufficient_evidence" in r.getMessage()
                    for r in caplog.records)
         assert any("admission=checkable" in r.getMessage()
