@@ -235,8 +235,8 @@ def env(monkeypatch):
     monkeypatch.setattr(orch, "get_smartmodule_concurrency_pool", lambda: pool)
     monkeypatch.setattr(fh, "typing_active", lambda bot, chat: _NullCtx())
     monkeypatch.setattr(orch, "typing_active", lambda bot, chat: _NullCtx())
-    monkeypatch.setattr(fh, "cooldown_remaining", AsyncMock(return_value=0))
-    monkeypatch.setattr(fh, "cooldown_touch", AsyncMock())
+    monkeypatch.setattr(fh, "cooldown_claim",
+                        AsyncMock(return_value=(True, 0.0)))
     monkeypatch.setattr(fh, "_refund_cooldown", AsyncMock(return_value=True))
     monkeypatch.setattr(fh, "_cp_g", AsyncMock(return_value="contextual"))
     monkeypatch.setattr(fh, "_fetch_context_with_gate",

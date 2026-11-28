@@ -1,0 +1,19 @@
+﻿F                                                                        [100%]
+================================== FAILURES ===================================
+__________ TestAdminContract.test_llm_guard_is_visible_policy_group ___________
+
+self = <tests.test_p0_llm_transport_258206.TestAdminContract object at 0x000001F689846600>
+
+    def test_llm_guard_is_visible_policy_group(self):
+        from pathlib import Path
+        root = Path(__file__).resolve().parent.parent
+        js = (root / "web" / "app.js").read_text(encoding="utf-8")
+        policy_at = js.index("id: 'prov_policy'")
+        text_at = js.index("id: 'prov_text'")
+>       assert policy_at < text_at
+E       assert 68272 < 67751
+
+tests\test_p0_llm_transport_258206.py:649: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_p0_llm_transport_258206.py::TestAdminContract::test_llm_guard_is_visible_policy_group
+1 failed in 3.19s
