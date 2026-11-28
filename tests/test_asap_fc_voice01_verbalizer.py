@@ -240,9 +240,11 @@ class TestVoiceCanonRevision:
 
     def test_temporal_analyst_seal(self):
         """Схема временного аналитика (v2-envelope); FC-04 (corrective
-        05.11.2026) переписал правило mixed/causality — ревизия забамплена."""
+        05.11.2026) переписал правило mixed/causality, FCT-113/192 U1
+        (28.11.2026) добавил аддитивные поля части (`assertion_kind`,
+        `evidence_quotes`) без сокращения правил — ревизия забамплена."""
         label, seal = pr.FACTORY_REVISION_SEALS["temporal.analyst"]
-        assert label == "temporal-analyst-fc04-corrective"
+        assert label == "temporal-analyst-fct113-192-u1"
         assert pr.sha12(pr.factory_text("temporal.analyst")) == seal
 
     def test_single_canon_conflicting_directives_removed(self):

@@ -384,7 +384,7 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "internal.image_stage": "image-stage-w2a",
     # EVOL-018 (W2B, ревью F3): живые LLM-инструкции расширенного аудита.
     # FC-04 (corrective 05.11.2026): бамп меток ревизии (правило mixed/causality).
-    "temporal.analyst": "temporal-analyst-fc04-corrective",
+    "temporal.analyst": "temporal-analyst-fct113-192-u1",
     "temporal.validator": "temporal-validator-fc04-corrective",
     "temporal.fallback": "temporal-fallback-fc08",
     "memory.fact_retry": "fact-retry-evol006",
@@ -563,7 +563,7 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
     # (приватные имена + скобочные конкатенации без тройных кавычек).
     # FC-04 (corrective 05.11.2026): правило mixed/causality в analyst и
     # validator переписано — бамп метки ревизии и печати sha12 (seal).
-    "temporal.analyst": ("temporal-analyst-fc04-corrective", "5baf6afaf2d8"),
+    "temporal.analyst": ("temporal-analyst-fct113-192-u1", "3f7ecbff8509"),
     "temporal.validator": ("temporal-validator-fc04-corrective", "e1c2038a835d"),
     "temporal.fallback": ("temporal-fallback-fc08", "c14641150137"),
     "memory.fact_retry": ("fact-retry-evol006", "e04f4b32ef63"),
@@ -3057,7 +3057,16 @@ def factory_set_fingerprint() -> str:
 #: ДЕЙСТВИЯ С НИМИ» (метка ``l1-planner-final-goal``, печать
 #: ``ce6931304b24``); прочие каноны, включая тексты владельца, байт-в-байт.
 #: Было ``2cd38b272139``, стало ``10efa51a8dae``.
-FACTORY_SET_SHA256_12 = "10efa51a8dae"
+#: FCT-113/FCT-192 U1 (28.11.2026, Architect decisions §1/§2): changed = 1 —
+#: ``temporal.analyst`` получил два аддитивных поля части JSON
+#: (``assertion_kind`` — только смысловые значения, ``evidence_quotes`` —
+#: дословная фраза основания) и правила 14/15 к ним. Существующие правила и
+#: директива не сокращены, модель/лимиты не менялись (метка
+#: ``temporal-analyst-fct113-192-u1``, печать ``3f7ecbff8509``); прежние байты
+#: (прод 2.58.272) — печать ``5baf6afaf2d8``, метка
+#: ``temporal-analyst-fc04-corrective``; прочие каноны байт-в-байт.
+#: Было ``10efa51a8dae``, стало ``bd06a8a1a782``.
+FACTORY_SET_SHA256_12 = "bd06a8a1a782"
 
 
 

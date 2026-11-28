@@ -763,6 +763,90 @@ def _optional_semantic_text(value) -> str:
     return "" if contains_system_ids(text) else text
 
 
+# ── FCT-113/FCT-192 (U1, 28.11.2026): аддитивные поля части Analyst'а ───────
+# Обе оси уже существуют. Здесь — единственное место, где payload модели
+# приводится к контракту до merge-стадии: закрытый набор типа утверждения и
+# форма цитат-оснований. Новых значений/reason-кодов/полей вердикта нет.
+
+def _analyst_assertion_kind(value) -> str:
+    """`assertion_kind` части Analyst'а → закрытый набор (FCT-113).
+
+    Смысловые значения `decision_status`/`normative_state_on_date` ставит
+    существующая стадия Analyst — они принимаются. Структурные
+    `image_content`/`public_statement_attribution` определяются провенансом и
+    структурным tool'ом, поэтому модель их не переопределяет: попытка →
+    `unknown` (конфликт пишется вызывающим в существующий лог). Не-строка или
+    значение вне набора → `unknown`, без исключения. Набор берётся из
+    планировщика: второй копии оси нет (импорт ленивый — planner импортирует
+    этот модуль).
+    """
+    from services.factcheck_planner import (
+        ASSERTION_IMAGE_CONTENT, ASSERTION_KIND_UNKNOWN, ASSERTION_KINDS,
+        ASSERTION_PUBLIC_STATEMENT)
+    if isinstance(value, str) and value in ASSERTION_KINDS:
+        if value in (ASSERTION_PUBLIC_STATEMENT, ASSERTION_IMAGE_CONTENT):
+            return ASSERTION_KIND_UNKNOWN
+        return value
+    return ASSERTION_KIND_UNKNOWN
+
+
+def _validated_evidence_quotes(value, allowed_refs=None) -> dict:
+    """`evidence_quotes` части → {ID текущего прогона: непустая строка}.
+
+    FCT-192 (U1): проверяется только ФОРМА цитаты (словарь, ID из allowlist
+    выдержек текущего прогона, непустая строка). Дословность и вхождение
+    фразы именно в cited-пассаж проверяет merge-стадия — здесь она ещё не
+    видит текстов выдержек. Не-словарь/чужой ID/не-строка/пустая фраза
+    отбрасываются: выдуманный ID не становится основанием ни на одном уровне.
+    """
+    if not isinstance(value, dict):
+        return {}
+    quotes: dict[str, str] = {}
+    for key, phrase in value.items():
+        evidence_id = str(key or "")
+        if not evidence_id:
+            continue
+        if allowed_refs is not None and evidence_id not in allowed_refs:
+            logger.debug("[temporal] part evidence_quote for foreign evidence "
+                         "dropped: evidence=%s", evidence_id)
+            continue
+        if not isinstance(phrase, str):
+            continue
+        text = phrase.strip()
+        if text:
+            quotes[evidence_id] = text
+    return quotes
+
+
+def _normalized_analyst_part(part: dict, allowed_refs=None) -> dict:
+    """Нормализовать аддитивные поля части Analyst'а (FCT-113/FCT-192 U1).
+
+    Остальные ключи части не меняются; отсутствующее поле не добавляется
+    (значение типа утверждения в `parts[]` окончательно применяет merge по
+    структурному провенансу тезиса). Конфликт модели со структурным типом
+    пишется в существующий лог; новых reason-кодов не вводится.
+    """
+    result = part
+    if "assertion_kind" in part:
+        raw = part.get("assertion_kind")
+        normalized = _analyst_assertion_kind(raw)
+        if normalized != raw:
+            logger.warning(
+                "[temporal] analyst part assertion_kind rejected: part=%s "
+                "value=%r -> %s (structural type comes from provenance)",
+                str(part.get("part_id") or "?"), raw, normalized)
+        result = {**result, "assertion_kind": normalized}
+    if "evidence_quotes" in part:
+        quotes = _validated_evidence_quotes(part.get("evidence_quotes"),
+                                            allowed_refs)
+        result = dict(result)
+        if quotes:
+            result["evidence_quotes"] = quotes
+        else:
+            result.pop("evidence_quotes", None)
+    return result
+
+
 def verdict_from_payload(payload: dict, envelope: TemporalClaimEnvelope, *,
                          fallback_reason: str | None = None,
                          allowed_refs=None) -> TemporalVerdict:
@@ -828,6 +912,11 @@ def verdict_from_payload(payload: dict, envelope: TemporalClaimEnvelope, *,
             or not part_texts.get(p.get("part_id"))
             else {**p, "text": part_texts[p.get("part_id")]}
             for p in parts_tuple)
+    # FCT-113/FCT-192 (U1): аддитивные поля части (`assertion_kind`,
+    # `evidence_quotes`) приводятся к контракту на единственном входе модели.
+    if parts_tuple:
+        parts_tuple = tuple(_normalized_analyst_part(p, allowed_refs)
+                            for p in parts_tuple)
     # §3.5 (owner 21.10.2026) + FC-04 (05.11.2026): глобальный enum согласован
     # с частями; mixed — только при двухстороннем содержании; статусы из
     # старых частей не поднимаются. basis* (формальный вывод) не понижается.
@@ -1161,7 +1250,9 @@ TEMPORAL_ANALYST_SYSTEM = (
     'unknown", "evaluated_period": {"from": <unix|null>, "to": <unix|null>, '
     '"precision": "day|month|year|interval|unknown"}, "parts": [{"part_id": '
     '"p1", "factual_verdict": "...", "temporal_status": "...", "note": "...", '
-    '"evidence_refs": ["ev-1"]}'
+    '"evidence_refs": ["ev-1"], "evidence_quotes": {"ev-1": "<дословная '
+    'фраза из выдержки>"}, "assertion_kind": "decision_status|'
+    'normative_state_on_date|unknown"}'
     '], "uncertainty": {"summary": "..."}, '
     '"inference_gap": "<что НЕ следует из подтверждённых данных, или null>", '
     '"counterpoint": "<сильнейшее честное контрпрочтение, или null>", '
@@ -1206,6 +1297,23 @@ TEMPORAL_ANALYST_SYSTEM = (
     "формального вывода без внешних URL помечай основание в uncertainty "
     "(ключ basis) — принудительная «недостаточность» к проверенному "
     "расчёту не применяется."
+    # FCT-113 (U1, 28.11.2026): аддитивное поле части — тип утверждения по
+    # смыслу. Смысл даёт эта же стадия; image_content/
+    # public_statement_attribution определяются провенансом и структурным
+    # tool'ом, поэтому модели недоступны (иначе она обходила бы защиту
+    # «цитата без атрибуции → unknown»). Существующие правила не сокращены.
+    " (14) assertion_kind части — тип утверждения по СМЫСЛУ тезиса: "
+    "decision_status — тезис утверждает, что решение принято/одобрено/"
+    "отклонено/внесено; normative_state_on_date — тезис утверждает, какая "
+    "норма/правило действует на дату; ни то ни другое — unknown. Значения "
+    "image_content и public_statement_attribution не ставь: их определяет "
+    "происхождение материала и существующая проверка атрибуции.\n"
+    # FCT-192 (U1, 28.11.2026): аддитивное поле части — дословная цитата
+    # основания. Сервер проверит вхождение фразы в выдержку; пересказ или
+    # цитата из другой выдержки основанием не считаются.
+    "(15) evidence_quotes части — дословные фразы ИЗ выдержек, на которые "
+    "опирается supported/refuted часть, в формате {\"ev-N\": \"фраза\"}: "
+    "не пересказ и не цитата из другой выдержки.\n"
     # §8 (FC-08): директива дополняет правила, не заменяя их; ровно один
     # носитель (см. комментарий у ANALYST_DIRECTIVE).
     "\n" + ANALYST_DIRECTIVE
