@@ -17,7 +17,9 @@ L2 — ``_build_l2_selection_candidates`` + ``_materialize_selection``
 
 TEST-LIFECYCLE: CONTRACT owner=UNIFIED-REPLY/UR-B (UR-03.1/UR-04.3)
 """
+import json
 import re
+from types import SimpleNamespace
 
 import pytest
 
@@ -25,6 +27,7 @@ import services.direct_chat_service as dcs
 from services import direct_context_composer as comp
 from services import direct_execution as _dx
 from services import direct_l1 as _l1
+from services import turn_types as _tt
 from services.search_aggregator import AllSearchEnginesFailedException
 from services.tool_router import ToolContext, ToolDeps, ToolRouter
 
@@ -115,6 +118,77 @@ class TestProviderStateBeforePlanning:
         assert slim.search_available is False
         assert "web_search" not in slim.capabilities
         assert "chat_history" in slim.capabilities
+
+    @pytest.mark.asyncio
+    async def test_turn_request_binds_runtime_state_before_planner_call(
+            self, monkeypatch):
+        """Один и тот же runtime-снимок доезжает до РЕАЛЬНОГО planner'а.
+
+        Порядок связан не docstring'ом: `_build_turn_request` кладёт tool-state
+        в `TurnRequest`, `_execute_turn` фиксирует этот req в трассе ДО вызова
+        L1, и fake-LLM внутри planner'а проверяет, что видит именно этот req.
+        """
+        from services import direct_chat_service as dcs_mod
+        from services import direct_l1 as l1_mod
+        from tests.test_direct_chat import FakeLLM, FakeMemory, _make_service
+
+        service = _make_service(memory=FakeMemory(window=[]), llm=FakeLLM())
+
+        async def _slim(_chat_id, _lore=False, _image=False):
+            return [{"function": {"name": "get_recent_history"}}]
+
+        monkeypatch.setattr(dcs_mod, "active_tools_for_chat", _slim)
+        slot_meta = _tt.SlotBudgetMeta(budget_tokens=1000,
+                                       credential_source="global")
+        req = await service._build_turn_request(
+            trigger_type="direct", chat_id=CHAT_ID,
+            correlation_id="corr-turn-request", slot_meta=slot_meta,
+            lore_enabled=False, image_enabled=False)
+        assert req.tool_state.search_available is False
+        assert "web_search" not in req.capabilities
+        assert req.capabilities == req.tool_state.capabilities
+
+        captured: dict = {}
+        real_trace = l1_mod.record_turn_trace
+
+        def _trace(turn_req, policy=None):
+            captured["req"] = turn_req
+            return real_trace(turn_req, policy=policy)
+
+        monkeypatch.setattr(l1_mod, "record_turn_trace", _trace)
+
+        plan_json = json.dumps({
+            "action": "reply", "reaction": None, "response_act": "answer",
+            "extent": "auto", "tone": "inherit",
+            "emotional_mirroring": "none", "structure": "chat",
+            "delivery_hint": "plain", "tool_policy": "none",
+            "capabilities_needed": [], "needs_clarification": False,
+            "clarification_target": None, "confidence": 0.9,
+            "knowledge_origin": "conversation_only",
+            "search_intent": "not_applicable"}, ensure_ascii=False)
+
+        class _PlannerLLM:
+            def __init__(self):
+                self.calls = 0
+
+            async def generate(self, messages, **kw):
+                self.calls += 1
+                assert captured.get("req") is req, (
+                    "planner вызван до фиксации TurnRequest")
+                assert captured["req"].tool_state.search_available is False
+                assert "web_search" not in captured["req"].capabilities
+                return plan_json
+
+        llm = _PlannerLLM()
+        service.llm = llm
+        plan, _meta = await service._execute_turn(
+            req, slot=SimpleNamespace(dedicated=False, model="",
+                                      base_url=""),
+            l1_messages=[{"role": "user", "content": "вопрос"}],
+            l1_input_chars=6, meta={}, started_monotonic=None)
+        assert llm.calls == 1
+        assert plan is not None
+        assert captured["req"] is req
 
 
 # ═══ UR-03.1: одна ToolEvidence: dedup/ошибки/источник/время/trace ═════════

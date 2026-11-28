@@ -80,19 +80,24 @@ follow-up нужен только если деривация когда-либ�
 - детерминизм публикации: `mca_exploration.choose_conversation_alternative`
   замокан НА `(None, None)` только для этого теста, потому что текущая
   вероятностная политика может отложить инициативу (`random_fallback`), и
-  тогда прохода до Writer'а нет, а «0 поисков» ничего не доказывает. Сама
-  проверяемая логика (наблюдатель/L1/tool-фаза/Writer) не подменяется.
-- Проход доходит до Writer'а и отправки; поиск = 0 по двум каналам:
-  подменный провайдер роутера и `SearchAggregator.search`; evidence у
-  Writer'а пуст; `_dx.run_tool_phase` не вызывался (нет claim-запроса);
-  `execute_web_search` при этом присутствует в активном наборе.
+  тогда прохода до Writer'а нет, а «0 поисков» ничего не доказывает.
+  Проверяемая логика (наблюдатель/L1-planner/Writer/tool-фаза) не подменяется:
+  `plan_initiative_decision` и `generate_initiative_reply` исполняются реально,
+  fake — только LLM-транспорт, возвращающий `conversation_only`-план и текст.
+- Проход доходит до реального L1-решения (`l1_planner`), реального Writer'а
+  (`l2_writer`) и отправки; поиск = 0 по двум каналам: подменный провайдер
+  роутера и `SearchAggregator.search`; `_dx.run_tool_phase` не вызывался
+  (нет claim-запроса); `execute_web_search` при этом присутствует в активном
+  наборе.
 
 SILENT/REACT: `TestSilentReactNoSearch` — живой `_l1_tool_phase` на
 `silent`/`react` с осью `open_world/required` и capability `web_search` даёт
 0 запросов провайдера и `raw is None`.
 
 Мутации (RED): снятие early-return SILENT/REACT в `run_tool_phase`; прямой
-поисковый вызов из `observe_tick`. См. `raw/mutations.txt` п.5–6.
+поисковый вызов из `observe_tick`; поиск из РЕАЛЬНОГО `plan_initiative_decision`
+и из РЕАЛЬНОГО Writer-пути (`generate_initiative_reply`). См.
+`raw/mutations.txt`, `raw/mutations-r1.txt`.
 
 ### UR-14.1 — свои сообщения бота — полноправные участники истории
 
@@ -119,7 +124,7 @@ read-path (`list_bot_output_history`/`collect_self_output_fragments`):
 
 См. `raw/`.
 
-- Новые тесты: **9 passed** (`raw/new-tests-green.txt`).
+- Новые тесты: **10 passed** (`raw/new-tests-green.txt`).
 - Смежные UR-B: **152 passed** (`test_unified_reply_ur_b_search_first.py`,
   `test_unified_reply_ur_b_review_fixes.py`,
   `test_unified_reply_ur_b_no_topic_veto.py`, `test_ur_b_live_wiring.py`).
@@ -134,7 +139,7 @@ read-path (`list_bot_output_history`/`collect_self_output_fragments`):
   `74ef57ef4` (продукт не менялся, новые файлы этими сьютами не
   импортируются): `_StubService` без `_writer_evidence_capacity` и два
   soul1-gate теста. Список — `raw/observer-suites.txt`.
-- Collect-only: 9 тестов (`raw/collect-only.txt`).
+- Collect-only: 10 тестов (`raw/collect-only.txt`).
 
 ## Рекомендация статусов (карта не правилась)
 
@@ -142,7 +147,59 @@ read-path (`list_bot_output_history`/`collect_self_output_fragments`):
   путь защитный).
 - UR-04.3 — **REVIEW**; идентичность refs доказана на шве. Полное живое
   подключение `ContextSelection` к L1 остаётся открытыми строками UR-C.
-- UR-06.5 — **REVIEW**.
+- UR-06.5 — **REVIEW**; F2 устранён (реальные planner/Writer + контр-мутации
+  RED), F1 связан с `TurnRequest`.
 - UR-14.1 — **REVIEW**.
 
 VERIFIED не предлагается: финальное решение — за независимым Reviewer.
+
+## Corrective r1: F2/F1 (2026-11-28)
+
+### UR-B-R1-F2 (blocking) — реальный planner и реальный Writer
+
+Исправлено: в `TestObserverCheckMakesNoSearch` удалены monkeypatch'и
+`plan_initiative_decision` и `_l2_write_answer`. Сервис собирается с
+`_InitiativeLLM` (fake только LLM-транспорт): `l1_planner` возвращает
+`conversation_only`/`not_applicable`-план, `l2_writer` — текст. Роутер и
+провайдер настоящие. Тест проверяет, что реально исполнены оба этапа
+(`planner_llm.steps()` содержит ровно один `l1_planner` и `l2_writer`) и что
+ни один из двух поисковых каналов не сработал.
+
+Контр-мутации (temp edit, затем `git checkout --`, продукт не менялся):
+- вставка `await self.tool_router.deps.search.search("planner-mutation")` в
+  РЕАЛЬНЫЙ `DirectChatService.plan_initiative_decision` → тест **RED**;
+- вставка `...("writer-mutation")` в РЕАЛЬНЫЙ `generate_initiative_reply`
+  (Writer-стадия) → тест **RED**.
+См. `raw/mutations-r1.txt` п.8–9.
+
+### UR-B-R1-F1 (minor) — порядок «до планирования» связан с TurnRequest
+
+Добавлен
+`TestProviderStateBeforePlanning::test_turn_request_binds_runtime_state_before_planner_call`:
+`slim` runtime-набор → реальный `_build_turn_request` кладёт tool-state в
+`TurnRequest`; `_execute_turn` фиксирует этот req в `record_turn_trace` ДО
+вызова L1, fake-LLM внутри planner'а проверяет, что видит именно этот req с
+`search_available=False`/без `web_search`. Это ассерт порядка, а не docstring.
+
+Мутация (RED): `_resolve_turn_tool_state.search_available` → `True` ломает оба
+provider-state теста. См. `raw/mutations-r1.txt` п.3.
+
+### F3/F4 — только backlog (продукт/карта не менялись)
+
+- **F3**: `requirements-map.json` держит UR-04.3 в `slice: UR-D`, UR-14.1 —
+  в `slice: UR-E` (note про владение UR-C/UR-23). Это test-only инкремент
+  UR-B; строки не двигались, карта не правилась. Кандидат статуса — REVIEW
+  с точной привязкой к UR-C/UR-D/UR-23 у владельца карты.
+- **F4**: cached-дубль tool-вызова всё ещё добавляет `EvidenceSource` в
+  `ToolEvidence` (`source_ids` с повтором, `source_count` считает дважды).
+  Живая `derive_simple_steps` дублей не порождает; путь защитный. Follow-up
+  только если деривация начнёт давать дубли. Продукт не менялся.
+
+### Прогоны r1
+
+- Новые/исправленные тесты: **10 passed**.
+- Observer-набор: **53 passed, 4 failed** — те же предсуществующие падения
+  на базе `74ef57ef4` (`raw/observer-suites.txt`).
+- Все 9 мутаций (7 прежних + planner/writer) RED, `raw/mutations-r1.txt`.
+- `git diff --stat -- services`: пусто (продукт не менялся).
+- `review-r1.md` закоммичен без изменений.

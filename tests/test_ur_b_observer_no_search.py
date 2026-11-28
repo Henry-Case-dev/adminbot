@@ -19,8 +19,9 @@ import time
 import pytest
 
 from services import direct_execution as _dx
+from tests.test_direct_chat import FakeMemory, _make_service
 from tests.test_ur_b_live_wiring import (
-    CHAT_ID, _plan, _service, _tool_phase, _SearchProvider)
+    CHAT_ID, _plan, _router, _service, _tool_phase, _SearchProvider)
 
 pytestmark = [pytest.mark.system2]
 
@@ -62,6 +63,37 @@ class _ObserverVerdictLLM:
                            "significance": 0.9,
                            "goal": "участники обсуждают игры",
                            "rationale": "живая тема"}, ensure_ascii=False)
+
+
+class _InitiativeLLM:
+    """Инициативный L1 planner + L2 Writer на одном fake-клиенте.
+
+    План — `conversation_only`/`not_applicable`: решение «внешние факты не
+    нужны» принимает РЕАЛЬНЫЙ planner, а не тестовая подмена."""
+
+    PLAN = {
+        "action": "reply", "reaction": None, "response_act": "answer",
+        "extent": "auto", "tone": "inherit", "emotional_mirroring": "none",
+        "structure": "chat", "delivery_hint": "plain",
+        "tool_policy": "none", "capabilities_needed": [],
+        "needs_clarification": False, "clarification_target": None,
+        "confidence": 0.9,
+        "knowledge_origin": "conversation_only",
+        "search_intent": "not_applicable",
+    }
+
+    def __init__(self):
+        self.calls: list[str | None] = []
+
+    async def generate(self, messages, temperature=None, chat_id=None,
+                       module=None, step=None, correlation_id=None, **kw):
+        self.calls.append(step)
+        if step == "l1_planner":
+            return json.dumps(self.PLAN, ensure_ascii=False)
+        return "инициативный текст"
+
+    def steps(self):
+        return list(self.calls)
 
 
 class _ObserverBot:
@@ -150,24 +182,12 @@ class TestObserverCheckMakesNoSearch:
         db = DatabaseService(str(tmp_path / "observer_ur_b.db"))
         await db.initialize()
         search = _SearchProvider()
-        service = _service(search)
-        seen = {"plan": 0, "writer": 0}
-
-        async def _initiative_plan(chat_id, intent_row, *,
-                                   correlation_id=None):
-            # Решение инициативного L1 — «разговор, внешние факты не нужны».
-            seen["plan"] += 1
-            return _plan(knowledge_origin="conversation_only",
-                         search_intent="not_applicable")
-
-        async def _writer(*a, **kw):
-            seen["writer"] += 1
-            seen["evidence"] = str(kw.get("evidence") or "")
-            return ("инициативный текст", "plain")
-
-        monkeypatch.setattr(service, "plan_initiative_decision",
-                            _initiative_plan)
-        monkeypatch.setattr(service, "_l2_write_answer", _writer)
+        planner_llm = _InitiativeLLM()
+        # REAL `plan_initiative_decision` + REAL `generate_initiative_reply`/
+        # `_l2_write_answer`: fake только LLM-транспорт, роутер настоящий.
+        service = _make_service(
+            memory=FakeMemory(window=[]), llm=planner_llm,
+            tool_router=_router(search))
         stage = {"calls": 0}
         real_stage = _dx.run_tool_phase
 
@@ -196,17 +216,19 @@ class TestObserverCheckMakesNoSearch:
             hot_config.set_config_cache(None)
             chat_params.set_chat_params_cache(None)
             await db.close()
-        # Проверка РЕАЛЬНО дошла до инициативного Writer'а (иначе ноль
-        # вызовов ничего не значит — прохода могло не быть).
+        # Проверка РЕАЛЬНО дошла до инициативного L1-решения и Writer'а
+        # (иначе ноль вызовов ничего не значит — прохода могло не быть).
         assert status == "completed"
-        assert verdicts.calls >= 1 and seen["plan"] == 1
-        assert seen["writer"] == 1, "инициатива не дошла до Writer'а"
+        assert verdicts.calls >= 1
+        assert planner_llm.steps().count("l1_planner") == 1, (
+            "реальный plan_initiative_decision не исполнялся")
+        assert "l2_writer" in planner_llm.steps(), (
+            "реальный Writer-путь не исполнялся")
         assert bot.sent, "инициатива не дошла до отправки"
         # Ноль поиска по обоим каналам наблюдения.
         assert search.queries == [], (
             f"поиск из проверки Observer: {search.queries}")
         assert aggregated == [], f"поиск через SearchAggregator: {aggregated}"
-        assert seen.get("evidence", "") == "", "Writer получил evidence"
         # Ноль — это РЕШЕНИЕ, а не отсутствие возможности: поисковый
         # инструмент доступен ходу (та же схема, что уходит живому L1).
         from services.tool_schemas import active_tools

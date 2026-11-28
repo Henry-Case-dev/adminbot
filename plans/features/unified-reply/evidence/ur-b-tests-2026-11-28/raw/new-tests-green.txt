@@ -1,4 +1,3 @@
-﻿    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
-
+﻿CMD: py -3 -m pytest tests/test_ur_b_tool_evidence.py tests/test_ur_14_bot_output_history.py tests/test_ur_b_observer_no_search.py -q
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-9 passed, 2 warnings in 4.32s
+10 passed, 2 warnings in 8.49s
