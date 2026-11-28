@@ -308,7 +308,8 @@ def test_l1_w1_section_bytes_unchanged_and_snapshot_pins():
         .replace(' "memory_scope": "auto"}',
                  ' "memory_scope": "auto",\n "final_goal": ""}', 1)
         + cp._DIRECT_L1_FINAL_GOAL_P0GM
-        + cp._DIRECT_L1_MEDIA_ACTIONS_P0GM)
+        + cp._DIRECT_L1_MEDIA_ACTIONS_P0GM).replace(
+        cp._DIRECT_L1_PARTICIPATION_R3, cp._DIRECT_L1_PARTICIPATION_R4)
     assert len(cp.PREV_DIRECT_L1_PLANNER_PA5W1) == 9750
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_PA5W1) == "422e9d73d316"
     assert _sha12(prev5) == "902dd00edf52"
@@ -320,38 +321,44 @@ def test_l1_w1_section_bytes_unchanged_and_snapshot_pins():
     # слепок EVR2 = ровно байты прода 2.58.148 (09f3d533d173).
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR2) == "09f3d533d173"
     # UNIFIED-REPLY UR-06/UR-03: слепок EVR3 = прежние активные байты
-    # (ef61a9dd6798). P0-GOAL-MEDIA: активные байты — P0GM (ce6931304b24),
-    # прежние активные — слепок EVR6 (619290834387).
+    # (ef61a9dd6798). P0-GOAL-MEDIA: ревизия P0GM (ce6931304b24); P0T-REPLY-01:
+    # активные байты R4 (64a80fb8c4ff), прежние активные — слепок EVR6
+    # (619290834387).
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR3) == "ef61a9dd6798"
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR6) == "619290834387"
-    assert _sha12(canon) == "ce6931304b24"
+    assert _sha12(cp.PREV_DIRECT_L1_PLANNER_P0GM) == "ce6931304b24"
+    assert _sha12(canon) == "64a80fb8c4ff"
     steps = dict(pm.PROMPT_MIGRATIONS[L1_KEY])
     assert steps[prev5] == canon
     assert steps[cp.PREV_DIRECT_L1_PLANNER_EVR0] == canon
     rollback = pm.ROLLBACK_MIGRATIONS[L1_KEY]
-    # P0-GOAL-MEDIA (25.11.2026): верхняя ступень снимает ревизию P0GM →
-    # байты EVR6; ниже — снятие поля memory_scope (EVR6 → EVR5).
-    assert rollback[0] == (canon, cp.PREV_DIRECT_L1_PLANNER_EVR6)
-    assert rollback[1] == (cp.PREV_DIRECT_L1_PLANNER_EVR6,
+    # P0T-REPLY-01 (28.11.2026): верхняя ступень снимает ТОЛЬКО секцию участия
+    # R4 → байты прода 2.58.273 (P0GM).
+    assert rollback[0] == (canon, cp.PREV_DIRECT_L1_PLANNER_P0GM)
+    # P0-GOAL-MEDIA (25.11.2026): следующая ступень снимает ревизию P0GM →
+    # байты EVR6; затем — снятие поля memory_scope (EVR6 → EVR5).
+    assert rollback[1] == (cp.PREV_DIRECT_L1_PLANNER_P0GM,
+                           cp.PREV_DIRECT_L1_PLANNER_EVR6)
+    assert rollback[2] == (cp.PREV_DIRECT_L1_PLANNER_EVR6,
                            cp.PREV_DIRECT_L1_PLANNER_EVR5)
     # RLR-03.3: затем снимается ТОЛЬКО поле preserve_source_facts → байты EVR4.
-    assert rollback[2] == (cp.PREV_DIRECT_L1_PLANNER_EVR5,
+    assert rollback[3] == (cp.PREV_DIRECT_L1_PLANNER_EVR5,
                            cp.PREV_DIRECT_L1_PLANNER_EVR4)
     # UNIFIED-REPLY UR-06/UR-03: затем снимается ось поиска → байты EVR3
     # (правило профиля решений).
-    assert rollback[3] == (cp.PREV_DIRECT_L1_PLANNER_EVR4,
+    assert rollback[4] == (cp.PREV_DIRECT_L1_PLANNER_EVR4,
                            cp.PREV_DIRECT_L1_PLANNER_EVR3)
     # ASAP-FC-VOICE-01 / B: затем снимается правило профиля решений → байты
     # прода 2.58.148 (EVR2).
-    assert rollback[4] == (cp.PREV_DIRECT_L1_PLANNER_EVR3,
+    assert rollback[5] == (cp.PREV_DIRECT_L1_PLANNER_EVR3,
                            cp.PREV_DIRECT_L1_PLANNER_EVR2)
     # EVOL W17: затем снимается контракт двух фаз → байты 2.58.147.
-    assert rollback[5] == (cp.PREV_DIRECT_L1_PLANNER_EVR2,
+    assert rollback[6] == (cp.PREV_DIRECT_L1_PLANNER_EVR2,
                            cp.PREV_DIRECT_L1_PLANNER_EVR1)
-    assert rollback[6] == (cp.PREV_DIRECT_L1_PLANNER_EVR1,
+    assert rollback[7] == (cp.PREV_DIRECT_L1_PLANNER_EVR1,
                            cp.PREV_DIRECT_L1_PLANNER_EVR0)
-    assert rollback[7] == (cp.PREV_DIRECT_L1_PLANNER_EVR0, prev5)
-    assert rollback[8] == (prev5, cp.PREV_DIRECT_L1_PLANNER_PA5W1)
+    assert rollback[8] == (cp.PREV_DIRECT_L1_PLANNER_EVR0, prev5)
+    assert rollback[9] == (prev5, cp.PREV_DIRECT_L1_PLANNER_PA5W1)
     assert pr.is_known_canon(prev5)
 
 
@@ -515,7 +522,10 @@ def test_labels_and_fingerprint_after_bump():
     # P0-GOAL-MEDIA (25.11.2026): метка L1 — ревизия P0GM (правило 7 «конечный
     # результат vs материал» + поле final_goal); прежняя метка
     # l1-planner-memory-scope осталась в слепке PREV_DIRECT_L1_PLANNER_EVR6.
-    assert "l1-planner-final-goal" in pr.factory_revision(
+    # P0T-REPLY-01 (28.11.2026): метка L1 — ревизия R4 (область Direct +
+    # источник цели «окно или сообщение текущего хода»); прежняя метка
+    # l1-planner-final-goal осталась в слепке PREV_DIRECT_L1_PLANNER_P0GM.
+    assert "l1-planner-delivery-scope" in pr.factory_revision(
         "direct.base.l1_planner")
     assert "toolphase-runtime-evidence" in pr.factory_revision(
         "direct.base.tool_phase")

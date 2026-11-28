@@ -195,9 +195,12 @@ def test_34_factory_and_ladder_and_custom_preserved():
     # фабрики обоих ключей = новые каноны; метки бампнуты
     assert pr.factory_text("direct.base.l1_planner") == CANON_L1
     assert pr.factory_text("direct.base.l2_writer") == CANON_L2
-    assert "l1-planner-tech-reasoning" in pr.factory_revision(
+    assert "l1-planner-delivery-scope" in pr.factory_revision(
         "direct.base.l1_planner")
-    assert "l2-writer-tech-reasoning" in pr.factory_revision(
+    # EVOL v5 §12.2 (04.11.2026): метка L2 — ревизия с секцией возражения на
+    # собственный прежний ответ (44736968bc76). Пин обновлён вместе с фактом:
+    # прежняя метка l2-writer-tech-reasoning устарела ещё до этой задачи.
+    assert "l2-writer-self-correction-rca1" in pr.factory_revision(
         "direct.base.l2_writer")
     # лестница: прод-байты 2.58.111 ведутся на новые каноны при рестарте
     steps_l1 = {src: dst for src, dst in
@@ -234,7 +237,23 @@ def test_34_factory_and_ladder_and_custom_preserved():
     # POST-ASAP5 W2: первой снимается семантика поиска в правиле 4
     # (→ PA5W2 = байты ред.5/W1), второй — секция W1 (→ PA5W1 = ред.4).
     assert pm.ROLLBACK_MIGRATIONS["prompts.direct_l1_planner_system_prompt"] \
-        == [(CANON_L1, cp.PREV_DIRECT_L1_PLANNER_PA5W2),
+        == [(CANON_L1, cp.PREV_DIRECT_L1_PLANNER_P0GM),
+            (cp.PREV_DIRECT_L1_PLANNER_P0GM,
+             cp.PREV_DIRECT_L1_PLANNER_EVR6),
+            (cp.PREV_DIRECT_L1_PLANNER_EVR6,
+             cp.PREV_DIRECT_L1_PLANNER_EVR5),
+            (cp.PREV_DIRECT_L1_PLANNER_EVR5,
+             cp.PREV_DIRECT_L1_PLANNER_EVR4),
+            (cp.PREV_DIRECT_L1_PLANNER_EVR4,
+             cp.PREV_DIRECT_L1_PLANNER_EVR3),
+            (cp.PREV_DIRECT_L1_PLANNER_EVR3,
+             cp.PREV_DIRECT_L1_PLANNER_EVR2),
+            (cp.PREV_DIRECT_L1_PLANNER_EVR2,
+             cp.PREV_DIRECT_L1_PLANNER_EVR1),
+            (cp.PREV_DIRECT_L1_PLANNER_EVR1,
+             cp.PREV_DIRECT_L1_PLANNER_EVR0),
+            (cp.PREV_DIRECT_L1_PLANNER_EVR0,
+             cp.PREV_DIRECT_L1_PLANNER_PA5W2),
             (cp.PREV_DIRECT_L1_PLANNER_PA5W2,
              cp.PREV_DIRECT_L1_PLANNER_PA5W1),
             (cp.PREV_DIRECT_L1_PLANNER_PA5W1,
@@ -249,9 +268,15 @@ def test_34_factory_and_ladder_and_custom_preserved():
             (cp.PREV_DIRECT_L1_PLANNER_R3B, cp.PREV_DIRECT_L1_PLANNER_R3),
             (cp.PREV_DIRECT_L1_PLANNER_R3,
              cp.PREV_DIRECT_L1_PLANNER_CLAR)]
+    # L2 (EVOL v5 §12.2 / волна 5): откат снимает по одной ступени —
+    # секцию возражения (→ EVR1), дисциплину доказательств (→ EVR0),
+    # секцию расчётов (→ PA5W2), затем 2.58.113 (CLAR). Прежняя ожидаемая
+    # пара CANON_L2→PA5W2 устарела ещё до этой задачи (пин обновлён по факту).
     assert pm.ROLLBACK_MIGRATIONS[
         "prompts.direct_chat_verbalizer_system_prompt"] == [(
-            CANON_L2, cp.PREV_CHAT_VERBALIZER_PA5W2), (
+            CANON_L2, cp.PREV_CHAT_VERBALIZER_EVR1), (
+            cp.PREV_CHAT_VERBALIZER_EVR1, cp.PREV_CHAT_VERBALIZER_EVR0), (
+            cp.PREV_CHAT_VERBALIZER_EVR0, cp.PREV_CHAT_VERBALIZER_PA5W2), (
             cp.PREV_CHAT_VERBALIZER_PA5W2, cp.PREV_CHAT_VERBALIZER_CLAR)]
 
 
@@ -378,9 +403,15 @@ def test_35_initiative_delivery_contracts_unchanged():
     block = _l1.build_l2_plan_block(plan, include_delivery=True)
     assert "[msg:42]" in block and "прямым" in block
     assert "никакая форма не имеет приоритета" in _l1.INITIATIVE_LINE
-    # секция участия R3 в каноне (W1 заморожен как ступень/откат)
-    assert cp._DIRECT_L1_PARTICIPATION_R3 in CANON_L1
+    # секция участия R4 в каноне (W1/R3 заморожены как ступени/откат);
+    # P0T-REPLY-01: смысловой выбор доставки общий для Direct и Initiative,
+    # источник цели — окно ИЛИ сообщение текущего хода.
+    assert cp._DIRECT_L1_PARTICIPATION_R4 in CANON_L1
+    assert cp._DIRECT_L1_PARTICIPATION_R3 not in CANON_L1
     assert cp._DIRECT_L1_PARTICIPATION_W1 not in CANON_L1
+    assert ("Для reply укажи конкретный target_message_id из "
+            "предоставленного контекста (окно или сообщение текущего хода)."
+            ) in CANON_L1
     # R3b: усиление продолжения ровно один раз, текст владельца §4.1 цел
     assert CANON_L1.count(cp._DIRECT_L1_CONTINUATION_R3B) == 1
     assert cp._DIRECT_L1_CLARIFICATION_CONTRACT in CANON_L1

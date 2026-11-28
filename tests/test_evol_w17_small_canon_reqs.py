@@ -144,13 +144,16 @@ def test_scenario25_canon_has_two_phase_contract():
         ' "memory_scope": "auto"}', 1) \
         + cp._DIRECT_L1_MEMORY_SCOPE_EVR6
     assert cp.PREV_DIRECT_L1_PLANNER_EVR6 == evr6
+    # P0T-REPLY-01 (28.11.2026): активные байты = P0GM + замена секции участия
+    # R3 → R4 (область Direct + источник цели «окно или сообщение хода»).
     assert canon == (
         evr6.replace(cp._DIRECT_L1_PLANNER_RULES_PA5W2,
                      cp._DIRECT_L1_PLANNER_RULES_P0GM)
         .replace(' "memory_scope": "auto"}',
                  ' "memory_scope": "auto",\n "final_goal": ""}', 1)
         + cp._DIRECT_L1_FINAL_GOAL_P0GM
-        + cp._DIRECT_L1_MEDIA_ACTIONS_P0GM)
+        + cp._DIRECT_L1_MEDIA_ACTIONS_P0GM).replace(
+        cp._DIRECT_L1_PARTICIPATION_R3, cp._DIRECT_L1_PARTICIPATION_R4)
     # Обе фазы названы, и у каждой свой маркер из СУЩЕСТВУЮЩИХ полей плана.
     assert "САММАРИ И ПРОВЕРКА" in canon
     assert "response_act=summarization" in canon
@@ -175,7 +178,9 @@ def test_scenario25_canon_has_two_phase_contract():
     # P0-GOAL-MEDIA (25.11.2026): метка ревизии — P0GM (прежняя
     # l1-planner-memory-scope осталась в слепке PREV_DIRECT_L1_PLANNER_EVR6).
     label, seal = pr.FACTORY_REVISION_SEALS["direct.base.l1_planner"]
-    assert label == "l1-planner-final-goal"
+    # P0T-REPLY-01 (28.11.2026): метка ревизии — R4 (прежняя
+    # l1-planner-final-goal осталась в слепке PREV_DIRECT_L1_PLANNER_P0GM).
+    assert label == "l1-planner-delivery-scope"
     assert pr.FACTORY_REVISION_LABELS["direct.base.l1_planner"] == label
     assert pr.sha12(pr.factory_text("direct.base.l1_planner")) == seal
     assert pr.seal_integrity() == {}
@@ -317,14 +322,18 @@ def test_scenario25_migration_applies_only_to_deployed_bytes():
     # UNIFIED-REPLY UR-06/UR-03: верхняя ступень была EVR3 → EVR4 (ось поиска);
     # RLR-03.3: затем EVR4 → EVR5 (поле preserve_source_facts);
     # VMQ-MEM-TIME (§2): EVR5 → EVR6 (поле memory_scope);
-    # P0-GOAL-MEDIA (25.11.2026): EVR6 → действующий канон (ревизия P0GM);
+    # P0-GOAL-MEDIA (25.11.2026): EVR6 → P0GM;
+    # P0T-REPLY-01 (28.11.2026): P0GM → действующий канон R4 (секция участия);
     # ступени W17/FC-VOICE не тронуты — стек цел.
-    assert steps[0] == (cp.PREV_DIRECT_L1_PLANNER_EVR6, active)
+    assert steps[0] == (cp.PREV_DIRECT_L1_PLANNER_P0GM, active)
     assert steps[0][0] != active
+    assert (cp.PREV_DIRECT_L1_PLANNER_P0GM, active) in steps
     assert (cp.PREV_DIRECT_L1_PLANNER_EVR6, active) in steps
     assert (cp.PREV_DIRECT_L1_PLANNER_EVR5, active) in steps
     rollback = pm.ROLLBACK_MIGRATIONS[L1_KEY]
-    assert (active, cp.PREV_DIRECT_L1_PLANNER_EVR6) in rollback
+    assert (active, cp.PREV_DIRECT_L1_PLANNER_P0GM) in rollback
+    assert (cp.PREV_DIRECT_L1_PLANNER_P0GM,
+            cp.PREV_DIRECT_L1_PLANNER_EVR6) in rollback
     assert (cp.PREV_DIRECT_L1_PLANNER_EVR6,
             cp.PREV_DIRECT_L1_PLANNER_EVR5) in rollback
     assert (cp.PREV_DIRECT_L1_PLANNER_EVR5,

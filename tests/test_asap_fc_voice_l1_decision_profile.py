@@ -619,6 +619,11 @@ def test_canon_revision_keeps_deployed_bytes_as_rollback_target():
     # абзацы цели/медиа; снимается ровно это → байты EVR6.
     assert cp._DIRECT_L1_FINAL_GOAL_P0GM in CANON
     assert cp._DIRECT_L1_MEDIA_ACTIONS_P0GM in CANON
+    # P0T-REPLY-01 (28.11.2026): единственная дельта активных байтов против
+    # прода 2.58.273 — секция участия R4; снимается ровно она.
+    assert cp._DIRECT_L1_PARTICIPATION_R4 in CANON
+    assert cp.PREV_DIRECT_L1_PLANNER_P0GM == CANON.replace(
+        cp._DIRECT_L1_PARTICIPATION_R4, cp._DIRECT_L1_PARTICIPATION_R3)
     assert len(CANON) > len(cp.PREV_DIRECT_L1_PLANNER_EVR6)
     assert CANON.replace(cp._DIRECT_L1_FINAL_GOAL_P0GM, "").replace(
         cp._DIRECT_L1_MEDIA_ACTIONS_P0GM, "").replace(
@@ -626,7 +631,9 @@ def test_canon_revision_keeps_deployed_bytes_as_rollback_target():
         ' "final_goal": ""}',
         ' "memory_scope": "auto"}', 1).replace(
         cp._DIRECT_L1_PLANNER_RULES_P0GM,
-        cp._DIRECT_L1_PLANNER_RULES_PA5W2) == \
+        cp._DIRECT_L1_PLANNER_RULES_PA5W2).replace(
+        cp._DIRECT_L1_PARTICIPATION_R4,
+        cp._DIRECT_L1_PARTICIPATION_R3) == \
         cp.PREV_DIRECT_L1_PLANNER_EVR6
     assert cp.PREV_DIRECT_L1_PLANNER_EVR6.replace(
         cp._DIRECT_L1_MEMORY_SCOPE_EVR6, "").replace(
@@ -655,7 +662,10 @@ def test_migration_and_rollback_only_match_exact_deployed_bytes():
     assert forward[cp.PREV_DIRECT_L1_PLANNER_EVR3] == CANON
     rollback = dict(
         pm.ROLLBACK_MIGRATIONS["prompts.direct_l1_planner_system_prompt"])
-    assert rollback[CANON] == cp.PREV_DIRECT_L1_PLANNER_EVR6
+    # P0T-REPLY-01: активные байты откатываются на прод 2.58.273 (P0GM).
+    assert rollback[CANON] == cp.PREV_DIRECT_L1_PLANNER_P0GM
+    assert rollback[cp.PREV_DIRECT_L1_PLANNER_P0GM] == \
+        cp.PREV_DIRECT_L1_PLANNER_EVR6
     assert rollback[cp.PREV_DIRECT_L1_PLANNER_EVR6] == \
         cp.PREV_DIRECT_L1_PLANNER_EVR5
     assert rollback[cp.PREV_DIRECT_L1_PLANNER_EVR5] == \
@@ -667,7 +677,7 @@ def test_migration_and_rollback_only_match_exact_deployed_bytes():
     # печать и метка заводской ревизии согласованы с активными байтами
     assert pr.seal_integrity() == {}
     label, sealed = pr.FACTORY_REVISION_SEALS["direct.base.l1_planner"]
-    assert label == "l1-planner-final-goal"
+    assert label == "l1-planner-delivery-scope"
     assert sealed == pr.sha12(CANON)
     assert pr.sealed_factory_revision("direct.base.l1_planner").endswith(
         pr.sha12(label))

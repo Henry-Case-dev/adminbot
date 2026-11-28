@@ -898,8 +898,12 @@ async def test_r0817_long_reply_chunked_without_loss(monkeypatch):
     # Ссылка и авторство не разрезаны.
     assert any(_LONG_LINK in c for c in chunks), chunks
     assert any("Вася, 12.10.2026" in c for c in chunks), chunks
-    # reply-привязка только на первом чанке (одна логическая отправка).
-    assert sent[0]["reply_to_message_id"] == msg.message_id
+    # P0T-REPLY-01 (28.11.2026): доставка — решение L1 по смыслу. План этого
+    # теста — осмысленный (source=llm) и НЕ просит delivery=reply, поэтому
+    # привязки нет ни у одного чанка (отсутствие решения ≠ reply). Контракт
+    # чанкинга/типографики проверяется выше и от привязки не зависит;
+    # «reply только на первом чанке» для плана с целью — в
+    # tests/test_p0t_reply_target.py.
     assert all("reply_to_message_id" not in c or c.get("reply_to_message_id")
-               is None for c in sent[1:]), sent
+               is None for c in sent), sent
     assert llm.steps().count("l2_writer") == 1

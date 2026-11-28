@@ -101,13 +101,19 @@ def test_canon_schema_has_delivery_fields():
         ' "memory_scope": "auto"}', 1) \
         + cp._DIRECT_L1_MEMORY_SCOPE_EVR6
     assert cp.PREV_DIRECT_L1_PLANNER_EVR6 == evr6
-    assert canon == (
+    # P0T-REPLY-01 (28.11.2026): активный канон = слепок P0GM с РОВНО одной
+    # точечной заменой секции участия R3 → R4 (область Direct + источник цели
+    # «окно или сообщение текущего хода»); прочие байты P0GM неизменны.
+    p0gm = (
         evr6.replace(cp._DIRECT_L1_PLANNER_RULES_PA5W2,
                      cp._DIRECT_L1_PLANNER_RULES_P0GM)
         .replace(' "memory_scope": "auto"}',
                  ' "memory_scope": "auto",\n "final_goal": ""}', 1)
         + cp._DIRECT_L1_FINAL_GOAL_P0GM
         + cp._DIRECT_L1_MEDIA_ACTIONS_P0GM)
+    assert cp.PREV_DIRECT_L1_PLANNER_P0GM == p0gm
+    assert canon == p0gm.replace(cp._DIRECT_L1_PARTICIPATION_R3,
+                                 cp._DIRECT_L1_PARTICIPATION_R4)
     assert cp.PREV_DIRECT_L1_PLANNER_EVR0 == (
         _DIRECT_L1_PLANNER_BASE_R3
         + _DIRECT_L1_CLARIFICATION_CONTRACT
@@ -160,11 +166,19 @@ def test_canon_forms_no_priority_and_positive_criteria():
     # запрет подгонки/эвристик (§4 директивы) — в каноне владельца
     assert "Не принимай решение по признаку" in flat
     assert "Нет квоты, процента, принудительного чередования" in flat
-    # доставка — только для инициативного вызова (Direct scope не переносит
-    # инициативный контракт)
-    assert ("этот вызов относится к инициативе, отдельно выбери доставку"
+    # P0T-REPLY-01 (28.11.2026, owner §190/192): смысловой выбор доставки —
+    # общий для Direct и Initiative (сужение «только инициатива» снято), а
+    # источник цели — предоставленный контекст (окно ИЛИ сообщение текущего
+    # хода: P0-сообщения подаются отдельными секциями с [msg:id]).
+    assert "Если выбрано текстовое сообщение, отдельно выбери доставку:" \
+        in flat
+    assert ("Для reply укажи конкретный target_message_id из "
+            "предоставленного контекста (окно или сообщение текущего хода)."
             ) in flat
-    # запрет подгонки: нет словарей конкретных слов-триггеров
+    assert "этот вызов относится к инициативе, отдельно выбери доставку" \
+        not in flat
+    assert "target_message_id из текущего окна" not in flat
+    # Запрет подгонки: нет словарей конкретных слов-триггеров
     for banned in ("«лол»", "«ахах", "«ок»"):
         assert banned not in flat
 
@@ -268,9 +282,10 @@ def test_migration_ladder_leads_prod_109_to_new_canon():
     assert PREV_DIRECT_L1_PLANNER_PA5W2 not in targets.values()
     from services.prompt_migrations import ROLLBACK_MIGRATIONS
     # ADR-1013-3: цепочка отката L1 —
-    # active→EVR6→EVR5→EVR4→EVR3→EVR2→EVR1→EVR0→PA5W2→PA5W1→P0CINTR2→P0CINT→P0CS2→P0CS→R3b→R3→2.58.113
+    # active→P0GM→EVR6→EVR5→EVR4→EVR3→EVR2→EVR1→EVR0→PA5W2→PA5W1→P0CINTR2→P0CINT→P0CS2→P0CS→R3b→R3→2.58.113
     assert ROLLBACK_MIGRATIONS["prompts.direct_l1_planner_system_prompt"] == [
-        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, cp.PREV_DIRECT_L1_PLANNER_EVR6),
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, cp.PREV_DIRECT_L1_PLANNER_P0GM),
+        (cp.PREV_DIRECT_L1_PLANNER_P0GM, cp.PREV_DIRECT_L1_PLANNER_EVR6),
         (cp.PREV_DIRECT_L1_PLANNER_EVR6, cp.PREV_DIRECT_L1_PLANNER_EVR5),
         (cp.PREV_DIRECT_L1_PLANNER_EVR5, cp.PREV_DIRECT_L1_PLANNER_EVR4),
         (cp.PREV_DIRECT_L1_PLANNER_EVR4, cp.PREV_DIRECT_L1_PLANNER_EVR3),

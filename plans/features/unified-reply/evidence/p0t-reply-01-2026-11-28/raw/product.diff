@@ -1,0 +1,279 @@
+diff --git a/services/chat_prompts.py b/services/chat_prompts.py
+index 49d427e3d..5ebc470b7 100644
+--- a/services/chat_prompts.py
++++ b/services/chat_prompts.py
+@@ -868,6 +868,26 @@ Reply ╨▓╨╛╨╖╨╝╨╛╨╢╨╡╨╜, ╨╜╨╛ ╨╜╨╕╨║╨╛╨│╨┤╨░ ╨╜╨╡ ╨╛╨▒╤П╨╖╨░╤В╨╡╨╗╨╡╨╜ ╨╕ ╨╜╨╡ ╨╕
+ _DIRECT_L1_PLANNER_BASE_R3 = _DIRECT_L1_PLANNER_BASE_L1D.replace(
+     _DIRECT_L1_FORM_BLOCK_L1D, _DIRECT_L1_PARTICIPATION_R3)
+ 
++# тФАтФА P0T-REPLY-01 (28.11.2026, owner ┬з190/192) тАФ ╨Ю╨С╨Ы╨Р╨б╨в╨м ╨Т╨л╨С╨Ю╨а╨Р ╨Ф╨Ю╨б╨в╨Р╨Т╨Ъ╨Ш тФАтФАтФАтФАтФАтФА
++# ╨Я╤А╨╕╤З╨╕╨╜╨░ ╨┐╤А╨░╨▓╨║╨╕ ╨┐╨╛ ╨║╨╛╨┤╤Г: R3 ╨╛╨│╤А╨░╨╜╨╕╤З╨╕╨▓╨░╨╗╨░ ╤Б╨╝╤Л╤Б╨╗╨╛╨▓╨╛╨╣ ╨▓╤Л╨▒╨╛╤А ╨┤╨╛╤Б╤В╨░╨▓╨║╨╕
++# ╨Ш╨Э╨Ш╨ж╨Ш╨Р╨в╨Ш╨Т╨Э╨л╨Ь ╨▓╤Л╨╖╨╛╨▓╨╛╨╝ ╨╕ ╨╜╨░╨╖╤Л╨▓╨░╨╗╨░ ╨╡╨┤╨╕╨╜╤Б╤В╨▓╨╡╨╜╨╜╤Л╨╝ ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║╨╛╨╝ ╤Ж╨╡╨╗╨╕ ╤Б╤В╤А╨╛╨║╨╕
++# ┬л╤В╨╡╨║╤Г╤Й╨╡╨│╨╛ ╨╛╨║╨╜╨░┬╗. P0-╤В╤А╨╡╨▒╨╛╨▓╨░╨╜╨╕╨╡ ╨▓╨╗╨░╨┤╨╡╨╗╤М╤Ж╨░ (┬л╨╜╨╡╨╗╤М╨╖╤П ╨┐╤Г╨▒╨╗╨╕╨║╨╛╨▓╨░╤В╤М ╨╛╤В╨▓╨╡╤В ╤Б
++# ╨┐╤А╨╕╨▓╤П╨╖╨║╨╛╨╣ ╨║ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╤О, ╨║ ╨║╨╛╤В╨╛╤А╨╛╨╝╤Г ╤Б╨╛╨┤╨╡╤А╨╢╨░╨╜╨╕╨╡ ╨╛╤В╨▓╨╡╤В╨░ ╨╜╨╡ ╨╛╤В╨╜╨╛╤Б╨╕╤В╤Б╤П┬╗; ┬л╤Ж╨╡╨╗╤М
++# reply ╨╛╨┐╤А╨╡╨┤╨╡╨╗╤П╨╡╤В╤Б╤П ╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╕╨╝ ╤Б╨╝╤Л╤Б╨╗╨╛╨╝ ╨╛╤В╨▓╨╡╤В╨░┬╗) ╤Б╤Г╨╢╨╡╨╜╨╕╤П ╨╜╨╡ ╤Б╨╛╨┤╨╡╤А╨╢╨╕╤В, ╨░ ╨▓
++# Direct-╤Е╨╛╨┤╨╡ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╡-╤В╤А╨╕╨│╨│╨╡╤А ╨╕ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╡, ╨╜╨░ ╨║╨╛╤В╨╛╤А╨╛╨╡ ╨╛╤В╨▓╨╡╤З╨░╨╡╤В ╤З╨╡╨╗╨╛╨▓╨╡╨║,
++# ╤А╨╡╨╜╨┤╨╡╤А╤П╤В╤Б╤П ╨╛╤В╨┤╨╡╨╗╤М╨╜╤Л╨╝╨╕ P0-╤Б╨╡╨║╤Ж╨╕╤П╨╝╨╕, ╨░ ╨╜╨╡ ╤Б╤В╤А╨╛╨║╨░╨╝╨╕ ╨╛╨║╨╜╨░ тАФ ╨▒╨╡╨╖ ╨▓╤В╨╛╤А╨╛╨╣ ╨┐╤А╨░╨▓╨║╨╕
++# ╨║╨╛╤А╤А╨╡╨║╤В╨╜╤Л╨╣ ╤Б╨╗╤Г╤З╨░╨╣ ┬л╨╛╤В╨▓╨╡╤В ╨╜╨░ ╤В╨╡╨║╤Г╤Й╨╡╨╡ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╡┬╗ ╨╜╨╡╨▓╤Л╤А╨░╨╖╨╕╨╝. ╨а╨╛╨▓╨╜╨╛ ╨┤╨▓╨╡ ╨╖╨░╨╝╨╡╨╜╤Л:
++# ╤Б╨╜╤П╤В╨╛ ╤Б╤Г╨╢╨╡╨╜╨╕╨╡ ╨╛╨▒╨╗╨░╤Б╤В╨╕ ╨╕ ╤Г╤В╨╛╤З╨╜╤С╨╜ ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ id. ╨Ю╤Б╤В╨░╨╗╤М╨╜╤Л╨╡ ╨┐╤А╨╡╨┤╨╗╨╛╨╢╨╡╨╜╨╕╤П ╤Б╨╡╨║╤Ж╨╕╨╕
++# (╤А╨░╨▓╨╜╨╛╨┐╤А╨░╨▓╨╕╨╡ ╤Д╨╛╤А╨╝, ╨╖╨░╨┐╤А╨╡╤В ╤Н╨▓╤А╨╕╤Б╤В╨╕╨║/╨║╨▓╨╛╤В, ╤Ж╨╡╨╗╤М ╤А╨╡╨░╨║╤Ж╨╕╨╕, ╨┐╨╛╨╗╤П ╨╝╨╛╨╗╤З╨░╨╜╨╕╤П) тАФ
++# ╨▒╨░╨╣╤В-╨▓-╨▒╨░╨╣╤В (╨┐╤А╨░╨▓╨╕╨╗╨╛ 24.10: ╨╕╨╜╤Б╤В╤А╤Г╨║╤Ж╨╕╨╕ ╨╜╨╡ ╤Б╨╛╨║╤А╨░╤Й╨░╤О╤В╤Б╤П).
++_DIRECT_L1_PARTICIPATION_R4 = _DIRECT_L1_PARTICIPATION_R3.replace(
++    "╨Х╤Б╨╗╨╕ ╨▓╤Л╨▒╤А╨░╨╜╨╛ ╤В╨╡╨║╤Б╤В╨╛╨▓╨╛╨╡ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╡ ╨╕ ╤Н╤В╨╛╤В ╨▓╤Л╨╖╨╛╨▓ ╨╛╤В╨╜╨╛╤Б╨╕╤В╤Б╤П ╨║ ╨╕╨╜╨╕╤Ж╨╕╨░╤В╨╕╨▓╨╡, "
++    "╨╛╤В╨┤╨╡╨╗╤М╨╜╨╛ ╨▓╤Л╨▒╨╡╤А╨╕ ╨┤╨╛╤Б╤В╨░╨▓╨║╤Г:",
++    "╨Х╤Б╨╗╨╕ ╨▓╤Л╨▒╤А╨░╨╜╨╛ ╤В╨╡╨║╤Б╤В╨╛╨▓╨╛╨╡ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╡, ╨╛╤В╨┤╨╡╨╗╤М╨╜╨╛ ╨▓╤Л╨▒╨╡╤А╨╕ ╨┤╨╛╤Б╤В╨░╨▓╨║╤Г:", 1).replace(
++        "╨Ф╨╗╤П reply ╤Г╨║╨░╨╢╨╕ ╨║╨╛╨╜╨║╤А╨╡╤В╨╜╤Л╨╣ target_message_id ╨╕╨╖ ╤В╨╡╨║╤Г╤Й╨╡╨│╨╛ ╨╛╨║╨╜╨░.",
++        "╨Ф╨╗╤П reply ╤Г╨║╨░╨╢╨╕ ╨║╨╛╨╜╨║╤А╨╡╤В╨╜╤Л╨╣ target_message_id ╨╕╨╖ ╨┐╤А╨╡╨┤╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨╜╨╛╨│╨╛ "
++        "╨║╨╛╨╜╤В╨╡╨║╤Б╤В╨░ (╨╛╨║╨╜╨╛ ╨╕╨╗╨╕ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╡ ╤В╨╡╨║╤Г╤Й╨╡╨│╨╛ ╤Е╨╛╨┤╨░).", 1)
++
+ # ╨б╨╗╨╡╨┐╨╛╨║ ╨Я╨а╨Р╨Т╨Ш╨Ы ╨║╨░╨╜╨╛╨╜╨░ L1 ╤А╨░╤Г╨╜╨┤╨░ R1028 тАФ ╨Ч╨Р╨Ь╨Ю╨а╨Ю╨Ц╨Х╨Э (╨▒╨░╨╣╤В-╨▓-╨▒╨░╨╣╤В).
+ # FIX-CORRECTIVE-R1 (21.10.2026, ╨┤╨╕╤А╨╡╨║╤В╨╕╨▓╨░ ╨▓╨╗╨░╨┤╨╡╨╗╤М╤Ж╨░ ┬з1 + Addendum #3):
+ # ╨┐╤А╨░╨▓╨╕╨╗╨░ 2-3 ╨╖╨░╨╝╨╡╨╜╨╡╨╜╤Л (react/silent ╨┐╨╛╨╗╤Г╤З╨╕╨╗╨╕ ╨┐╨╛╨╖╨╕╤В╨╕╨▓╨╜╤Л╨╡ ╨║╤А╨╕╤В╨╡╤А╨╕╨╕; silent тАФ
+@@ -1637,6 +1657,22 @@ DIRECT_L1_PLANNER_SYSTEM_PROMPT = (
+     + _DIRECT_L1_FINAL_GOAL_P0GM
+     + _DIRECT_L1_MEDIA_ACTIONS_P0GM)
+ 
++# тФАтФА P0T-REPLY-01 (28.11.2026, owner ┬з190/192): ╤Б╨╝╤Л╤Б╨╗╨╛╨▓╨░╤П ╤Ж╨╡╨╗╤М reply ╨▓ Direct тФА
++# ╨Я╤А╨╕╤З╨╕╨╜╨░ ╨┐╤А╨░╨▓╨║╨╕ ╨┐╨╛ ╨║╨╛╨┤╤Г: ╨░╨║╤В╨╕╨▓╨╜╤Л╨╣ ╨║╨░╨╜╨╛╨╜ P0GM ╤Б╤Г╨╢╨░╨╗ ╨▓╤Л╨▒╨╛╤А ╨┤╨╛╤Б╤В╨░╨▓╨║╨╕
++# ╨╕╨╜╨╕╤Ж╨╕╨░╤В╨╕╨▓╨╜╤Л╨╝ ╨▓╤Л╨╖╨╛╨▓╨╛╨╝, ╨┐╨╛╤Н╤В╨╛╨╝╤Г ╨▓ Direct-╤Е╨╛╨┤╨╡ ╨╝╨╛╨┤╨╡╨╗╤М ╨╜╨╡ ╨╕╨╝╨╡╨╗╨░ ╨┐╤А╨░╨▓╨░ ╨▓╤Л╨▒╤А╨░╤В╤М
++# reply ╨┐╨╛ ╤Б╨╝╤Л╤Б╨╗╤Г тАФ ╨┤╨╛╤Б╤В╨░╨▓╨║╨░ ╨▓╤Б╨╡╨│╨┤╨░ ╤И╨╗╨░ ╨╜╨░ ╤Б╨╛╨▒╤Л╤В╨╕╨╡, ╨╖╨░╨┐╤Г╤Б╤В╨╕╨▓╤И╨╡╨╡ ╨│╨╡╨╜╨╡╤А╨░╤Ж╨╕╤О
++# (`direct_chat_service` ╨┐╨╡╤А╨╡╨┤╨░╨▓╨░╨╗ `message.message_id`). ╨б╨╗╨╡╨┐╨╛╨║ ╨Р╨Ъ╨в╨Ш╨Т╨Э╨л╨е
++# ╨▒╨░╨╣╤В╨╛╨▓ ╨┐╤А╨╛╨┤╨░ 2.58.273 (╤А╨╡╨▓╨╕╨╖╨╕╤П P0GM) ╨╖╨░╨╝╨╛╤А╨╛╨╢╨╡╨╜ ╨╜╨╕╨╢╨╡ тАФ ╤Б╤В╤Г╨┐╨╡╨╜╤М ╨╗╨╡╤Б╤В╨╜╨╕╤Ж╤Л
++# prompt_migrations ╨╕ ╤Ж╨╡╨╗╤М ╨╛╤В╨║╨░╤В╨░ (ADR-1013-3). ╨Р╨║╤В╨╕╨▓╨╜╤Л╨╣ ╨║╨░╨╜╨╛╨╜ ╨┐╨╡╤А╨╡╤Б╨╛╨▒╤А╨░╨╜
++# ╨а╨Ю╨Т╨Э╨Ю ╨╛╨┤╨╜╨╛╨╣ ╤В╨╛╤З╨╡╤З╨╜╨╛╨╣ ╨╖╨░╨╝╨╡╨╜╨╛╨╣ ╤Б╨╡╨║╤Ж╨╕╨╕ ╤Г╤З╨░╤Б╤В╨╕╤П: R3 тЖТ R4. ╨Я╤А╨░╨▓╨╕╨╗╨░, ╤Б╤Е╨╡╨╝╨░,
++# ╤Б╨╡╨║╤Ж╨╕╨╕ ╤Г╤В╨╛╤З╨╜╨╡╨╜╨╕╨╣/╨┐╤А╨╛╨┤╨╛╨╗╨╢╨╡╨╜╨╕╤П/╨╖╨░╨┤╨░╤З╨╕/╨▓╨╜╨╡╤И╨╜╨╕╤Е ╤Г╤В╨▓╨╡╤А╨╢╨┤╨╡╨╜╨╕╨╣/╤Д╨░╨╖╤Л/╨┐╤А╨╛╤Д╨╕╨╗╤П/╨╛╤Б╨╕/
++# ╨┐╨░╨╝╤П╤В╨╕ ╨╕ ╤В╨╡╨║╤Б╤В╤Л ╨▓╨╗╨░╨┤╨╡╨╗╤М╤Ж╨░ тАФ ╨▒╨░╨╣╤В-╨▓-╨▒╨░╨╣╤В.
++PREV_DIRECT_L1_PLANNER_P0GM = DIRECT_L1_PLANNER_SYSTEM_PROMPT
++
++DIRECT_L1_PLANNER_SYSTEM_PROMPT = (
++    PREV_DIRECT_L1_PLANNER_P0GM.replace(
++        _DIRECT_L1_PARTICIPATION_R3, _DIRECT_L1_PARTICIPATION_R4))
++
+ # тФАтФА SELF-DIAG-01 corrective (13.11.2026, owner input ┬з1/┬з3/┬з4) тФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФА
+ # ╨д╤Г╨╜╨║╤Ж╨╕╨╛╨╜╨░╨╗╤М╨╜╨╛╨╡ ╨┤╨╛╨┐╨╛╨╗╨╜╨╡╨╜╨╕╨╡ ╨║ L1 (╨Э╨Х ╨┐╨╡╤А╨╡╨┐╨╕╤Б╤Л╨▓╨░╨╡╤В ╨║╨░╨╜╨╛╨╜/╨╗╨╕╤З╨╜╨╛╤Б╤В╤М; ╨▒╨░╨╖╨╛╨▓╤Л╨╡
+ # ╨▒╨░╨╣╤В╤Л `DIRECT_L1_PLANNER_SYSTEM_PROMPT` ╨╛╤Б╤В╨░╤О╤В╤Б╤П ╨╜╨╡╨╕╨╖╨╝╨╡╨╜╨╜╤Л╨╝╨╕). ╨Я╨╛╨┤╨║╨╗╤О╤З╨░╨╡╤В╤Б╤П
+diff --git a/services/direct_chat_service.py b/services/direct_chat_service.py
+index e74b9bda2..393c673f1 100644
+--- a/services/direct_chat_service.py
++++ b/services/direct_chat_service.py
+@@ -8048,8 +8048,28 @@ class DirectChatService:
+                      or response_plan.structure == "report")
+                 and len(answer) >= _extent.RICH_MIN_ANSWER_CHARS
+                 and not getattr(tool_ctx, "lore_compiled", False))
++            # тФАтФА P0T-REPLY-01 (28.11.2026, owner ┬з190/192): ╤Ж╨╡╨╗╤М reply тАФ
++            # ╤А╨╡╤И╨╡╨╜╨╕╨╡ L1 ╨┐╨╛ ╤Б╨╝╤Л╤Б╨╗╤Г ╨╛╤В╨▓╨╡╤В╨░, ╨░ ╨╜╨╡ ╤Б╨╛╨▒╤Л╤В╨╕╨╡, ╨╖╨░╨┐╤Г╤Б╤В╨╕╨▓╤И╨╡╨╡
++            # ╨│╨╡╨╜╨╡╤А╨░╤Ж╨╕╤О. ╨Э╨╕╨║╨░╨║╨╛╨│╨╛ ╨▓╤Л╨▒╨╛╤А╨░ ╨▓ ╨║╨╛╨┤╨╡: ╤Ж╨╡╨╗╤М ╨┐╤А╨╕╤Е╨╛╨┤╨╕╤В ╨в╨Ю╨Ы╨м╨Ъ╨Ю ╨╕╨╖
++            # ╨┐╨╗╨░╨╜╨░ (`reply_binding_requested`) ╨╕ ╨┐╤А╨╛╨▓╨╡╤А╤П╨╡╤В╤Б╤П ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╕╨╝
++            # `_validate_plan_target`. ╨Я╨╗╨░╨╜ ╨╝╨╛╨┤╨╡╨╗╨╕ (llm/repair) ╨▒╨╡╨╖
++            # delivery=reply тЖТ ╨▒╨╡╨╖ ╨┐╤А╨╕╨▓╤П╨╖╨║╨╕ (╨╛╤В╤Б╤Г╤В╤Б╤В╨▓╨╕╨╡ ╤А╨╡╤И╨╡╨╜╨╕╤П тЙа reply).
++            # ╨Э╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╜╨░╤П ╤Ж╨╡╨╗╤М тЖТ ╨╛╨▒╤Л╤З╨╜╨░╤П ╨╛╤В╨┐╤А╨░╨▓╨║╨░ ╨С╨Х╨Ч ╨┐╨╡╤А╨╡╨┐╤А╨╕╨▓╤П╨╖╨║╨╕ ╨║
++            # ╤В╤А╨╕╨│╨│╨╡╤А╤Г (╤Н╤В╨╛ ╨▓╨╛╤Б╤Б╨╛╨╖╨┤╨░╨╗╨╛ ╨▒╤Л ╨┤╨╡╤Д╨╡╨║╤В) ╨╕ ╨С╨Х╨Ч ╨╛╤В╨╝╨╡╨╜╤Л (╨╝╨╛╨╗╤З╨░╨╜╨╕╨╡ ╨╜╨░
++            # ╨┐╤А╤П╨╝╨╛╨╡ ╨╛╨▒╤А╨░╤Й╨╡╨╜╨╕╨╡ ╨╖╨░╨┐╤А╨╡╤Й╨╡╨╜╨╛). l1_plan=None / fallback тАФ
++            # ╨▒╨░╨╣╤В-╨┐╨░╤А╨╕╤В╨╡╤В: reply ╨╜╨░ ╤В╤А╨╕╨│╨│╨╡╤А.
++            _reply_target = getattr(message, "message_id", None)
++            if l1_plan is not None and _l1.plan_delivery_is_semantic(l1_plan):
++                _reply_target = None
++                if _l1.reply_binding_requested(l1_plan):
++                    _reply_target, _binding_code = await _validate_plan_target(
++                        self.db, chat_id, l1_plan, mode="reply")
++                    if _reply_target is None:
++                        logger.info(
++                            "[direct] reply target unavailable тАФ plain send | "
++                            "chat=%s | code=%s", chat_id, _binding_code)
+             sent_id = await self._send_direct_answer(
+-                bot, chat_id, answer, message.message_id,
++                bot, chat_id, answer, _reply_target,
+                 lore=bool(getattr(tool_ctx, "lore_compiled", False)),
+                 deep_research=(response_mode == "deep_research"),
+                 rich=_rich_wanted,
+@@ -9159,6 +9179,12 @@ class DirectChatService:
+                 message, extra_markers=extra_media_markers),
+             reply_block=_l1_reply_text,
+             window=window, line_chars=0,
++            # P0T-REPLY-01 (owner ┬з190/192): Direct-L1 ╨┐╨╛╨╗╤Г╤З╨░╨╡╤В ╨╛╨║╨╜╨╛ ╤Б ╤В╨╡╨╝ ╨╢╨╡
++            # ╨╕╨┤╨╡╨╜╤В╨╕╤Д╨╕╤Ж╨╕╤А╤Г╤О╤Й╨╕╨╝ ╨┤╨╕╨░╨╗╨╡╨║╤В╨╛╨╝, ╤З╤В╨╛ ╨╕╨╜╨╕╤Ж╨╕╨░╤В╨╕╨▓╨░ ([msg:N]/[user:UID]) тАФ
++            # ╨▒╨╡╨╖ ╨╜╨╡╨│╨╛ ╨╝╨╛╨┤╨╡╨╗╤М ╨╜╨╡ ╨╝╨╛╨╢╨╡╤В ╨╜╨░╨╖╨▓╨░╤В╤М ╨║╨╛╤А╤А╨╡╨║╤В╨╜╤Г╤О ╤Ж╨╡╨╗╤М reply. P0-
++            # ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╤П (╤В╤А╨╕╨│╨│╨╡╤А/╤Ж╨╕╤В╨╕╤А╤Г╨╡╨╝╨╛╨╡) ╨┐╨╛╨╗╤Г╤З╨░╤О╤В ╤В╨╛╤В ╨╢╨╡ ╨┐╤А╨╡╤Д╨╕╨║╤Б
++            # `[msg:id]` ╨▓╨╜╤Г╤В╤А╨╕ ╤Б╨▓╨╛╨╕╤Е ╤Б╨╡╨║╤Ж╨╕╨╣ (`build_l1_context`).
++            with_ids=True,
+             trigger_message_id=getattr(message, "message_id", None),
+             reply_to_message_id=_replied_message_id(message),
+             preallocated=True, out_status=_l1_status,
+diff --git a/services/direct_l1.py b/services/direct_l1.py
+index b50f4c7b1..c0e4bad0b 100644
+--- a/services/direct_l1.py
++++ b/services/direct_l1.py
+@@ -841,6 +841,21 @@ def reply_binding_requested(plan) -> bool:
+         return False
+ 
+ 
++def plan_delivery_is_semantic(plan) -> bool:
++    """P0T-REPLY-01 (28.11.2026): ╨┐╨╗╨░╨╜ тАФ ╨а╨Х╨и╨Х╨Э╨Ш╨Х ╨╝╨╛╨┤╨╡╨╗╨╕ ╨╛ ╨┤╨╛╤Б╤В╨░╨▓╨║╨╡.
++
++    ╨Ю╤В╨╗╨╕╤З╨░╨╡╤В ╨╛╤Б╨╝╤Л╤Б╨╗╨╡╨╜╨╜╤Л╨╣ ╨┐╨╗╨░╨╜ ╨╛╤В ╨┤╨╡╤В╨╡╤А╨╝╨╕╨╜╨╕╤А╨╛╨▓╨░╨╜╨╜╨╛╨│╨╛ fallback'╨░: ╤В╨╛╨╗╤М╨║╨╛ ╨┐╨╗╨░╨╜
++    ╤Б ``source`` ╨╕╨╖ ╨╖╨░╨║╤А╤Л╤В╨╛╨│╨╛ ╨╜╨░╨▒╨╛╤А╨░ ╤А╨╡╤И╨╡╨╜╨╕╨╣ ╨╝╨╛╨┤╨╡╨╗╨╕ ("llm" | "repair")
++    ╤П╨▓╨╗╤П╨╡╤В╤Б╤П ╤А╨╡╤И╨╡╨╜╨╕╨╡╨╝ ╨╛ ╤Д╨╛╤А╨╝╨╡ ╨┤╨╛╤Б╤В╨░╨▓╨║╨╕. ╨Я╤Г╤Б╤В╨╛╨╣/╨╜╨╡╨╕╨╖╨▓╨╡╤Б╤В╨╜╤Л╨╣ source тЖТ
++    ``False`` (╨║╨╛╨╜╤Б╨╡╤А╨▓╨░╤В╨╕╨▓╨╜╤Л╨╣ ╨┐╨░╤А╨╕╤В╨╡╤В: ╨┤╨╛╤Б╤В╨░╨▓╨║╨░ ╨┐╨╛ ╨┐╤А╨╡╨╢╨╜╨╡╨╝╤Г ╨┐╤А╨░╨▓╨╕╨╗╤Г).
++    ╨н╤В╨╛ ╨Э╨Х ╨▓╤Л╨▒╨╛╤А ╤Ж╨╡╨╗╨╕ ╨╕ ╨Э╨Х ╤А╨╡╨╖╨╛╨╗╨▓╨╡╤А: ╨┐╤А╨╡╨┤╨╕╨║╨░╤В ╨╜╨╕╤З╨╡╨│╨╛ ╨╜╨╡ ╨┐╨╛╨┤╤Б╤В╨░╨▓╨╗╤П╨╡╤В ╨╕
++    ╤А╨░╨▒╨╛╤В╨░╨╡╤В ╨╜╨░ ╤В╨╛╨╝ ╨╢╨╡ ╨╛╨▒╤К╨╡╨║╤В╨╡ ╨┐╨╗╨░╨╜╨░, ╤З╤В╨╛ ╨╕ :func:`reply_binding_requested`."""
++    try:
++        return str(getattr(plan, "source", "") or "") in ("llm", "repair")
++    except Exception:      # pragma: no cover - ╨╖╨░╤Й╨╕╤В╨╜╨░╤П ╨▓╨╡╤В╨║╨░
++        return False
++
++
+ def normalize_l1_plan(data) -> L1Plan | None:
+     """╨Э╨╛╤А╨╝╨░╨╗╨╕╨╖╨░╤Ж╨╕╤П L1 JSON тЖТ :class:`L1Plan` (┬з1.3).
+ 
+@@ -2526,11 +2541,42 @@ def build_l1_context(*, query, current_question: str = "",
+         sections: list[tuple[str, str]] = []
+         budget = int(budget_tokens) if budget_tokens is not None \
+             else l1_context_tokens()
++        raw_window = normalize_window_rows(window)
++        # тФАтФА P0T-REPLY-01 (28.11.2026, owner ┬з190/192): P0-╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╤П
++        # (╤В╤А╨╕╨│╨│╨╡╤А ╤Е╨╛╨┤╨░ ╨╕ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╡, ╨╜╨░ ╨║╨╛╤В╨╛╤А╨╛╨╡ ╨╛╤В╨▓╨╡╤З╨░╨╡╤В ╤З╨╡╨╗╨╛╨▓╨╡╨║) ╨╕╤Б╨║╨╗╤О╤З╨╡╨╜╤Л
++        # ╨╕╨╖ ╨╛╨║╨╜╨░ ╨╕ ╨┐╨╛╨┤╨░╤О╤В╤Б╤П ╨╛╤В╨┤╨╡╨╗╤М╨╜╤Л╨╝╨╕ ╤Б╨╡╨║╤Ж╨╕╤П╨╝╨╕ ╨б╨Ю╨Ю╨С╨й╨Х╨Э╨Ш╨Х/╨Ю╨в╨Т╨Х╨в ╨Э╨Р, ╨┐╨╛╤Н╤В╨╛╨╝╤Г
++        # ╨▒╨╡╨╖ `[msg:N]` ╨╝╨╛╨┤╨╡╨╗╤М ╨╜╨╡ ╨╝╨╛╨╢╨╡╤В ╨╜╨░╨╖╨▓╨░╤В╤М ╨╕╤Е ╤Ж╨╡╨╗╤М╤О reply. ╨а╨░╨╖╨╝╨╡╤В╨║╨░ тАФ
++        # ╤В╨╛╤В ╨╢╨╡ ╨┤╨╕╨░╨╗╨╡╨║╤В, ╤З╤В╨╛ ╤Г ╨╛╨║╨╜╨░ (`[msg:<smart_messages.id>]`), ╨╕ ╤В╨╛╨╗╤М╨║╨╛
++        # ╨┐╤А╨╕ `with_ids=True` (Direct-L1). id ╨▒╨╡╤А╤С╤В╤Б╤П ╨╕╨╖ ╤Г╨╢╨╡ ╨╖╨░╨│╤А╤Г╨╢╨╡╨╜╨╜╨╛╨│╨╛
++        # ╨╛╨║╨╜╨░ bounded-╤Б╨║╨░╨╜╨╛╨╝; ╨╜╨╡ ╨╜╨░╨╣╨┤╨╡╨╜ тЖТ ╨┐╤А╨╡╤Д╨╕╨║╤Б╨░ ╨╜╨╡╤В (fail-open: ╤Ж╨╡╨╗╤М ╨╜╨╡
++        # ╨▓╤Л╨┤╤Г╨╝╤Л╨▓╨░╨╡╤В╤Б╤П, ╨▓╤В╨╛╤А╨╛╨│╨╛ ╨╖╨░╨┐╤А╨╛╤Б╨░ ╨▓ ╨С╨Ф ╨╜╨░ ╨║╨░╨╢╨┤╤Л╨╣ ╤Е╨╛╨┤ ╨╜╨╡╤В). ╨н╤В╨╛ ╨┤╨░╨╜╨╜╤Л╨╡,
++        # ╨░ ╨╜╨╡ ╨╕╨╜╤Б╤В╤А╤Г╨║╤Ж╨╕╤П тАФ ╨▒╤О╨┤╨╢╨╡╤В╤Л ╨╕╨╜╤Б╤В╤А╤Г╨║╤Ж╨╕╨╣ ╨╜╨╡ ╨╖╨░╤В╤А╨░╨│╨╕╨▓╨░╤О╤В╤Б╤П.
++        p0_row_ids: dict[str, int] = {}
++        if with_ids:
++            for _slot, _tg_id in (("current", trigger_message_id),
++                                  ("reply", reply_to_message_id)):
++                for _row in raw_window:
++                    if not _row_matches_message_id(_row, _tg_id):
++                        continue
++                    try:
++                        _row_id = _row.get("id")
++                        _row_id = int(_row_id) if _row_id is not None else None
++                    except (TypeError, ValueError):
++                        _row_id = None
++                    if _row_id is not None and _row_id > 0:
++                        p0_row_ids[_slot] = _row_id
++                    break
+         current = str(current_question or query or "").strip()
+         if current:
++            _current_ref = p0_row_ids.get("current")
++            if _current_ref is not None:
++                current = f"[msg:{_current_ref}] {current}"
+             sections.append(("╨б╨Ю╨Ю╨С╨й╨Х╨Э╨Ш╨Х", current))
+         if str(reply_block or "").strip():
+             _reply_body = str(reply_block).strip()
++            _reply_ref = p0_row_ids.get("reply")
++            if _reply_ref is not None:
++                _reply_body = f"[msg:{_reply_ref}] {_reply_body}"
+             if not preallocated:
+                 _reply_body = clip_body(_reply_body,
+                                         reply_block_chars(budget))
+@@ -2558,7 +2604,6 @@ def build_l1_context(*, query, current_question: str = "",
+                          else L1_WINDOW_MESSAGES)
+         _line_cap = (window_line_chars(window, budget_tokens=budget)
+                      if line_chars is None else int(line_chars))
+-        raw_window = normalize_window_rows(window)
+         # ╨б╨╡╨║╤Ж╨╕╨╕ ╨Я╨Ю╨б╨Ы╨Х ╨╛╨║╨╜╨░: ╨╕╤Е ╨┐╨╛╤А╤П╨┤╨╛╨║ ╨╜╨╡ ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П; ╨╛╨║╨╜╨╛ ╨▓╤Б╤В╨░╨▓╨╗╤П╨╡╤В╤Б╤П ╨╜╨░
+         # ╤Б╨▓╨╛╤С ╨╝╨╡╤Б╤В╨╛ ╨┐╨╛╤Б╨╗╨╡ ╨▓╤Л╨▒╨╛╤А╨░ (preallocated) ╨╗╨╕╨▒╨╛ ╤А╨╡╨╜╨┤╨╡╤А╨╕╤В╤Б╤П ╤Б╤А╨░╨╖╤Г
+         # (legacy). ╨в╨░╨║ fixed-tokens ╤Б╤З╨╕╤В╨░╤О╤В╤Б╤П ╨╛╨┤╨╕╨╜ ╤А╨░╨╖ ╨▒╨╡╨╖ ╨╛╨║╨╜╨░.
+@@ -3898,6 +3943,7 @@ __all__ = [
+     "FAILURE_MODE_FAILED", "FAILURE_MODES",
+     "L1_DELIVERY_MODES", "EXECUTION_MODES", "normalize_l1_plan",
+     "parse_l1_plan", "reply_binding_requested", "L1_PROFILE_SECTION",
++    "plan_delivery_is_semantic",
+     "build_repair_messages", "confidence_bucket", "direct_l1_enabled",
+     "l1_fallback_enabled", "l1_context_tokens", "l1_timeout_seconds",
+     "l1_max_output_tokens", "l1_temperature", "resolve_l1_model",
+diff --git a/services/prompt_migrations.py b/services/prompt_migrations.py
+index e7288f9b3..c4723d9ff 100644
+--- a/services/prompt_migrations.py
++++ b/services/prompt_migrations.py
+@@ -78,6 +78,7 @@ from services.chat_prompts import (
+     PREV_DIRECT_L1_PLANNER_EVR4,
+     PREV_DIRECT_L1_PLANNER_EVR5,
+     PREV_DIRECT_L1_PLANNER_EVR6,
++    PREV_DIRECT_L1_PLANNER_P0GM,
+     PREV_CHAT_W2_SYSTEM_PROMPT,
+     CORE_REAL_EVENTS_PARAGRAPH,
+     CORE_FREE_SPEECH_PARAGRAPH,
+@@ -270,6 +271,14 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
+     # ace6246bd360 (deploy-╨╝╨╕╨│╤А╨░╤Ж╨╕╤П 07:26) тАФ ╨╜╨░ ╤А╨╡╤Б╤В╨░╤А╤В╨╡ ╤Г╨╡╨┤╨╡╤В ╨╜╨░ ╨╜╨╛╨▓╤Л╨╣
+     # ╨║╨░╨╜╨╛╨╜ ╤Н╤В╨╛╨╣ ╤Б╤В╤Г╨┐╨╡╨╜╤М╤О.
+     "prompts.direct_l1_planner_system_prompt": [
++        # P0T-REPLY-01 (28.11.2026, owner ┬з190/192): ╨▒╨░╨╣╤В╤Л ╨┐╤А╨╛╨┤╨░ 2.58.273
++        # (╤А╨╡╨▓╨╕╨╖╨╕╤П P0GM: ╨┐╤А╨░╨▓╨╕╨╗╨╛ 7 ┬л╨║╨╛╨╜╨╡╤З╨╜╤Л╨╣ ╤А╨╡╨╖╤Г╨╗╤М╤В╨░╤В vs ╨╝╨░╤В╨╡╤А╨╕╨░╨╗┬╗,
++        # `final_goal`, ╨░╨▒╨╖╨░╤Ж╤Л ╤Ж╨╡╨╗╨╕/╨╝╨╡╨┤╨╕╨░) ╨▓╨╡╨┤╤Г╤В ╨╜╨░ ╤А╨╡╨▓╨╕╨╖╨╕╤О R4 тАФ ╤Б╨╡╨║╤Ж╨╕╤П
++        # ┬л╨Т╨л╨С╨Ю╨а ╨г╨з╨Р╨б╨в╨Ш╨п┬╗ ╨▒╨╛╨╗╤М╤И╨╡ ╨╜╨╡ ╨╛╨│╤А╨░╨╜╨╕╤З╨╡╨╜╨░ ╨╕╨╜╨╕╤Ж╨╕╨░╤В╨╕╨▓╨╛╨╣ ╨╕ ╨╜╨░╨╖╤Л╨▓╨░╨╡╤В
++        # ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║╨╛╨╝ ╤Ж╨╡╨╗╨╕ ╨┐╤А╨╡╨┤╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨╜╤Л╨╣ ╨║╨╛╨╜╤В╨╡╨║╤Б╤В (╨╛╨║╨╜╨╛ ╨╕╨╗╨╕ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╡
++        # ╤В╨╡╨║╤Г╤Й╨╡╨│╨╛ ╤Е╨╛╨┤╨░). ╨в╨╛╨╗╤М╨║╨╛ ╤В╨╛╤З╨╜╨╛╨╡ ╤Б╨╛╨▓╨┐╨░╨┤╨╡╨╜╨╕╨╡ ╨▒╨░╨╣╤В; ╨║╨░╤Б╤В╨╛╨╝ ╨▓╨╗╨░╨┤╨╡╨╗╤М╤Ж╨░
++        # ╤Б╤В╤Г╨┐╨╡╨╜╤М ╨╜╨╡ ╤В╤А╨╛╨│╨░╨╡╤В.
++        (PREV_DIRECT_L1_PLANNER_P0GM, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
+         # P0-GOAL-MEDIA (25.11.2026, P0 ┬з2; P0I-GOAL-01/02, P0R-MEDIA-01/02):
+         # ╨▒╨░╨╣╤В╤Л ╤А╨╡╨▓╨╕╨╖╨╕╨╕ EVR6 (╨┐╨╛╨╗╨╡ memory_scope) ╨▓╨╡╨┤╤Г╤В ╨╜╨░ ╤А╨╡╨▓╨╕╨╖╨╕╤О P0GM тАФ
+         # ╨┐╤А╨░╨▓╨╕╨╗╨╛ 7 ╤А╨░╨╖╨╗╨╕╤З╨░╨╡╤В ╨║╨╛╨╜╨╡╤З╨╜╤Л╨╣ ╤А╨╡╨╖╤Г╨╗╤М╤В╨░╤В ╨╕ ╨╝╨░╤В╨╡╤А╨╕╨░╨╗, ╨┤╨╛╨▒╨░╨▓╨╗╨╡╨╜╨╛ ╨╛╨┤╨╜╨╛
+@@ -609,10 +618,14 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
+     # ╨▓ ╨┐╤А╨░╨▓╨╕╨╗╨╡ 4 тАФ ╨╜╨░ ╨░╨║╤В╨╕╨▓╨╜╤Л╨╡ ╨▒╨░╨╣╤В╤Л ╤А╨╡╨┤.5 (PREV_..._PA5W2 = ╨║╨░╨╜╨╛╨╜ W1);
+     # ╤Б╤В╨╡╨║ ╨┐╤А╨╡╨╢╨╜╨╕╤Е ╤Б╤В╤Г╨┐╨╡╨╜╨╡╨╣ ╤Ж╨╡╨╗ (ADR-1013-3).
+     "prompts.direct_l1_planner_system_prompt": [
+-        # ╨▓╨╡╤А╤Е╨╜╤П╤П ╤Б╤В╤Г╨┐╨╡╨╜╤М (P0-GOAL-MEDIA): ╨░╨║╤В╨╕╨▓╨╜╤Л╨╣ ╨║╨░╨╜╨╛╨╜ P0GM тЖТ ╨▒╨░╨╣╤В╤Л EVR6
++        # ╨▓╨╡╤А╤Е╨╜╤П╤П ╤Б╤В╤Г╨┐╨╡╨╜╤М (P0T-REPLY-01): ╨░╨║╤В╨╕╨▓╨╜╤Л╨╣ ╨║╨░╨╜╨╛╨╜ R4 тЖТ ╨▒╨░╨╣╤В╤Л ╨┐╤А╨╛╨┤╨░
++        # 2.58.273 (╤А╨╡╨▓╨╕╨╖╨╕╤П P0GM: ╤Б╨╡╨║╤Ж╨╕╤П ╤Г╤З╨░╤Б╤В╨╕╤П R3, ╤В.╨╡. ╨┤╨╛╤Б╤В╨░╨▓╨║╨░ ╤Б╨╜╨╛╨▓╨░
++        # ╨╛╨│╤А╨░╨╜╨╕╤З╨╡╨╜╨░ ╨╕╨╜╨╕╤Ж╨╕╨░╤В╨╕╨▓╨╛╨╣); ╨╜╨╕╨╢╨╡ тАФ ╤В╨░ ╨╢╨╡ ╤Ж╨╡╨┐╨╛╤З╨║╨░, ╤З╤В╨╛ ╨▒╤Л╨╗╨░ ╨▓ ╨▒╨░╨╖╨╡.
++        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_P0GM),
++        # ╤Б╤В╤Г╨┐╨╡╨╜╤М (P0-GOAL-MEDIA): ╨▒╨░╨╣╤В╤Л P0GM тЖТ ╨▒╨░╨╣╤В╤Л EVR6
+         # (╨┐╨╛╨╗╨╡ `memory_scope`, ╨┐╤А╨╡╨╢╨╜╨╡╨╡ ╨┐╤А╨░╨▓╨╕╨╗╨╛ 7, ╨▒╨╡╨╖ `final_goal` ╨╕ ╨░╨▒╨╖╨░╤Ж╨╡╨▓
+         # ╤Ж╨╡╨╗╨╕); ╨╜╨╕╨╢╨╡ тАФ ╤В╨░ ╨╢╨╡ ╤Ж╨╡╨┐╨╛╤З╨║╨░, ╤З╤В╨╛ ╨▒╤Л╨╗╨░ ╨▓ ╨▒╨░╨╖╨╡.
+-        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_EVR6),
++        (PREV_DIRECT_L1_PLANNER_P0GM, PREV_DIRECT_L1_PLANNER_EVR6),
+         # ╤Б╤В╤Г╨┐╨╡╨╜╤М 0 (VMQ-MEM-TIME): ╨▒╨░╨╣╤В╤Л EVR6 тЖТ ╨▒╨░╨╣╤В╤Л EVR5 (╨┐╨╛╨╗╨╡
+         # `preserve_source_facts`, ╨▒╨╡╨╖ ╨┐╨╛╨╗╤П `memory_scope`)
+         (PREV_DIRECT_L1_PLANNER_EVR6, PREV_DIRECT_L1_PLANNER_EVR5),
+diff --git a/services/prompt_registry.py b/services/prompt_registry.py
+index d24667d65..e8f9052a9 100644
+--- a/services/prompt_registry.py
++++ b/services/prompt_registry.py
+@@ -209,7 +209,12 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
+     # ╨╛╨┐╨╡╤А╨░╤Ж╨╕╨╡╨╣). ╨Я╤А╨╡╨╢╨╜╨╕╨╡ ╨▒╨░╨╣╤В╤Л тАФ PREV_DIRECT_L1_PLANNER_EVR6. ╨Я╤А╨░╨▓╨╕╨╗╨░ 1-6 ╨╕
+     # 8-9, ╤Б╨╡╨║╤Ж╨╕╨╕ ╤Г╤З╨░╤Б╤В╨╕╤П/╤Г╤В╨╛╤З╨╜╨╡╨╜╨╕╨╣/╨┐╤А╨╛╨┤╨╛╨╗╨╢╨╡╨╜╨╕╤П/╨╖╨░╨┤╨░╤З╨╕/╨▓╨╜╨╡╤И╨╜╨╕╤Е ╤Г╤В╨▓╨╡╤А╨╢╨┤╨╡╨╜╨╕╨╣/
+     # ╤Д╨░╨╖╤Л/╨┐╤А╨╛╤Д╨╕╨╗╤П/╨╛╤Б╨╕/╨┐╨░╨╝╤П╤В╨╕ ╨╕ ╤В╨╡╨║╤Б╤В╤Л ╨▓╨╗╨░╨┤╨╡╨╗╤М╤Ж╨░ ╨╜╨╡ ╨╝╨╡╨╜╤П╨╗╨╕╤Б╤М.
+-    "direct.base.l1_planner": "l1-planner-final-goal",
++    # P0T-REPLY-01 (28.11.2026, owner ┬з190/192): ╤А╨╡╨▓╨╕╨╖╨╕╤П R4 тАФ ╤Б╨╡╨║╤Ж╨╕╤П ┬л╨Т╨л╨С╨Ю╨а
++    # ╨г╨з╨Р╨б╨в╨Ш╨п┬╗ ╨▒╨╛╨╗╤М╤И╨╡ ╨╜╨╡ ╨╛╨│╤А╨░╨╜╨╕╤З╨╡╨╜╨░ ╨╕╨╜╨╕╤Ж╨╕╨░╤В╨╕╨▓╨╛╨╣ ╨╕ ╨╜╨░╨╖╤Л╨▓╨░╨╡╤В ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║╨╛╨╝ ╤Ж╨╡╨╗╨╕
++    # ╨┐╤А╨╡╨┤╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨╜╤Л╨╣ ╨║╨╛╨╜╤В╨╡╨║╤Б╤В (╨╛╨║╨╜╨╛ ╨╕╨╗╨╕ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╡ ╤В╨╡╨║╤Г╤Й╨╡╨│╨╛ ╤Е╨╛╨┤╨░), ╨░ ╨╜╨╡ ╤В╨╛╨╗╤М╨║╨╛
++    # ╤Б╤В╤А╨╛╨║╨╕ ╨╛╨║╨╜╨░. ╨Я╤А╨╡╨╢╨╜╨╕╨╡ ╨▒╨░╨╣╤В╤Л тАФ PREV_DIRECT_L1_PLANNER_P0GM (╨┐╤А╨╛╨┤ 2.58.273).
++    # ╨Я╤А╨░╨▓╨╕╨╗╨░/╤Б╤Е╨╡╨╝╨░ ╨╕ ╨┐╤А╨╛╤З╨╕╨╡ ╤Б╨╡╨║╤Ж╨╕╨╕ ╨▒╨░╨╣╤В-╨▓-╨▒╨░╨╣╤В.
++    "direct.base.l1_planner": "l1-planner-delivery-scope",
+     # ╨а╨╡╨╢╨╕╨╝╤Л ╨▓╨╡╤А╨▒╨░╨╗╨╕╨╖╨░╤В╨╛╤А╨░ (╨╗╨╡╨│╨░╤Б╨╕-╤Б╨╛╨▓╨╝╨╡╤Б╤В╨╕╨╝╨╛╤Б╤В╤М)
+     "verbilizer.mode.casual": "mode-r1023",
+     "verbilizer.mode.serious": "mode-r1023",
+@@ -422,8 +427,12 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
+     "direct.base.l2_writer": ("l2-writer-self-correction-rca1",
+                               "44736968bc76"),
+     "direct.base.synthesizer": ("synthesizer-r1023", "6bae7eb26bc3"),
+-    "direct.base.l1_planner": ("l1-planner-final-goal",
+-                               "ce6931304b24"),
++    # P0T-REPLY-01 (28.11.2026, owner ┬з190/192): ╤Б╨╡╨║╤Ж╨╕╤П ┬л╨Т╨л╨С╨Ю╨а ╨г╨з╨Р╨б╨в╨Ш╨п┬╗
++    # ╨┐╨╛╨╗╤Г╤З╨╕╨╗╨░ ╨╛╨▒╨╗╨░╤Б╤В╤М Direct ╨╕ ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╤Ж╨╡╨╗╨╕ ┬л╨╛╨║╨╜╨╛ ╨╕╨╗╨╕ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╡ ╤В╨╡╨║╤Г╤Й╨╡╨│╨╛
++    # ╤Е╨╛╨┤╨░┬╗ (╨╝╨╡╤В╨║╨░ l1-planner-delivery-scope). ╨Я╨╡╤З╨░╤В╤М ╤Б╨╛╨┤╨╡╤А╨╢╨╕╨╝╨╛╨│╨╛ ╨╛╨▒╨╜╨╛╨▓╨╗╨╡╨╜╨░
++    # ╨▓╨╝╨╡╤Б╤В╨╡ ╤Б ╤В╨╡╨║╤Б╤В╨╛╨╝ ╨▓ ╤В╨╛╨╝ ╨╢╨╡ ╨║╨╛╨╝╨╝╨╕╤В╨╡.
++    "direct.base.l1_planner": ("l1-planner-delivery-scope",
++                               "64a80fb8c4ff"),
+     "verbilizer.mode.casual": ("mode-r1023", "60feacddfea8"),
+     "verbilizer.mode.serious": ("mode-r1023", "0ffb292caf70"),
+     "verbilizer.mode.deep_research": ("mode-no-meta-lexical", "81721f7406a9"),
+@@ -3066,7 +3075,14 @@ def factory_set_fingerprint() -> str:
+ #: (╨┐╤А╨╛╨┤ 2.58.272) тАФ ╨┐╨╡╤З╨░╤В╤М ``5baf6afaf2d8``, ╨╝╨╡╤В╨║╨░
+ #: ``temporal-analyst-fc04-corrective``; ╨┐╤А╨╛╤З╨╕╨╡ ╨║╨░╨╜╨╛╨╜╤Л ╨▒╨░╨╣╤В-╨▓-╨▒╨░╨╣╤В.
+ #: ╨С╤Л╨╗╨╛ ``10efa51a8dae``, ╤Б╤В╨░╨╗╨╛ ``bd06a8a1a782``.
+-FACTORY_SET_SHA256_12 = "bd06a8a1a782"
++#: P0T-REPLY-01 (28.11.2026, owner ┬з190/192): changed = 1 тАФ
++#: ``direct.base.l1_planner``: ╤Б╨╡╨║╤Ж╨╕╤П ┬л╨Т╨л╨С╨Ю╨а ╨г╨з╨Р╨б╨в╨Ш╨п┬╗ ╨▒╨╛╨╗╤М╤И╨╡ ╨╜╨╡ ╨╛╨│╤А╨░╨╜╨╕╤З╨╡╨╜╨░
++#: ╨╕╨╜╨╕╤Ж╨╕╨░╤В╨╕╨▓╨╛╨╣ ╨╕ ╨╜╨░╨╖╤Л╨▓╨░╨╡╤В ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║╨╛╨╝ ╤Ж╨╡╨╗╨╕ ╨┐╤А╨╡╨┤╨╛╤Б╤В╨░╨▓╨╗╨╡╨╜╨╜╤Л╨╣ ╨║╨╛╨╜╤В╨╡╨║╤Б╤В (╨╛╨║╨╜╨╛ ╨╕╨╗╨╕
++#: ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╡ ╤В╨╡╨║╤Г╤Й╨╡╨│╨╛ ╤Е╨╛╨┤╨░), ╨░ ╨╜╨╡ ╤В╨╛╨╗╤М╨║╨╛ ╤Б╤В╤А╨╛╨║╨╕ ╨╛╨║╨╜╨░ (╨╝╨╡╤В╨║╨░
++#: ``l1-planner-delivery-scope``, ╨┐╨╡╤З╨░╤В╤М ``64a80fb8c4ff``); ╨┐╤А╨░╨▓╨╕╨╗╨░, ╤Б╤Е╨╡╨╝╨░ ╨╕
++#: ╨┐╤А╨╛╤З╨╕╨╡ ╨║╨░╨╜╨╛╨╜╤Л, ╨▓╨║╨╗╤О╤З╨░╤П ╤В╨╡╨║╤Б╤В╤Л ╨▓╨╗╨░╨┤╨╡╨╗╤М╤Ж╨░, ╨▒╨░╨╣╤В-╨▓-╨▒╨░╨╣╤В.
++#: ╨С╤Л╨╗╨╛ ``bd06a8a1a782``, ╤Б╤В╨░╨╗╨╛ ``1c03efc3e98b``.
++FACTORY_SET_SHA256_12 = "1c03efc3e98b"
+ 
+ 
+ 

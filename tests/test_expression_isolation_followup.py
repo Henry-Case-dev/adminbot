@@ -230,7 +230,10 @@ def test_fingerprint_constant_matches_recomputed_registry():
     # P0-GOAL-MEDIA (25.11.2026, P0 §2): changed = 1 — только заводской канон
     # direct.base.l1_planner (ревизия P0GM, печать ce6931304b24); печать набора
     # переутверждена осознанно → 10efa51a8dae.
-    assert pr.FACTORY_SET_SHA256_12 == "10efa51a8dae"
+    # P0T-REPLY-01 (28.11.2026, owner §190/192): changed = 1 —
+    # direct.base.l1_planner R4 (метка l1-planner-delivery-scope, печать
+    # 64a80fb8c4ff) → 1c03efc3e98b; прочие каноны байт-в-байт.
+    assert pr.FACTORY_SET_SHA256_12 == "1c03efc3e98b"
     # Пин — литерал сторожевой функции; вторая проверка сверяет его с
     # фактической печатью набора (неучтённая правка канона не пройдёт молча).
     assert pr.FACTORY_SET_SHA256_12 == pr.factory_set_fingerprint()

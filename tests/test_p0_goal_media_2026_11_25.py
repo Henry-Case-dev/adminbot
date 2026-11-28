@@ -79,9 +79,11 @@ def test_rule7_distinguishes_product_from_material():
         in rule
     # прежняя ветка «разбор материала» не осталась активной в старом виде
     assert cp._DIRECT_L1_RULE7_PRODUCT_PREV_P0GM not in canon
-    # прежние байты канона — точный слепок (ступень отката ADR-1013-3)
+    # прежние байты канона — точный слепок (ступень отката ADR-1013-3);
+    # P0T-REPLY-01: активные байты = P0GM + одна замена секции участия.
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_EVR6) == "619290834387"
-    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "ce6931304b24"
+    assert _sha12(cp.PREV_DIRECT_L1_PLANNER_P0GM) == "ce6931304b24"
+    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "64a80fb8c4ff"
     assert cp.PREV_DIRECT_L1_PLANNER_EVR6 != canon
 
 
@@ -281,10 +283,16 @@ def test_canon_ladder_has_p0gm_step():
     from services import prompt_migrations as pm
     key = "prompts.direct_l1_planner_system_prompt"
     steps = pm.PROMPT_MIGRATIONS[key]
-    assert steps[0] == (cp.PREV_DIRECT_L1_PLANNER_EVR6,
+    # P0T-REPLY-01: верхняя ступень — байты прода 2.58.273 (P0GM) на R4;
+    # ступень P0GM (EVR6 → P0GM) сохранена ниже в стеке.
+    assert steps[0] == (cp.PREV_DIRECT_L1_PLANNER_P0GM,
                         cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT)
+    assert (cp.PREV_DIRECT_L1_PLANNER_EVR6,
+            cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) in steps
     rollback = pm.ROLLBACK_MIGRATIONS[key]
     assert rollback[0] == (cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
+                           cp.PREV_DIRECT_L1_PLANNER_P0GM)
+    assert rollback[1] == (cp.PREV_DIRECT_L1_PLANNER_P0GM,
                            cp.PREV_DIRECT_L1_PLANNER_EVR6)
-    assert rollback[1] == (cp.PREV_DIRECT_L1_PLANNER_EVR6,
+    assert rollback[2] == (cp.PREV_DIRECT_L1_PLANNER_EVR6,
                            cp.PREV_DIRECT_L1_PLANNER_EVR5)

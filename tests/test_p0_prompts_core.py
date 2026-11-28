@@ -178,7 +178,15 @@ def test_factory_fingerprint_and_labels_after_p0_changes():
     # final_goal, абзацы цели/медиа; печать ce6931304b24). Печать набора
     # переутверждена осознанно → 10efa51a8dae; прочие каноны, включая тексты
     # владельца, байт-в-байт.
-    assert pr.FACTORY_SET_SHA256_12 == "10efa51a8dae"
+    # FCT-113/FCT-192 U1 (28.11.2026): changed = 1 — temporal.analyst получил
+    # assertion_kind/evidence_quotes (печать 3f7ecbff8509) → bd06a8a1a782.
+    # P0T-REPLY-01 (28.11.2026, owner §190/192): changed = 1 —
+    # direct.base.l1_planner: секция участия R4 (область Direct + источник
+    # цели «окно или сообщение текущего хода», печать 64a80fb8c4ff) →
+    # 1c03efc3e98b. Пин поглотил и более раннюю U1-дельту: литерал ниже
+    # намеренно выставлен по ФАКТИЧЕСКОМУ значению (baseline 74ef57ef4 уже
+    # расходился: 10efa51a8dae vs bd06a8a1a782).
+    assert pr.FACTORY_SET_SHA256_12 == "1c03efc3e98b"
     # Пин — литерал (сторожевая функция): он обязан совпадать с фактической
     # печатью набора, иначе будущая неучтённая правка канона пройдёт молча.
     assert pr.FACTORY_SET_SHA256_12 == pr.factory_set_fingerprint()

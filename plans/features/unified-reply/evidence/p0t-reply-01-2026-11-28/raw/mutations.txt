@@ -1,0 +1,45 @@
+ROOT=C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0t-reply-01-f026aed7f87f-a1c549ad
+
+BASE candidate: exit=0
+...........                                                              [100%]
+11 passed in 13.00s
+
+M1_always_trigger: exit=1 -> RED (good)
+FAILED tests/test_p0t_reply_target.py::test_plan_target_chunked_reply_only_first_chunk
+FAILED tests/test_p0t_reply_target.py::test_delivery_chat_means_no_reply - As...
+FAILED tests/test_p0t_reply_target.py::test_delivery_absent_means_no_reply - ...
+4 failed in 12.89s
+
+M2_last_window_row: exit=1 -> RED (good)
+sqlite3.ProgrammingError: Cannot operate on a closed database.
+=========================== short test summary info ===========================
+FAILED tests/test_p0t_reply_target.py::test_plan_target_photo_in_audio_window
+1 failed in 6.70s
+
+M3_drop_chat_filter: exit=1 -> RED (good)
+sqlite3.ProgrammingError: Cannot operate on a closed database.
+=========================== short test summary info ===========================
+FAILED tests/test_p0t_reply_target.py::test_foreign_chat_target_is_plain_send
+1 failed in 6.68s
+
+M4_no_p0_msg_ids: exit=1 -> RED (good)
+tests\test_p0t_reply_target.py:376: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_p0t_reply_target.py::test_direct_l1_context_marks_window_and_p0_ids
+1 failed in 3.68s
+
+M5_no_fail_soft: exit=1 -> RED (good)
+FAILED tests/test_p0t_reply_target.py::test_missing_target_is_plain_send_not_trigger
+FAILED tests/test_p0t_reply_target.py::test_stale_target_is_plain_send - Asse...
+FAILED tests/test_p0t_reply_target.py::test_addressee_mismatch_is_plain_send
+3 failed in 7.02s
+
+M6_canon_scope_reverted: exit=1 -> RED (good)
+=========================== short test summary info ===========================
+FAILED tests/test_asap_w1_semantics.py::test_p0g_l1_participation_section_byte_exact
+FAILED tests/test_direct_l1_l1d_contract.py::test_canon_forms_no_priority_and_positive_criteria
+2 failed in 3.66s
+
+RESTORED candidate: exit=0
+...............                                                          [100%]
+15 passed in 11.92s
