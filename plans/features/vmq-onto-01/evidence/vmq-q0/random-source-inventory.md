@@ -73,9 +73,23 @@ test_single_service_dispatches_every_provider_to_its_adapter`): один экз�
 | `SETTING_LOW_WATERMARK` | `keys.random_quantum_refill_low_watermark` |
 | `SETTING_BUFFER_MAX` | `keys.random_quantum_buffer_max_values` |
 
-Все девять ключей входят в `PROVIDER_KEY_SETTINGS` (allowlist операций
-global admin) — legacy-ключи не потеряны. Значения читаются тем же
-read-path и возвращаются без искажения:
+Ключи делятся на два слоя — единого allowlist нет:
+
+- **8 legacy `keys.random_quantum_*`** (`SETTING_KEY` … `SETTING_BUFFER_MAX`)
+  входят в `PROVIDER_KEY_SETTINGS` (14 записей: `keys.random_quantum_provider`
+  + эти 8 + 5 `keys.random_ibm_*`). Это allowlist админских key-операций
+  (`services/access_preview.py`, `web/api/routes.py`), а не storage-маппинг.
+- **`memory.random_source`** — memory-настройка и в `PROVIDER_KEY_SETTINGS`
+  **не входит** (`SETTING_SOURCE in PROVIDER_KEY_SETTINGS is False`); читается
+  единым read-path `worker_settings.resolve_setting` (chat → global →
+  default), её RBAC/видимость задаются каталогом memory, а не key-allowlist.
+
+`tests/test_vmq_q0_source_audit.py` проверяет вхождение ровно 8 key-ключей
+(`legacy_keys <= set(PROVIDER_KEY_SETTINGS)`); членство `SETTING_SOURCE` этот
+тест не утверждает (факт выше — проверка по коду).
+
+Оба пути не потеряли значения. 8 legacy key-настроек читаются теми же
+accessor'ами и возвращают сохранённое без искажения:
 `_resolve_key() == "legacy-anu-key-abc123"`, `_endpoint()`,
 `_plan() == "Trial"`, `_batch_length() == 64`, `_data_type() == "uint16"`,
 `_timeout_seconds() == 7.0`, `_low_watermark() == 128`,
@@ -92,30 +106,75 @@ Numbers")` → `draw_index` возвращает `provider == "ANU Quantum Numbe
 БД остаётся с прежним `provider`; `PROVIDER_STORAGE_IDS["anu"]` содержит оба
 написания.
 
-## 5. Тесты / прогоны
+## 5. Кредиты/квоты без потери (клауза Q-01)
+
+Клауза приёмки «существующие кредиты/квоты … смаппированы без потери
+значений» адресуется durable-строками существующих таблиц; инкремент A их
+не трогает:
+
+- `keys.random_quantum_plan` (`SETTING_PLAN`, допускаются `Trial/Paid/Custom`)
+  → `_plan()` → `_account_key() = "anu:<plan.lower()>"`; это тот же ключ
+  аккаунта, по которому ведётся `mca_random_quota_state` (`account_key` —
+  PRIMARY KEY, счётчики `success/failed/unknown/manual_checks` по `period`).
+- `mca_random_state` (`scope='anu'`: `key_fingerprint`,
+  `activation_batch_id`, `last_fallback_reason`) — ANU-scoped состояние
+  активации/деградации; LfDR/IBM его не пишут.
+- DDL обеих таблиц — `services/database.py` (`_RANDOM_QUOTA_STATE_DDL`
+  строки 1111–1123, `_RANDOM_STATE_DDL` строки 1124–1133) — в инкременте A
+  не менялся.
+- Продукт-диф инкремента A пуст: все изменения дерева — добавленные
+  test/evidence-файлы; `services/**` (включая `mca_random_source.py` и
+  `database.py`) не изменён, миграций/DDL/write-путей нет. Поэтому
+  существующие значения квот/состояния не переписываются и не мигрируются.
+
+Существующие проверки из прогонов инкремента (зелёные):
+
+- `tests/test_mca10a_random_source_block_b_round1037.py::test_quota_global_estimate_not_per_chat`
+  — квота account-global (ровно один ряд на аккаунт, не per-chat), счётчики
+  snapshot (`success/failed/unknown/manual_checks/used/remaining`), Paid/Custom.
+- `tests/test_mca10a_random_source_block_b_round1037.py::test_quota_period_rollover_honest_remaining`
+  — period-aware: счётчики прошлого периода не переносятся, 429 остаётся
+  авторитетной причиной.
+- `tests/test_qrng_f01_activation_batch_scope.py::test_activation_selfcheck_consumes_only_new_anu_batch`
+  — `mca_random_state.activation_batch_id`/`key_fingerprint` согласованы с
+  зачисленной партией, старая LfDR-партия не расходуется.
+- `tests/test_qrng_p1_isolation.py::TestDraftKeyIsolation::test_draft_check_zero_rows_deposited_false`
+  — черновой ключ не зачисляется в запас, счётчики квоты остаются
+  `success=1/manual_checks=1` (без лишних строк).
+
+Точечный повтор этих четырёх проверок на кандидате: **4 passed**.
+
+Проверено: неизменность кода/схемы и зелёные существующие quota/state тесты.
+НЕ проверено: чтение/копирование реальных прод-строк `mca_random_quota_state`/
+`mca_random_state`, прогон миграций на копии прод-БД и живые расходы
+квоты провайдеров (условие инкремента — без прод-данных и сети).
+
+## 6. Тесты / прогоны
 
 ```
 # новые (Q-01 + Q-08)
 python -m pytest tests/test_vmq_q0_source_audit.py tests/test_vmq_q0_mapping_property.py -q
 # 13 passed
 
-# смежные random/Q0/QM
+# смежные random/Q0/QM (включая quota: test_quota_global_estimate_not_per_chat,
+# test_quota_period_rollover_honest_remaining — см. §5)
 python -m pytest tests/test_mca10a_random_source_block_{a..e}_round1037.py \
   tests/test_mca10a_random_source_js_round1037.py \
   tests/test_mca10b_random_applications_block_{a..d}_round1041.py -q
-# 139 passed, 1 deselected (предсуществующее падение, см. §7)
+# 139 passed, 1 deselected (предсуществующее падение, см. §8)
 
-# QRNG/Q07/random-bootstrap
+# QRNG/Q07/random-bootstrap (включая mca_random_state и quota-счётчики:
+# test_qrng_f01_activation_batch_scope, TestDraftKeyIsolation — см. §5)
 python -m pytest tests/test_qrng_*.py tests/test_q07_field_stats.py \
   tests/test_asap5_random_bootstrap_config.py -q
-# 252 passed, 3 deselected (предсуществующие падения, см. §7)
+# 252 passed, 3 deselected (предсуществующие падения, см. §8)
 ```
 
 Окружение: Windows, Python 3.12.0, pytest 9.1.1, `ADMINBOT_SKIP_DOTENV=1`
 (корневой conftest), tmp SQLite. Без сети, без прод-БД, без записи в
 прод/схемы/флаги.
 
-## 6. Аудит-наблюдение (не дефект, продукт не менялся)
+## 7. Аудит-наблюдение (не дефект, продукт не менялся)
 
 `ProviderSpec.fetch` для `anu` остаётся `None`: ANU-адаптер (`AnuClient`)
 существует с 2.58.57 и привязан к сервису (`_get_client()`), а реестровые
@@ -129,7 +188,7 @@ python -m pytest tests/test_qrng_*.py tests/test_q07_field_stats.py \
 фиксацией, либо отдельной микроправкой связать ANU в реестре (вне scope
 инкремента A).
 
-## 7. Предсуществующие падения на базе `731a7e51c` (не связаны с Q-01)
+## 8. Предсуществующие падения на базе `731a7e51c` (не связаны с Q-01)
 
 Проверено отдельно на чистом дереве (`git stash -u`, продукт-файл не изменён):
 
@@ -153,7 +212,7 @@ python -m pytest tests/test_qrng_*.py tests/test_q07_field_stats.py \
 Эти падения не исправлялись (вне scope инкремента A; карта/продукт не
 трогаются).
 
-## 8. Что осталось непокрытым
+## 9. Что осталось непокрытым
 
 - Реальные сетевые вызовы ANU/LfDR/IBM и живой health провайдеров — по
   условию инкремента без сети/провайдеров; покрыто существующими
@@ -163,3 +222,6 @@ python -m pytest tests/test_qrng_*.py tests/test_q07_field_stats.py \
 - Снятое значение `random.primary_provider` в UI/RBAC — существующие
   P3-тесты; в Q-01 аудите проверена только read-семантика
   `requires_resolution`.
+- Реальные прод-строки `mca_random_quota_state`/`mca_random_state` не
+  читались и не сверялись (см. §5); «без потери» обосновано отсутствием
+  изменений кода/схемы и зелёными существующими quota/state тестами.

@@ -7,6 +7,8 @@
   "product_code_commit": "731a7e51cdb747fb3c0507ec80b885e4217766b0",
   "branch": "feat/vmq-q0-2026-11-28",
   "product_changed": false,
+  "evidence_revision": 2,
+  "evidence_review_fixes": ["F1", "F2"],
   "product_change_reason": "Код контура уже в 2.58.274; тесты не вскрыли функционального дефекта в Q-08. Единственное аудит-наблюдение по Q-01 (ProviderSpec.fetch=None для anu) не является поведенческим дефектом и в scope инкремента не правилось.",
   "environment": {
     "os": "Windows",
@@ -87,8 +89,15 @@
       "id": "Q01-AUDIT-5",
       "name": "legacy-mapping memory.random_source/keys.random_quantum_* без потери",
       "test": "tests/test_vmq_q0_source_audit.py::test_legacy_setting_keys_are_mapped_and_read_without_loss; ::test_legacy_mode_and_fallback_settings_are_read; ::test_legacy_provider_label_batch_is_consumed_without_rewrite",
-      "property": "9 pg-ключей совпадают и входят в PROVIDER_KEY_SETTINGS; accessors возвращают сохранённые значения; selected_mode/fallback читают memory.*; партия с provider='ANU Quantum Numbers' расходуется, provider_id='anu', история в БД не переписана",
+      "property": "8 legacy keys.random_quantum_* (SETTING_KEY, SETTING_ENDPOINT, SETTING_PLAN, SETTING_BATCH_LENGTH, SETTING_DATA_TYPE, SETTING_TIMEOUT, SETTING_LOW_WATERMARK, SETTING_BUFFER_MAX) входят в PROVIDER_KEY_SETTINGS (14 записей: keys.random_quantum_provider + эти 8 + 5 keys.random_ibm_*); memory.random_source (SETTING_SOURCE) в PROVIDER_KEY_SETTINGS НЕ входит (проверка по коду: SETTING_SOURCE in PROVIDER_KEY_SETTINGS is False) — это memory-настройка read-path worker_settings chat→global→default, а не key-allowlist; тест проверяет только вхождение 8 key-ключей (legacy_keys <= set(PROVIDER_KEY_SETTINGS)). Accessors возвращают сохранённые значения: _resolve_key='legacy-anu-key-abc123', _endpoint=ANU_ENDPOINT, _plan='Trial', _batch_length=64, _data_type='uint16', _timeout_seconds=7.0, _low_watermark=128, _buffer_max=1024, provider_configured('anu')=True; selected_mode/fallback читают memory.*; партия с provider='ANU Quantum Numbers' расходуется, provider_id='anu', история в БД не переписана",
       "result": "PASS"
+    },
+    {
+      "id": "Q01-AUDIT-6",
+      "name": "кредиты/квоты без потери значений (клауза Q-01)",
+      "test": "evidence-only: неизменность кода/схемы + существующие тесты из прогонов 139/252",
+      "property": "инкремент A не меняет services/mca_random_source.py, services/database.py, DDL и миграции (все изменения дерева — добавленные test/evidence-файлы; diff services/** пуст), поэтому durable-строки mca_random_quota_state (account_key PRIMARY KEY, period, success/failed/unknown/manual_checks) и mca_random_state (scope='anu', key_fingerprint, activation_batch_id) не переписываются и не мигрируются; legacy keys.random_quantum_plan → _plan() (Trial/Paid/Custom) → _account_key()='anu:<plan>' остаётся прежним; проверки из прогонов: test_mca10a_random_source_block_b_round1037.py::test_quota_global_estimate_not_per_chat, ::test_quota_period_rollover_honest_remaining, test_qrng_f01_activation_batch_scope.py::test_activation_selfcheck_consumes_only_new_anu_batch, test_qrng_p1_isolation.py::TestDraftKeyIsolation::test_draft_check_zero_rows_deposited_false",
+      "result": "PASS (существующие тесты зелёные; прод-строки не сверялись — см. coverage_limits)"
     }
   ],
   "commands": [
@@ -106,6 +115,11 @@
       "purpose": "QRNG/Q07/random-bootstrap suites",
       "command": "python -m pytest tests/test_qrng_f01_activation_batch_scope.py tests/test_qrng_p1_isolation.py tests/test_qrng_p2_lfdr.py tests/test_qrng_p3_selector.py tests/test_qrng_p5_ibm_adapter.py tests/test_qrng_p5b_ibm_admin.py tests/test_q07_field_stats.py tests/test_asap5_random_bootstrap_config.py --deselect tests/test_qrng_p1_isolation.py::TestRandomBatchProvenanceMigration::test_columns_and_step_registry --deselect tests/test_qrng_p1_isolation.py::TestRandomBatchProvenanceMigration::test_idempotent_and_legacy_rows_preserved --deselect tests/test_qrng_p1_isolation.py::TestProviderOperationRbac::test_api_status_has_no_key_fingerprint -q",
       "result": "252 passed, 3 deselected"
+    },
+    {
+      "purpose": "Q-01 credit/quota targeted recheck (Q01-AUDIT-6)",
+      "command": "python -m pytest tests/test_mca10a_random_source_block_b_round1037.py::test_quota_global_estimate_not_per_chat tests/test_mca10a_random_source_block_b_round1037.py::test_quota_period_rollover_honest_remaining tests/test_qrng_f01_activation_batch_scope.py::test_activation_selfcheck_consumes_only_new_anu_batch tests/test_qrng_p1_isolation.py::TestDraftKeyIsolation::test_draft_check_zero_rows_deposited_false -q",
+      "result": "4 passed"
     }
   ],
   "mutations": [
@@ -172,6 +186,7 @@
     "реальные сетевые вызовы ANU/LfDR/IBM и live health не выполнялись (условие инкремента: без сети/провайдеров)",
     "durable IBM job lifecycle покрыт существующими p5-наборами, не этими тестами",
     "UI/RBAC запись снятого primary_provider — существующие P3-тесты; здесь только read-семантика requires_resolution",
+    "реальные прод-строки mca_random_quota_state/mca_random_state не читались и не сверялись; «без потери» (Q01-AUDIT-6) обосновано неизменностью кода/схемы/миграций и зелёными существующими quota/state тестами, а не сравнением прод-значений",
     "ANU ProviderSpec.fetch == None — аудит-наблюдение, не функциональный дефект (адаптер достижим через сервис; spec.fetch не читается потребителями)"
   ],
   "status_recommendation": {

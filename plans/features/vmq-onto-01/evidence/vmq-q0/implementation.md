@@ -96,6 +96,26 @@ Q-01; фиксируется в inventory для Reviewer, продукт в sco
 - UI/RBAC запись снятого `random.primary_provider` — существующие P3-тесты;
   здесь только read-семантика.
 
+## Корректировка evidence по независимому ревью R1 (F1/F2)
+
+Тесты/продукт не менялись; правка только в evidence-документах.
+
+- **F1 (allowlist):** исправлено ложное обобщение «все 9 ключей в
+  `PROVIDER_KEY_SETTINGS`». Точно: 8 legacy `keys.random_quantum_*` входят в
+  allowlist (14 записей: `keys.random_quantum_provider` + 8 legacy + 5
+  `keys.random_ibm_*`); `memory.random_source` — отдельная memory-настройка,
+  в `PROVIDER_KEY_SETTINGS` **не входит**, читается `worker_settings`
+  (chat → global → default). См. `random-source-inventory.md` §4 и
+  `mapping-property-tests.json` Q01-AUDIT-5.
+- **F2 (кредиты/квоты):** добавлен раздел §5 в inventory и case Q01-AUDIT-6 в
+  JSON: `mca_random_quota_state`/`mca_random_state` не переписываются и не
+  мигрируются (продукт-диф пуст), legacy `keys.random_quantum_plan` →
+  `_account_key()` сохранён; приложены существующие зелёные проверки из
+  прогонов 139/252 и явно перечислено, что не проверялось (реальные
+  прод-строки/миграции на копии не сверялись).
+- `plans/features/vmq-onto-01/evidence/vmq-q0/review-r1.md` добавлен в
+  репозиторий без изменений (артефакт Reviewer).
+
 ## Рекомендация статусов
 
 - **Q-08 → REVIEW** (evidence полный для независимой проверки; VERIFIED —
