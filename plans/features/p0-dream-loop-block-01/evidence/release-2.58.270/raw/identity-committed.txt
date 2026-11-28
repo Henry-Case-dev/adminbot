@@ -1,0 +1,8 @@
+﻿assembly_head=63f6d44226a1ade550e1ae6e158d01c7f9f70e68
+base=6d97c02d8a4830c5824cc9c39db311373f953b6d
+branch=release/2.58.270
+summary_memory_blob=2fdb657c1f35d34076b6f87a4fd5f1f9a3a636fd
+summary_memory_blob_eq_product=True
+test_blob=391772ed50efec97d5fe65828dc1bf17b43d76a7
+test_blob_eq_product=True
+worktree_dirty_entries=1
