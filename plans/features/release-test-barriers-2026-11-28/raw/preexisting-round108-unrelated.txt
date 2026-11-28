@@ -1,0 +1,62 @@
+$ pytest tests/test_webapp_round108_ui.py::TestRenames108::test_old_labels_gone tests/test_webapp_round108_ui.py::TestAccessWindows108::test_three_windows tests/test_webapp_round108_ui.py::TestAccessWindows108::test_no_accordion
+EXIT=1
+
+FFF                                                                      [100%]
+================================== FAILURES ===================================
+_____________________ TestRenames108.test_old_labels_gone _____________________
+
+self = <tests.test_webapp_round108_ui.TestRenames108 object at 0x0000024B27C4DEE0>
+
+    def test_old_labels_gone(self):
+        for old in self.OLD_LABELS:
+>           assert old not in JS, old
+E           AssertionError: «Как это работает»
+E           assert '«Как это работает»' not in "/* Epic 85 ...  }\n})();\n"
+E             
+E             '«Как это работает»' is contained here:
+E               it_info — «Как это работает»',
+E                           'edit_persona — «Личность»',
+E                           'edit_humor_library — примеры юмора',
+E                           'control.restart / control.stop / control.start — управление ботом',
+E                           'debug.config — in-memory state dump',...
+E             
+E             ...Full output truncated (14768 lines hidden), use '-vv' to show
+
+tests\test_webapp_round108_ui.py:58: AssertionError
+___________________ TestAccessWindows108.test_three_windows ___________________
+
+self = <tests.test_webapp_round108_ui.TestAccessWindows108 object at 0x0000024B2800BAD0>
+
+    def test_three_windows(self):
+        access = self._access()
+>       assert access.count('class="modal-backdrop"') == 3
+E       assert 2 == 3
+E        +  where 2 = <built-in method count of str object at 0x0000024B38C63090>('class="modal-backdrop"')
+E        +    where <built-in method count of str object at 0x0000024B38C63090> = 'activeTab === \'access\'">\n            <!-- ═══ Управление доступом ═══ -->\n            <div v-if="!canViewTab(\'ac... class="col-span-full"></sticky-save>\n            </template>\n          </template>\n          <template v-else-if="'.count
+
+tests\test_webapp_round108_ui.py:182: AssertionError
+___________________ TestAccessWindows108.test_no_accordion ____________________
+
+self = <tests.test_webapp_round108_ui.TestAccessWindows108 object at 0x0000024B2801C530>
+
+    def test_no_accordion(self):
+        assert 'class="acc-head"' not in HTML
+>       assert 'role="tabpanel"' not in HTML
+E       assert 'role="tabpanel"' not in '<!DOCTYPE h...none; }\n}\n'
+E         
+E         'role="tabpanel"' is contained here:
+E           ="rights" role="tabpanel">
+E                               <div v-if="!selectedRole()" class="roles-state text-sm text-gray-500 py-4">
+E                                 Выберите роль слева.
+E                               </div>
+E                               <template v-else>...
+E         
+E         ...Full output truncated (18756 lines hidden), use '-vv' to show
+
+tests\test_webapp_round108_ui.py:196: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_webapp_round108_ui.py::TestRenames108::test_old_labels_gone
+FAILED tests/test_webapp_round108_ui.py::TestAccessWindows108::test_three_windows
+FAILED tests/test_webapp_round108_ui.py::TestAccessWindows108::test_no_accordion
+3 failed in 4.23s
+

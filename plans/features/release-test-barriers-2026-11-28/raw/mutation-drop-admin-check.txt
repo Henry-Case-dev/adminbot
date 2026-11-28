@@ -1,0 +1,46 @@
+$ pytest tests/test_round1025_f8_registry.py::TestFrozenInvariants::test_routes_contract_intact
+EXIT=1
+
+F                                                                        [100%]
+================================== FAILURES ===================================
+______________ TestFrozenInvariants.test_routes_contract_intact _______________
+
+self = <tests.test_round1025_f8_registry.TestFrozenInvariants object at 0x0000012E29864260>
+
+    def test_routes_contract_intact(self):
+        # Вместо sha256 routes.py: контракт путей/методов/initData/RBAC
+        # (tests/routes_contract.py). Падает при удалении маршрута, смене
+        # метода, снятии проверки прав, появлении необъявленного маршрута.
+        from tests.routes_contract import assert_routes_contract_intact
+>       assert_routes_contract_intact()
+
+tests\test_round1025_f8_registry.py:145: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def assert_routes_contract_intact() -> None:
+        """Главная проверка: живой routes.py соответствует объявленному контракту."""
+        expected = load_manifest()["routes"]
+        actual = collect_routes()
+        exp_map = {(r["path"], tuple(r["methods"])): r for r in expected}
+        act_map = {(r["path"], tuple(r["methods"])): r for r in actual}
+        missing = sorted(set(exp_map) - set(act_map))
+        unexpected = sorted(set(act_map) - set(exp_map))
+        assert not missing, "маршруты контракта отсутствуют в routes.py: %r" % (
+            missing,)
+        assert not unexpected, "необъявленные маршруты в routes.py: %r" % (
+            unexpected,)
+        for key in sorted(exp_map):
+            exp, act = exp_map[key], act_map[key]
+            assert exp["init_data"] == act["init_data"], (
+                "изменена auth-модель %s %s: init_data %r -> %r"
+                % (key[0], key[1], exp["init_data"], act["init_data"]))
+>           assert exp["checks"] == act["checks"], (
+                "изменены проверки прав %s %s: %r -> %r"
+                % (key[0], key[1], exp["checks"], act["checks"]))
+E           AssertionError: изменены проверки прав /admins ('POST',): ['get_tma_user', 'requires_global_admin'] -> ['get_tma_user']
+
+tests\routes_contract.py:173: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_round1025_f8_registry.py::TestFrozenInvariants::test_routes_contract_intact
+1 failed in 4.15s
+
