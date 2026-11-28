@@ -26,6 +26,13 @@ from services.smartmodule_throttling import format_remaining_time
 CHAT_ID = -1001234567890
 
 
+@pytest.fixture(autouse=True)
+def _legacy_handler_path(monkeypatch):
+    """FCT-S6 U3: заводской v2 теперь ON; этот файл проверяет legacy
+    handler-путь, поэтому v2 здесь фиксируется OFF явно."""
+    monkeypatch.setattr(factcheck_mod, "_pipeline_v2_enabled", lambda: False)
+
+
 @pytest.fixture
 def fake_time(monkeypatch):
     state = {"now": 1000.0}

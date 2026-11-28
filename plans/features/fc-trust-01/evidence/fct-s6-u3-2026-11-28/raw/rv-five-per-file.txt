@@ -1,0 +1,6 @@
+﻿tests/test_mca23_planned_vs_actual.py => 24 passed
+tests/test_round1025_f8_registry.py => 29 passed
+tests/test_fc_trust_s6_aggregate_api.py => 9 passed
+tests/test_fc_trust_s6_aggregates.py => 9 passed
+tests/test_factcheck_p0_fc.py => 37 passed
+combined => 108 passed

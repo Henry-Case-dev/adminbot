@@ -31,6 +31,13 @@ from services.factcheck_service import load_claim_media
 
 CHAT_ID = -1001234567890
 
+
+@pytest.fixture(autouse=True)
+def _legacy_handler_path(monkeypatch):
+    """FCT-S6 U3: заводской v2 теперь ON; этот файл проверяет legacy
+    handler-путь входа/медиа, поэтому v2 здесь фиксируется OFF явно."""
+    monkeypatch.setattr(fh, "_pipeline_v2_enabled", lambda: False)
+
 # Элементы «пересланной публикации с несколькими изображениями и длинным
 # текстом» (сценарий PERMsoc): caption только на ОДНОМ элементе.
 ALBUM_ID = "album-permsoc-1"

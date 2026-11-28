@@ -167,10 +167,18 @@ def planner_on():
 # ── OFF-паритет ───────────────────────────────────────────────────────────────
 
 class TestPlannerOff:
-    def test_default_off_returns_none(self):
-        assert fsp.planner_enabled() is False
-        assert fsp.build_retrieval_plan(
-            _decision(), claim_text="любой клейм с фактами") is None
+    def test_factory_on_and_off_override(self):
+        """FCT-S6 U3: заводское значение v2 — ON (правило 09.11.2026);
+        явный OFF-рубильник по-прежнему отключает план."""
+        assert fsp.planner_enabled() is True
+        old = getattr(settings, "FACTCHECK_PIPELINE_V2_ENABLED", True)
+        object.__setattr__(settings, "FACTCHECK_PIPELINE_V2_ENABLED", False)
+        try:
+            assert fsp.planner_enabled() is False
+            assert fsp.build_retrieval_plan(
+                _decision(), claim_text="любой клейм с фактами") is None
+        finally:
+            object.__setattr__(settings, "FACTCHECK_PIPELINE_V2_ENABLED", old)
 
     def test_gate_mirrors_pipeline_v2_flag(self, planner_on):
         assert fsp.planner_enabled() is True
@@ -453,11 +461,12 @@ class TestOrchestratorAnchor:
 
     @pytest.mark.asyncio
     async def test_v2_off_planner_never_called(self, monkeypatch):
-        # OFF: без v2 планировщик нестроит план даже при явном вызове
+        # OFF: без v2 планировщик не строит план даже при явном вызове
+        old = getattr(settings, "FACTCHECK_PIPELINE_V2_ENABLED", True)
         object.__setattr__(settings, "FACTCHECK_PIPELINE_V2_ENABLED", False)
         try:
             assert fsp.build_retrieval_plan(
                 _decision(), claim_text="в Килякете 120 мм") is None
         finally:
             object.__setattr__(settings, "FACTCHECK_PIPELINE_V2_ENABLED",
-                               False)
+                               old)

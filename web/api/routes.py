@@ -5921,6 +5921,34 @@ async def get_factcheck_temporal_runs(
     return {"runs": [_factcheck_run_json(r, compact=True) for r in rows]}
 
 
+@api_router.get("/factcheck/temporal/aggregate")
+async def get_factcheck_temporal_aggregate(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    since: int | None = Query(default=None, ge=0),
+    until: int | None = Query(default=None, ge=0),
+    limit: int = Query(default=100, ge=1, le=100),
+):
+    """FCT-S6 U3: сводные показатели сохранённых прогонов временного
+    фактчека за период (read-only). Тело — ровно
+    `temporal_factcheck.summarize_factcheck_aggregates`: распределения
+    execution_status/cause, доли snippet_only/date_unknown/
+    verdict_mismatch; сигналы без durable-поля остаются `null`.
+    RBAC — global admin (прецедент /api/factcheck/temporal/runs)."""
+    from services import lore_runtime, temporal_factcheck
+    cache: ConfigCache = get_cache(request)
+    ctx = await _ctx_global_admin(cache, user)
+    if not ctx.is_global_admin:
+        raise HTTPException(status_code=403,
+                            detail="нет прав на аналитику фактчека")
+    if since is not None and until is not None and int(since) > int(until):
+        raise HTTPException(status_code=422,
+                            detail="since больше until")
+    db = lore_runtime.get_lore_db()
+    return await temporal_factcheck.summarize_factcheck_aggregates(
+        db, since_ts=since, until_ts=until, limit=min(int(limit), 100))
+
+
 @api_router.get("/factcheck/temporal/runs/{run_id}")
 async def get_factcheck_temporal_run(
     request: Request,

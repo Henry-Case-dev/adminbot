@@ -645,10 +645,11 @@ def _emit_admission(*, chat_id: int | None, target_resolved: bool,
 
 
 def pipeline_v2_enabled() -> bool:
-    """W3 миграционный рубильник (default OFF → байт-паритет 2.58.98).
-
-    Приоритет: hot ``flags.factcheck_pipeline_v2`` → env
-    ``FACTCHECK_PIPELINE_V2_ENABLED`` → False. Никогда не бросает."""
+    """W3 миграционный рубильник. FCT-S6 U3 (28.11.2026): заводское значение
+    ON (правило проекта 09.11.2026); приоритет — hot
+    ``flags.factcheck_pipeline_v2`` → env ``FACTCHECK_PIPELINE_V2_ENABLED`` →
+    factory (ON). Сохранённый пользовательский/PG-выбор не сбрасывается.
+    Никогда не бросает."""
     try:
         from config.settings import settings
         default = bool(getattr(settings, "FACTCHECK_PIPELINE_V2_ENABLED",
