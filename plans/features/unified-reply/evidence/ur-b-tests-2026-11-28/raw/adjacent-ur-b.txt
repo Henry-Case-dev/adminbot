@@ -1,0 +1,9 @@
+﻿CMD: py -3 -m pytest tests/test_unified_reply_ur_b_search_first.py tests/test_unified_reply_ur_b_review_fixes.py tests/test_unified_reply_ur_b_no_topic_veto.py tests/test_ur_b_live_wiring.py -q
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+152 passed, 2 warnings in 8.10s
+CMD: py -3 -m pytest tests/test_ur_context_selection.py tests/test_ur_c_2_live_wiring.py tests/test_ur_bot_output_history.py tests/test_ur_23_self_repeat.py -q
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+79 passed, 2 warnings in 9.29s
+CMD: py -3 -m pytest tests/test_direct_context_composer_asap3.py tests/test_direct_context_capacity_asap3.py tests/test_direct_l1_l1d_contract.py tests/test_direct_chat.py tests/test_direct_chat_handlers.py tests/test_direct_chat_concurrency.py -q
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+311 passed, 2 warnings in 19.14s

@@ -1,0 +1,7 @@
+﻿CMD: py -3 -m pytest tests/test_asap8_v63_b01_initiative_observer.py tests/test_p0_init_arch_fix_observer.py tests/test_p0_initfix_initiative_observer.py tests/test_soul1_w5_observer_gates.py -q
+BASE: worktree HEAD 74ef57ef4, product files unchanged (only new test files untracked)
+FAILED tests/test_p0_initfix_initiative_observer.py::test_opportunity_carries_context_into_writer_and_sends
+FAILED tests/test_p0_initfix_initiative_observer.py::test_pending_direct_request_stops_observer_initiative
+FAILED tests/test_soul1_w5_observer_gates.py::test_day_cap_still_hard_with_soft_target
+FAILED tests/test_soul1_w5_observer_gates.py::test_initiative_writer_shares_core_style_and_persona
+4 failed, 53 passed, 2 warnings in 14.11s
