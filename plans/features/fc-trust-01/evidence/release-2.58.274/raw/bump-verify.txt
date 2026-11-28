@@ -1,0 +1,40 @@
+base_commit=4b6b5279da17f85bf2f5bbf8fa09619718ca10ea
+files_in_canonical_set=29 files_changed=29 occurrences_replaced=34
+skipped_no_occurrence=(none)
+removed_lines=34 added_lines=34
+all_removed_map_to_added_by_version=True
+non_version_changed_pairs=0 non_version_added_lines=0
+remaining_old_occurrences=0 new_occurrences=34
+size_changed_files=(none)
+crlf_total=3665 bare_lf_total=15448
+APP_VERSION_lines=['APP_VERSION = "2.58.274"   # (27.11.2026): 2.58.254 - MAC-S4-172 (egress, MOD-ACL-UX-01 M1']
+
+config/settings.py: occurrences=1 crlf=3665 bare_lf=0 size_before=362839 size_after=362839
+plans/docs/param-registry-round1025.meta.md: occurrences=1 crlf=0 bare_lf=300 size_before=11820 size_after=11820
+tests/test_decision_making_round1026.py: occurrences=1 crlf=0 bare_lf=954 size_before=44583 size_after=44583
+tests/test_image_context_memory_round1026.py: occurrences=1 crlf=0 bare_lf=1183 size_before=62527 size_after=62527
+tests/test_mca17c_invariants_round1047.py: occurrences=1 crlf=0 bare_lf=254 size_before=16710 size_after=16710
+tests/test_q07_field_stats.py: occurrences=3 crlf=0 bare_lf=470 size_before=22118 size_after=22118
+tests/test_round1025_f8_registry.py: occurrences=1 crlf=0 bare_lf=750 size_before=54170 size_after=54170
+tests/test_scope_selector_round1025.py: occurrences=1 crlf=0 bare_lf=198 size_before=11431 size_after=11431
+tests/test_summary_deploy_round1026.py: occurrences=1 crlf=0 bare_lf=670 size_before=37038 size_after=37038
+tests/test_summary_fact_package.py: occurrences=1 crlf=0 bare_lf=721 size_before=36608 size_after=36608
+tests/test_summary_logging_runid.py: occurrences=1 crlf=0 bare_lf=976 size_before=48123 size_after=48123
+tests/test_summary_publish_integration_round1026.py: occurrences=1 crlf=0 bare_lf=1412 size_before=71522 size_after=71522
+tests/test_summary_test_run.py: occurrences=1 crlf=0 bare_lf=504 size_before=21905 size_after=21905
+tests/test_telegram_reactions_round1026.py: occurrences=1 crlf=0 bare_lf=566 size_before=26687 size_after=26687
+tests/test_tool_coordinator_round1026.py: occurrences=1 crlf=0 bare_lf=923 size_before=55236 size_after=55236
+tests/test_unified_image_request_round1026.py: occurrences=1 crlf=0 bare_lf=906 size_before=52828 size_after=52828
+tests/test_webapp_design_tokens_round1025.py: occurrences=1 crlf=0 bare_lf=561 size_before=29571 size_after=29571
+tests/test_webapp_f11_round1025.py: occurrences=1 crlf=0 bare_lf=317 size_before=15659 size_after=15659
+tests/test_webapp_f6_round1025.py: occurrences=1 crlf=0 bare_lf=175 size_before=9447 size_after=9447
+tests/test_webapp_f7_round1025.py: occurrences=1 crlf=0 bare_lf=130 size_before=6370 size_after=6370
+tests/test_webapp_f9_round1025.py: occurrences=1 crlf=0 bare_lf=200 size_before=8352 size_after=8352
+tests/test_webapp_hotfix10_round1025.py: occurrences=1 crlf=0 bare_lf=304 size_before=15822 size_after=15822
+tests/test_webapp_hotfix6_round1025.py: occurrences=1 crlf=0 bare_lf=325 size_before=19577 size_after=19577
+tests/test_webapp_hotfix7_round1025.py: occurrences=1 crlf=0 bare_lf=252 size_before=13078 size_after=13078
+tests/test_webapp_hotfix8_round1025.py: occurrences=1 crlf=0 bare_lf=295 size_before=15849 size_after=15849
+tests/test_webapp_hotfix9_round1025.py: occurrences=1 crlf=0 bare_lf=245 size_before=12411 size_after=12411
+tests/test_webapp_round1026_polygon.py: occurrences=2 crlf=0 bare_lf=230 size_before=11597 size_after=11597
+tools/ui_mod_acl_m4b2_status_e2e.py: occurrences=3 crlf=0 bare_lf=570 size_before=27992 size_after=27992
+tools/ui_mod_acl_m4b3_status_e2e.py: occurrences=1 crlf=0 bare_lf=1057 size_before=55467 size_after=55467
