@@ -211,6 +211,38 @@ class TestFCT1001ProviderFallback:
         assert len(provider.calls) == 3
 
 
+    @pytest.mark.asyncio
+    async def test_single_leg_transport_backoff_is_bounded(
+            self, ecp_fresh, monkeypatch):
+        """Backoff сохранён: единственная нога, бюджет ≤4, паузы 1x/2x/4x
+        (без нелинейного роста и без бесконечного ретрая)."""
+        _isolate(monkeypatch, {
+            "keys.embedding_api_key": "k-only",
+            "models.embedding_base_url": PRIMARY_BASE,
+            "models.embedding_model_name": MODEL,
+            "models.embedding_dim": 4,
+        })
+        monkeypatch.setattr(ecp, "_TRANSPORT_BACKOFF_BASE", 0.01)
+        sleeps = []
+        real_sleep = asyncio.sleep
+
+        async def _fake_sleep(delay, *args, **kwargs):
+            sleeps.append(delay)
+            await real_sleep(0)
+
+        monkeypatch.setattr(ecp.asyncio, "sleep", _fake_sleep)
+        provider = ProviderDouble(["503"] * 5)
+        executor = EmbeddingExecutor(provider)
+
+        with pytest.raises(ecp.EmbeddingBudgetExhausted):
+            await executor.embed(["тезис"], priority=Priority.P1_WRITE)
+
+        assert len(provider.calls) == ecp._ATTEMPT_BUDGET
+        assert sleeps == [pytest.approx(0.01), pytest.approx(0.02),
+                          pytest.approx(0.04)]
+        assert max(sleeps) <= ecp._TRANSPORT_BACKOFF_CAP
+
+
 class TestFCT1001CooperativeCancel:
     """FCT-1001: кооперативная отмена не оставляет задач и не списывает
     пользовательский лимит."""
