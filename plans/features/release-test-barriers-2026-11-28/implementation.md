@@ -7,6 +7,7 @@
 - **Кодовый кандидат:** `7e8eb8a05a8ea0bfefbef4b7a277328d9189f61d` (tests/contracts + `plans/project.md`; evidence-коммит идёт следом)
 - **Corrective r1 (review-r1, F-BAR-01/02/03):** code `222ad0046` (routes contract: уникальность маршрутов, guard-эвристика, CLI `--emit/--check`), evidence — этот коммит; см. §10.
 - **Corrective r2 (review-r2, F-BAR-07):** code `114c6b4b4` (`can_access_chat` и аналогичные access-хелперы), evidence — этот коммит; см. §11.
+- **Corrective r3 (review-r3, F-BAR-08/09):** code `69096c451` (разделение direct/helper checks, schema 2; аргумент `match_permission`), evidence — этот коммит; см. §12.
 - **Прямое поручение владельца:** убрать повторяющиеся механические барьеры тестов и релиза (2026-11-28).
 
 ## 1. Полнофайловые sha256-пины продуктовых файлов — найдено и заменено
@@ -154,17 +155,21 @@ fixture 2.58.15 сохранён, runtime проверяется контрак�
 - Guard-набор выводится эвристикой имени в контексте вызова (`(?:^|_)requires?_`, `^_?assert`,
   `_guard$`, `_rights$`, `^can_`, `^guard_`, `*_admin`) плюс явный whitelist (`can_access_chat`,
   `gate_authorization`, `guard_admin_lockout`, `guard_last_wildcard`, `validate_permissions`,
-  `match_permission`, …). Guard внутри module-level хелпера, который вызывается из маршрута,
-  раскрывается на **один** уровень. Глубже контракт не идёт (маршрутный, не граф всего модуля).
-  Побочный эффект одного уровня: `_prompt_require_edit` внутри capability-probe `_prompt_can_activate`
-  пинится и для `GET /prompts/{prompt_key}/versions` (вызов реально исполняется, но отказ проглатывается) —
-  это осознанное over-approximation, а не заявленная enforcement-точка.
-- **Вне контракта (честно, corrective r2):** `_persona_access` — резолвер ctx, а не enforcement;
+  `match_permission`, …). `match_permission` обрабатывается как `requires_permission` — вместе с
+  запрошенным правом (F-BAR-09).
+- Манифест schema 2 разделяет `direct_checks` (тело/сигнатура handler'а, без вложенных функций) и
+  `helper_checks` (вложенные функции handler'а + module-level хелперы, до 2 уровней). Наборы сравниваются
+  **независимо**, поэтому удаление прямого guard'а всегда RED, даже если одноимённый guard остался в
+  хелпере (F-BAR-08). Побочный эффект: `_prompt_require_edit` внутри capability-probe
+  `_prompt_can_activate` пинится и для `GET /prompts/{prompt_key}/versions` (вызов реально исполняется,
+  но отказ проглатывается) — осознанное over-approximation, а не заявленная enforcement-точка.
+- **Вне контракта (честно, corrective r2/r3):** `_persona_access` — резолвер ctx, а не enforcement;
   `gate_snapshot`/`gate_state` — состояние модулей, не авторизация; `validate_value_rule` — валидация
   значения; `get_permissions` — чтение; локальные capability-переменные (`can_read`/`can_edit`/`can_write`,
-  модуль `prompt_access`, `global_access`) в `checks` не попадают (для callback-ссылок используется
+  модуль `prompt_access`, `global_access`) в checks не попадают (для callback-ссылок используется
   отдельное узкое правило `_is_guard_callback_name`). Также не покрывается смена семантики внутри самого
-  guard-хелпера и порядок/кратность одинаковых вызовов (`checks` — множество).
+  guard-хелпера, порядок/кратность одинаковых вызовов (check-наборы — множества) и цепочки хелперов
+  глубже 2 уровней.
 - 3 UI-снимка 10.8 остаются красными (см. §4), не входят в контракт этой задачи.
 - `test_webapp_round108_ui` содержит и исправленный version-тест, и 3 несвязанных падения; в прогонах выше они
   явно отделены deselect'ом.
@@ -355,3 +360,85 @@ Corrective r2 code — `114c6b4b4`.
 одинаковых вызовов (`checks` — множество). Повторный аудит всего модуля на новые имена не
 проводился; класс закрыт для перечисленных соглашений (`^can_`, `^guard_`, `*_admin`,
 `(?:^|_)requires?_`, `*_guard`, `*_rights`) и явного списка.
+
+## 12. corrective r3: F-BAR-08/09 (direct vs helper; аргумент `match_permission`)
+
+Ревью r3 подтвердило F-BAR-07 CLOSED и нашло два IN_SCOPE-дефекта: set-union прямых и helper-проверок
+маскирует удаление прямого guard'а при одноимённом guard'е в хелпере (F-BAR-08), и аргумент
+`match_permission` (алиас `requires_permission`) не фиксировался (F-BAR-09). Corrective r3 code —
+`69096c451`; `review-r3.md` закоммичен без изменений.
+
+### 12.1 Схема манифеста (bump 1 → 2)
+
+`tests/routes_contract.py`:
+
+- `_source_checks(fn)` теперь считает **только прямые** проверки: сигнатура + собственное тело
+  handler'а, **без** вложенных функций (`_own_nodes`). Плюс route-level зависимости (`get_tma_user`,
+  `requires_permission` и т.п.) остаются в `direct_checks`.
+- `_helper_checks(fn, module_funcs, max_depth=2)` — отдельный набор: вложенные функции самого handler'а
+  (например, `_recheck_config_chat_rights` в `POST /config`) + module-level хелперы, вызываемые из
+  handler'а, до 2 уровней (visited-набор от циклов). Глубина 2 нужна для цепочки
+  `_persona_can_edit` → `_persona_has_edit_action` (F-BAR-09).
+- `assert_routes_contract_intact()` сравнивает `direct_checks` и `helper_checks` **независимо**:
+  удаление прямого guard'а всегда меняет `direct_checks`, даже если то же имя осталось в хелпере.
+  Ошибки раздельные: «изменены прямые проверки прав …» / «изменены проверки прав в хелперах …».
+- Чтение объединения — `route_checks(row)`; потребитель `test_fc_trust_s6_aggregate_api` переведён на
+  него. Ручного `checks` в манифесте больше нет.
+- `match_permission` добавлен в `_PERMISSION_ARG_CALLS` и обрабатывается как `requires_permission`:
+  в манифесте теперь `match_permission:edit_persona` / `match_permission:section.content`, а не голое
+  имя (F-BAR-09).
+
+Манифест переэмитирован (`schema: 2`, 78 маршрутов, sha256
+`05ed342b…42a19987f`): у каждой строки `direct_checks`/`helper_checks`; проверки из вложенных функций
+перенесены из «прямых» в helper-уровень (например, тело `_recheck_config_chat_rights` у `POST /config`).
+Публичный набор без initData по-прежнему `['/health']`; дублей/пересечений методов нет.
+
+### 12.2 Мутации r3 (все RED, `raw/mutation-r3-*.txt`)
+
+| # | Мутация | Результат |
+|---|---|---|
+| X1 | `/direct/context-diagnostics`: удалён прямой `can_access_chat` | **RED**: `изменены прямые проверки прав … ['can_access_chat','get_tma_user'] -> ['get_tma_user']` |
+| X1b | `/direct/turn-diagnostics`: то же (одноимённый guard есть в `_turn_attach_text`) | **RED** — `direct_checks` теряет `can_access_chat` |
+| X1c | `GET /config/time`: то же | **RED** |
+| X1d | `GET /config`: то же (guard есть в `_module_states_for_config`) | **RED** |
+| X1e | `POST /config`: то же (guard есть во вложенном `_recheck_config_chat_rights`) | **RED** — `direct_checks` теряет `can_access_chat`, `helper_checks` сохраняет |
+| X3 | `POST /admins`: удалён `guard_admin_lockout` | **RED** |
+| X4 | `POST /roles`: удалён `validate_permissions` | **RED** |
+| X5 | `GET /config`: удалён `fc.gate_authorization` | **RED** |
+| X6b | `POST /roles`: удалён `guard_last_wildcard` | **RED** |
+| P2 | `match_permission(..., 'edit_persona')` → `'access'` | **RED**: `в хелперах /persona ('DELETE',): ['match_permission:edit_persona', 'match_permission:section.content'] -> ['match_permission:access', ...]` |
+| M1 | `GET /admins`: право `access` → `admin` | **RED** |
+| M2 | `GET /health`: добавлен `Depends(get_tma_user)` | **RED** |
+| M3 | rename `/persona/rules/{rule_id}/sources` | **RED** |
+| M4 | `POST /vision/test`: убран `_ctx_global_admin` | **RED** |
+| M5 | shadow-дубль `GET /admins` без RBAC | **RED** |
+| M6 | `_prompt_hidden_admin(...)` → `if False:` | **RED** |
+| M7 | удалён `_random_selector_guard` | **RED** |
+| M8 | убран `recheck=_recheck_config_chat_rights` | **RED** |
+| M9 | убран `recheck=_recheck_meme_rights` | **RED** |
+
+Все мутации правили только `web/api/routes.py` (восстановление `git checkout`-эквивалентом); после
+прогона изменены только `tests/**`/`plans/**`.
+
+### 12.3 Прогоны r3
+
+| Прогон | Результат | Raw |
+|---|---|---|
+| `tests/test_routes_contract_barriers.py` | **54 passed** (было 50; +X1b/X1d/X1e-класс, direct/helper-схема, P2) | `corrective-r3-manifest-parity.txt` |
+| self-check + `test_routes_contract_intact` + `test_fc_trust_s6_aggregate_api` | **64 passed** | — |
+| 32 изменённых `tests/test_*.py` (cf. `fa4ba6292`) | **1028 passed, 3 failed** — только известные `test_webapp_round108_ui` (`test_old_labels_gone`, `test_three_windows`, `test_no_accordion`) | `corrective-r3-changed-files.txt` |
+| `tests/test_status_section_ui_merge_round1019.py` | **1 failed, 6 passed** — четвёртый предсуществующий red (F-BAR-06), не регрессия | `corrective-r3-status-section-round1019.txt` |
+| `pytest --collect-only -q` | **23 738 collected, exit 0**, ошибок коллекции нет | `corrective-r3-collect-only.txt` |
+| `python tools/gen_param_registry_round1025.py --check` | **EXIT 0** (`реестр 668 == REGISTRY`) | `corrective-r3-manifest-parity.txt` |
+| `--emit` ×2 + `--check` | sha256 `05ed342b…42a19987f` неизменен; `CHECK OK`; испорченная копия → `CHECK FAILED`, exit 1 | `corrective-r3-manifest-parity.txt` |
+| `collect_routes()` vs манифест | **schema 2, 78 == 78, equal=True**, дублей/пересечений нет, public = `['/health']`, rows с legacy `checks` = 0 | `corrective-r3-manifest-parity.txt` |
+
+### 12.4 Что осталось вне контракта
+
+`_persona_access` (резолвер ctx), `gate_snapshot`/`gate_state` (состояние модулей),
+`validate_value_rule` (валидация значения), `get_permissions` (чтение), локальные capability-переменные
+(`can_read`/`can_edit`/`can_write`, модуль `prompt_access`, `global_access`) — по-прежнему не checks.
+Не покрываются: смена семантики внутри самого guard-хелпера, порядок/кратность одинаковых вызовов
+(check-наборы — множества), цепочки хелперов глубже 2 уровней, а также guard'ы, переданные по ссылке
+под именем, не подходящим под узкое callback-правило. Продукт не менялся; ассерты не ослаблены —
+сравнение стало строже (два независимых набора вместо одного union).

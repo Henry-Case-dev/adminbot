@@ -1,0 +1,4 @@
+# command: C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest tests/test_status_section_ui_merge_round1019.py -q --no-header -p no:cacheprovider
+# exit: 1 — предсуществующий red (падает и на базе fa4ba6292), не регрессия
+FAILED tests/test_status_section_ui_merge_round1019.py::TestStatusSectionMerge::test_mode_version_line_removed
+1 failed, 6 passed in 3.32s

@@ -1,0 +1,31 @@
+# mutation: m7-random-selector-guard-removed
+# M7: remove _random_selector_guard from shared helper
+# node: tests/test_round1025_f8_registry.py::TestFrozenInvariants::test_routes_contract_intact
+# command: C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest tests/test_round1025_f8_registry.py::TestFrozenInvariants::test_routes_contract_intact -q --no-header -p no:cacheprovider
+# exit: 1 -> RED (expected route substring '/config' present: True)
+
+        exp_map = {(r["path"], tuple(r["methods"])): r for r in expected}
+        act_map = {(r["path"], tuple(r["methods"])): r for r in actual}
+        missing = sorted(set(exp_map) - set(act_map))
+        unexpected = sorted(set(act_map) - set(exp_map))
+        assert not missing, "маршруты контракта отсутствуют в routes.py: %r" % (
+            missing,)
+        assert not unexpected, "необъявленные маршруты в routes.py: %r" % (
+            unexpected,)
+        for key in sorted(exp_map):
+            exp, act = exp_map[key], act_map[key]
+            assert exp["init_data"] == act["init_data"], (
+                "изменена auth-модель %s %s: init_data %r -> %r"
+                % (key[0], key[1], exp["init_data"], act["init_data"]))
+            assert exp["direct_checks"] == act["direct_checks"], (
+                "изменены прямые проверки прав %s %s: %r -> %r"
+                % (key[0], key[1], exp["direct_checks"], act["direct_checks"]))
+>           assert exp["helper_checks"] == act["helper_checks"], (
+                "изменены проверки прав в хелперах %s %s: %r -> %r"
+                % (key[0], key[1], exp["helper_checks"], act["helper_checks"]))
+E           AssertionError: изменены проверки прав в хелперах /config ('POST',): ['_meme_template_guard', '_random_selector_guard', 'can_access_chat', 'can_edit_param', 'can_view_key_value', 'user_is_global_admin'] -> ['_meme_template_guard', 'can_access_chat', 'can_edit_param', 'can_view_key_value', 'user_is_global_admin']
+
+tests\routes_contract.py:447: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_round1025_f8_registry.py::TestFrozenInvariants::test_routes_contract_intact
+1 failed in 3.79s
