@@ -1215,6 +1215,41 @@ def _mmr_select(sims: list, limit: int, lam: float) -> list:
         remaining.remove(best)
     return [item for item, _, _ in selected]
 
+
+#: P0-DREAM-LOOP-BLOCK (2026-11-28): жадный MMR/`_cosine` — чистый CPU на
+#: float-векторах. Исполняется в отдельном потоке, чтобы event loop (HTTP,
+#: Telegram, планировщик) не замирал на минуты; бюджет — честная граница, после
+#: которой возвращается детерминированный частичный top-by-rel с пометкой.
+#: 5 c — существенно больше штатного отбора, но не «минуты» инцидента.
+_MMR_SELECT_TIMEOUT_SECONDS = 5.0
+
+
+async def _mmr_select_offloop(sims: list, limit: int, lam: float, *,
+                              stats: dict | None = None,
+                              timeout: float | None = None) -> list:
+    """`_mmr_select` вне event loop (executor) с честным бюджетом времени.
+
+    Возвращает РОВНО тот же набор и порядок, что и синхронный `_mmr_select`
+    (тот же код в потоке). Если бюджет исчерпан — отбор не продолжается в
+    ожидании: возвращается детерминированный частичный результат (top-by-rel,
+    прежний non-MMR порядок) и явная пометка `stats["mmr_budget_exhausted"]`
+    + WARNING. Тексты фактов в лог не попадают (только числа)."""
+    budget = (_MMR_SELECT_TIMEOUT_SECONDS if timeout is None
+              else float(timeout))
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(_mmr_select, sims, limit, lam),
+            timeout=budget)
+    except (asyncio.TimeoutError, TimeoutError):
+        logger.warning(
+            "graphrag RAG: MMR budget exhausted — partial by relevance | "
+            "candidates=%d | limit=%d | budget_s=%.2f",
+            len(sims), int(limit), budget)
+        if stats is not None:
+            stats["mmr_budget_exhausted"] = 1
+        return [item for item, _rel, _vec in
+                sorted(sims, key=lambda s: s[1], reverse=True)[:int(limit)]]
+
 _RAG_PREFIXES = {
     "search_fact": "[Из твоего прошлого поиска]: ",
     "youtube_content": "[Из видео, которое кидали ранее]: ",
@@ -6819,10 +6854,11 @@ class MemoryManager:
             if len(sims) > int(limit) and mmr_on:
                 if any(vec is None for _, _, vec in sims):
                     sims = await self._attach_vectors(sims)
-                chosen = _mmr_select(
+                chosen = await _mmr_select_offloop(
                     sims, limit,
                     (hot.get("limits.graph_mmr_lambda",
-                             settings.GRAPH_MMR_LAMBDA) or 0))
+                             settings.GRAPH_MMR_LAMBDA) or 0),
+                    stats=stats)
             else:
                 chosen = [s[0] for s in sims[:int(limit)]]
             chosen = _apply_policy_guarantees(chosen, ordered_entries,
@@ -6830,7 +6866,11 @@ class MemoryManager:
         elif mmr_on:
             if any(vec is None for _, _, vec in sims):
                 sims = await self._attach_vectors(sims)
-            chosen = _mmr_select(sims, limit, (hot.get("limits.graph_mmr_lambda", settings.GRAPH_MMR_LAMBDA) or 0))
+            chosen = await _mmr_select_offloop(
+                sims, limit,
+                (hot.get("limits.graph_mmr_lambda",
+                         settings.GRAPH_MMR_LAMBDA) or 0),
+                stats=stats)
         else:
             sims.sort(key=lambda s: s[1], reverse=True)
             chosen = [s[0] for s in sims[:limit]]
