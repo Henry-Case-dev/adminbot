@@ -330,6 +330,10 @@ async def _factcheck_temporal(message: types.Message, bot: Bot,
                                         if delivery_reply_to is not None
                                         else None),
                     correlation_id=(run_id or _ue.new_correlation_id()))
+                # FCT-S6 U1: deliver — фактическая стадия после отправки.
+                if run_id:
+                    await tf.record_delivery_stage(
+                        _db, correlation_id=run_id)
         logger.info("[factcheck] temporal verdict sent | chat=%s", chat_id)
         return "verdict"
     except LLMBadResponseError as exc:

@@ -1911,7 +1911,9 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
                                            search_results=search_results,
                                            target_text=external_claim,
                                            cache_input_text=claim_text,
-                                           retrieval=retrieval_outcome)
+                                           retrieval=retrieval_outcome,
+                                           db=db,
+                                           correlation_id=pipeline_run_id)
 
     # 6. Presentation (egress-whitelist) → 7. Delivery.
     # CFG-06 W4/W6: EvidenceMap из единого контура — только когда ветка не
@@ -2015,6 +2017,11 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
                                     if presentation.reply_to_message_id
                                     else None),
                 correlation_id=pipeline_run_id)
+            # FCT-S6 U1: `deliver` — фактическая стадия после подтверждённой
+            # отправки; дописывается в stage_trace того же прогона.
+            from services import temporal_factcheck as _tf_deliver
+            await _tf_deliver.record_delivery_stage(
+                db, correlation_id=pipeline_run_id)
     # P0-FACTCHECK-CORRECTIVE (§6): кеш готовых вердиктов (legacy slug
     # `factcheck`) удалён — повторная проверка всегда выполняется заново.
     # Защита от двойной доставки того же Telegram update — уже СУЩЕСТВУЮЩАЯ
@@ -2215,7 +2222,8 @@ async def _run_envelope_branch(req: FactcheckRequest, service, db, bot,
     # прежний default.
     await tf.record_temporal_run(
         db, run, scope=scope, cache_hit=False,
-        max_evidence=max(len(run.evidence_rows or ()), 1))
+        max_evidence=max(len(run.evidence_rows or ()), 1),
+        correlation_id=run_id)
     refs = tuple(
         EvidenceRef(evidence_id=str(r.get("evidence_id") or ""),
                     url=r.get("url"), support=str(r.get("support") or ""),
@@ -2252,7 +2260,8 @@ async def _run_legacy_branch(req: FactcheckRequest, service,
                              feed, *, search_results: str | None = None,
                              target_text: str | None = None,
                              cache_input_text: str | None = None,
-                             retrieval=None
+                             retrieval=None,
+                             db=None, correlation_id: str | None = None
                              ) -> CheckedVerdict:
     """Legacy-ветка (fallback/откат): ТОТ ЖЕ вызов service.check_claim с теми
     же аргументами, что прод-путь 2.58.98 (байт-паритет ветки). Кеш готовых
@@ -2275,6 +2284,17 @@ async def _run_legacy_branch(req: FactcheckRequest, service,
         claim_text, req.user_hint, req.forward_source,
         chat_id=req.chat_id, chat_context=feed or None,
         search_results=search_results)
+    # FCT-S6 U1: legacy-ветка тоже оставляет durable run (минимальный,
+    # честный маршрут `legacy_single`), сшитый correlation_id с событиями
+    # и отправленным текстом. Fail-open: запись не рвёт ответ.
+    if db is not None:
+        from services import temporal_factcheck as _tf_legacy
+        await _tf_legacy.record_legacy_run(
+            db, correlation_id=correlation_id, chat_id=req.chat_id,
+            trigger_tg_message_id=req.trigger_tg_message_id,
+            target_tg_message_id=req.target_tg_message_id,
+            claim_text=claim_text, verdict_text=str(verdict or ""),
+            scope=f"chat:{req.chat_id}")
     claims_cov = tuple(getattr(retrieval, "claims", ()) or ())
     execution_status, execution_cause, proof_basis = derive_execution_state(
         retrieval=retrieval, claims=claims_cov)

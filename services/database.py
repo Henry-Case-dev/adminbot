@@ -1882,6 +1882,26 @@ _SCHEMA_VERSION_RANDOM_BATCH_PROVENANCE = 48
 # меняются, старый код таблицу не читает (cold revert безопасен).
 _SCHEMA_VERSION_SELF_DIAG_SAMPLES = 49
 
+#: FCT-S6 U1 (D-S6-1, отдельный релиз): v50 — сшивка run↔pipeline↔отправка.
+#: Аддитивные nullable-колонки: `mca_factcheck_runs.correlation_id`
+#: (= `pipeline_run_id` / `mca_bot_outputs.correlation_id`) + индекс для
+#: выборки по нему; `mca_factcheck_evidence` получает `evidence_id` (ev-N),
+#: `opened`, `strength` (роль `relation` уже существует с v33).
+#: Существующие строки остаются как есть (NULL), backfill нет.
+_SCHEMA_VERSION_FACTCHECK_RUN_LINK = 50
+
+_FACTCHECK_RUN_LINK_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("correlation_id", "TEXT"),
+)
+_FACTCHECK_EVIDENCE_LINK_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("evidence_id", "TEXT"),
+    ("opened", "INTEGER"),
+    ("strength", "TEXT"),
+)
+_MCA_FACTCHECK_RUN_CORRELATION_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_mca_factcheck_runs_correlation "
+    "ON mca_factcheck_runs(correlation_id)")
+
 _RANDOM_BATCHES_PROVENANCE_COLUMNS: tuple[tuple[str, str], ...] = (
     ("config_fingerprint", "TEXT"),
     ("external_ref", "TEXT"),
@@ -3212,6 +3232,13 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_SELF_DIAG_SAMPLES,
                           self_diag_samples.SELF_DIAG_SAMPLES_MIGRATION_STEP_NAME,
                           lambda svc: svc._migrate_self_diag_samples_v49()),
+            # FCT-S6 U1 (D-S6-1, отдельный релиз): v50 — сшивка durable
+            # прогона с `pipeline_run_id`/`mca_bot_outputs.correlation_id` и
+            # сохранение провенанса evidence (ev-N/открыт/сила). Только
+            # аддитивные nullable-колонки + индекс; строки не переписываются.
+            MigrationStep(_SCHEMA_VERSION_FACTCHECK_RUN_LINK,
+                          "factcheck_run_link_v50",
+                          lambda svc: svc._migrate_factcheck_run_link_v50()),
         ]
 
     @staticmethod
@@ -3857,6 +3884,87 @@ class DatabaseService:
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_SELF_DIAG_SAMPLES}")
         await self.db.commit()
+
+    async def _migrate_factcheck_run_link_v50(self) -> None:
+        """v50 (FCT-S6 U1, D-S6-1): сшивка прогона и сохранение провенанса.
+
+        Аддитивно, без UPDATE/DELETE/backfill существующих строк:
+
+        * `mca_factcheck_runs.correlation_id TEXT` — тот же id, что
+          `pipeline_run_id` событий и `mca_bot_outputs.correlation_id`;
+          индекс `idx_mca_factcheck_runs_correlation` для выборки/join;
+        * `mca_factcheck_evidence.evidence_id TEXT` (ev-N текущего прогона),
+          `opened INTEGER`, `strength TEXT` (колонка `relation` существует
+          с v33 и теперь реально заполняется).
+
+        Идемпотентно (`PRAGMA table_info`-guard), повтор — no-op, PG — no-op
+        (числовой SQLite-ряд). Старый код колонки не читает — cold revert
+        безопасен.
+
+        Откат (ручной, документирован в evidence):
+        `DROP INDEX idx_mca_factcheck_runs_correlation;`
+        `ALTER TABLE mca_factcheck_runs DROP COLUMN correlation_id;`
+        `ALTER TABLE mca_factcheck_evidence DROP COLUMN evidence_id/opened/strength;`
+        затем `PRAGMA user_version = 49`. Данные строк не меняются."""
+        if await self._table_exists("mca_factcheck_runs"):
+            cols = await self._table_columns("mca_factcheck_runs")
+            for name, decl in _FACTCHECK_RUN_LINK_COLUMNS:
+                if name in cols:
+                    continue
+                await self.db.execute(
+                    f"ALTER TABLE mca_factcheck_runs ADD COLUMN {name} {decl}")
+                logger.info("[database] migration v50: factcheck_runs.%s added",
+                            name)
+            await self.db.execute(_MCA_FACTCHECK_RUN_CORRELATION_INDEX_DDL)
+        if await self._table_exists("mca_factcheck_evidence"):
+            cols = await self._table_columns("mca_factcheck_evidence")
+            for name, decl in _FACTCHECK_EVIDENCE_LINK_COLUMNS:
+                if name in cols:
+                    continue
+                await self.db.execute(
+                    "ALTER TABLE mca_factcheck_evidence ADD COLUMN "
+                    f"{name} {decl}")
+                logger.info("[database] migration v50: factcheck_evidence.%s "
+                            "added", name)
+        await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_FACTCHECK_RUN_LINK}")
+        await self.db.commit()
+
+    async def append_factcheck_run_stage(self, *, correlation_id: str,
+                                         stage: str, outcome: str) -> bool:
+        """Дописать стадию в `stage_trace` прогона по correlation_id.
+
+        FCT-S6 U1: `deliver` становится известен только после фактической
+        отправки, поэтому run пишется до доставки, а трасса дополняется
+        append-only строкой (вердикт/текст/evidence не меняются)."""
+        if not correlation_id:
+            return False
+
+        async def _body(conn):
+            cur = await conn.execute(
+                "SELECT run_id, stage_trace FROM mca_factcheck_runs "
+                "WHERE correlation_id = ? ORDER BY created_at DESC, run_id "
+                "DESC LIMIT 1", (str(correlation_id),))
+            row = await cur.fetchone()
+            if row is None:
+                return False
+            try:
+                trace = json.loads(row["stage_trace"] or "[]")
+            except (TypeError, ValueError):
+                trace = []
+            if not isinstance(trace, list):
+                trace = []
+            trace.append({"stage": str(stage), "outcome": str(outcome)})
+            await conn.execute(
+                "UPDATE mca_factcheck_runs SET stage_trace = ?, "
+                "updated_at = ? WHERE run_id = ?",
+                (json.dumps(trace, ensure_ascii=False), int(time.time()),
+                 row["run_id"]))
+            return True
+
+        return bool(await self.write_transaction(
+            _body, op_name="append_factcheck_run_stage"))
 
     async def _graph_facts_columns(self) -> set:
         """Имена колонок `graph_facts` (guard для ALTER ADD COLUMN v17)."""
@@ -5011,7 +5119,8 @@ class DatabaseService:
 
         async def _body(conn):
             cur = await conn.execute(
-                "INSERT INTO mca_factcheck_runs (run_id, access_scope, "
+                "INSERT INTO mca_factcheck_runs (run_id, correlation_id, "
+                "access_scope, "
                 "chat_id, trigger_tg_message_id, target_tg_message_id, "
                 "target_revision, target_content_hash, claim_text, "
                 "claim_span, source_type, attribution, origin_type, "
@@ -5024,10 +5133,10 @@ class DatabaseService:
                 "verdict_text, verdict_uncertainty, stage_trace, "
                 "fallback_used, cache_hit, pipeline_version, "
                 "tz_resolution_version, reason, revision, created_at, "
-                "updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?"
-                ",?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+                "updated_at) VALUES (" + ",".join(["?"] * 40) + ") "
                 "ON CONFLICT(run_id) DO NOTHING",
-                (run_id, str(rec.get("access_scope") or "global"),
+                (run_id, rec.get("correlation_id"),
+                 str(rec.get("access_scope") or "global"),
                  rec.get("chat_id"), rec.get("trigger_tg_message_id"),
                  rec.get("target_tg_message_id"), rec.get("target_revision"),
                  rec.get("target_content_hash"), rec.get("claim_text"),
@@ -5070,17 +5179,22 @@ class DatabaseService:
             now = int(time.time())
             for row in rows[:max(0, int(max_rows))]:
                 await conn.execute(
-                    "INSERT INTO mca_factcheck_evidence (run_id, claim_part, "
+                    "INSERT INTO mca_factcheck_evidence (run_id, evidence_id, "
+                    "claim_part, "
                     "url, support, source_ref, published_at, "
                     "published_at_source, retrieved_at, temporal_relevance, "
-                    "relation, source_kind, created_at) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                    (run_id, row.get("claim_part"), row.get("url"),
+                    "relation, source_kind, opened, strength, created_at) "
+                    "VALUES (" + ",".join(["?"] * 15) + ")",
+                    (run_id, row.get("evidence_id"), row.get("claim_part"),
+                     row.get("url"),
                      row.get("support"),
                      _json_dumps_or_none(row.get("source_ref")),
                      row.get("published_at"), row.get("published_at_source"),
                      row.get("retrieved_at"), row.get("temporal_relevance"),
-                     row.get("relation"), row.get("source_kind"), now))
+                     row.get("relation"), row.get("source_kind"),
+                     (1 if row.get("opened") else 0)
+                     if row.get("opened") is not None else None,
+                     row.get("strength"), now))
                 inserted += 1
             return inserted
 

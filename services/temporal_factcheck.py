@@ -1519,17 +1519,27 @@ def evidence_rows_from_refs(refs, *, fallback_results: str | None = None,
 async def record_temporal_run(db, result: TemporalRunResult, *,
                               scope: str = "global",
                               cache_hit: bool = False,
-                              max_evidence: int = 20) -> str | None:
+                              max_evidence: int = 20,
+                              correlation_id: str | None = None) -> str | None:
     """Durable run+evidence v33 (D3/D14). Fail-open: БД недоступна → None
-    (вердикт пользователю не блокируется); run_id генерируется здесь."""
+    (вердикт пользователю не блокируется); run_id генерируется здесь.
+
+    FCT-S6 U1: `correlation_id` — тот же id, что `pipeline_run_id` событий и
+    `mca_bot_outputs.correlation_id`; без него строка остаётся NULL
+    (обратная совместимость существующих вызовов)."""
     if db is None:
         return None
     run_id = "tfr-" + uuid.uuid4().hex[:16]
+    # FCT-S6 U1: без явного pipeline id строка ссылается на собственный
+    # run_id — так manual-путь, чей ledger использует run_id, остаётся
+    # сшитым, а correlation_id никогда не теряется у новых записей.
+    correlation_id = str(correlation_id or run_id)
     env = result.envelope
     verdict = result.verdict
     try:
         await db.record_factcheck_run({
             "run_id": run_id,
+            "correlation_id": correlation_id,
             "access_scope": scope,
             "chat_id": env.chat_id,
             "trigger_tg_message_id": env.trigger_tg_message_id,
@@ -1573,3 +1583,63 @@ async def record_temporal_run(db, result: TemporalRunResult, *,
     except Exception:
         logger.warning("[temporal] run record failed", exc_info=True)
         return None
+
+
+async def record_legacy_run(db, *, correlation_id: str | None,
+                            chat_id: int | None = None,
+                            trigger_tg_message_id: int | None = None,
+                            target_tg_message_id: int | None = None,
+                            claim_text: str = "",
+                            verdict_text: str = "",
+                            factual_verdict: str | None = None,
+                            reason: str | None = None,
+                            scope: str = "global") -> str | None:
+    """FCT-S6 U1: минимальная durable run-строка legacy-ветки.
+
+    Legacy-путь не строит envelope, поэтому пишется только фактически
+    известное: предмет/чат, доставленный текст, вердикт (если enum есть),
+    честная стадия `verdict`. `correlation_id` — `pipeline_run_id` прогона;
+    `pipeline_version='legacy_single'` отличает маршрут без выдуманной
+    envelope-даты. Fail-open: ошибка записи не рвёт ответ."""
+    if db is None:
+        return None
+    run_id = "tfr-" + uuid.uuid4().hex[:16]
+    try:
+        await db.record_factcheck_run({
+            "run_id": run_id,
+            "correlation_id": correlation_id,
+            "access_scope": scope,
+            "chat_id": chat_id,
+            "trigger_tg_message_id": trigger_tg_message_id,
+            "target_tg_message_id": target_tg_message_id,
+            "claim_text": claim_text,
+            "source_type": "text" if claim_text else None,
+            "factual_verdict": factual_verdict,
+            "verdict_text": verdict_text,
+            "stage_trace": ({"stage": "verdict", "outcome": "success"},),
+            "pipeline_version": "legacy_single",
+            "reason": reason,
+        })
+        return run_id
+    except Exception:
+        logger.warning("[temporal] legacy run record failed", exc_info=True)
+        return None
+
+
+async def record_delivery_stage(db, *, correlation_id: str | None,
+                                outcome: str = "success") -> bool:
+    """FCT-S6 U1: дописать фактическую стадию `deliver` в run трассу.
+
+    Вызывается ТОЛЬКО после подтверждённой отправки; fail-open, R17-safe
+    (только стадия/исход, без текста). Прогон ищется по `correlation_id` —
+    это же id связывает события и `mca_bot_outputs`."""
+    if db is None or not correlation_id:
+        return False
+    try:
+        return bool(await db.append_factcheck_run_stage(
+            correlation_id=str(correlation_id), stage="deliver",
+            outcome=str(outcome or "success")))
+    except Exception:
+        logger.warning("[temporal] delivery stage append failed",
+                       exc_info=True)
+        return False

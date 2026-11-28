@@ -270,7 +270,8 @@ async def test_e_v32_db_applies_v33_once_with_guard(tmp_path, caplog):
         cur = await svc.db.execute(
             "SELECT COUNT(*) AS c FROM sqlite_master WHERE type='index' "
             "AND name LIKE 'idx_mca_factcheck%'")
-        assert (await cur.fetchone())["c"] == 3
+        # v33: chat/scope/evidence; v50 (FCT-S6 U1): correlation_id.
+        assert (await cur.fetchone())["c"] == 4
     finally:
         await svc.close()
 

@@ -527,11 +527,16 @@ def _evidence_delivery(retrieval, *, route: RouteCapacity | None,
                     str(getattr(ref, "support", "") or "") for ref in refs}
     opened = _evidence_opening_index(retrieval)
     strength = {}
+    relation = {}
     for claim in tuple(getattr(retrieval, "claims", ()) or ()):
         for item in tuple(getattr(claim, "evidence", ()) or ()):
             eid = str(getattr(item, "evidence_id", "") or "")
             if eid and getattr(item, "strength", ""):
                 strength[eid] = str(item.strength)
+            if eid and getattr(item, "role", ""):
+                # FCT-S6 U1: роль evidence сохраняется в durable-записи
+                # (колонка `relation` v33 до этого оставалась NULL).
+                relation[eid] = str(item.role)
     enriched = []
     for row in rows:
         eid = str(row.get("evidence_id") or "")
@@ -541,6 +546,7 @@ def _evidence_delivery(retrieval, *, route: RouteCapacity | None,
             "support": support,
             "opened": bool(opened.get(eid, False)),
             "strength": strength.get(eid, ""),
+            "relation": relation.get(eid) or row.get("relation"),
         })
     return _pack_evidence(enriched, budget_chars=budget, route=route,
                           degrade_rows=_temporal_max_evidence())
