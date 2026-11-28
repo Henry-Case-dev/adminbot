@@ -1,0 +1,40 @@
+﻿services/factcheck_orchestrator.py
+  index_blob=8db1e41fece0684978cbd35c90920c67fa459b66
+  cand=8db1e41fece0684978cbd35c90920c67fa459b66
+  base=485bbe38cef2206e2869aa49eeaeb7c56aefb1b2
+  byte_identical_to_candidate=True
+services/factcheck_service.py
+  index_blob=e06c6afb9c83c39ac93b35fafebec70b5987aef2
+  cand=e06c6afb9c83c39ac93b35fafebec70b5987aef2
+  base=12c74ebc578ec6b8e27b0b9015c78189592c9c10
+  byte_identical_to_candidate=True
+services/factcheck_planner.py
+  index_blob=db1e73341020ad3f0f632e285f6dbbf9fb3c7fd3
+  cand=db1e73341020ad3f0f632e285f6dbbf9fb3c7fd3
+  base=b143e4a7713c3bc960444a389629df64f0d7347a
+  byte_identical_to_candidate=True
+tests/test_fc_trust_verdict.py
+  index_blob=c9b0f4cae07474ea143644331905082858775937
+  cand=c9b0f4cae07474ea143644331905082858775937
+  base=(absent)
+  byte_identical_to_candidate=True
+tests/test_evol_fc_evidence_style.py
+  index_blob=aa443043e1ab8dc9b172f8f220d3fb1acff1f225
+  cand=aa443043e1ab8dc9b172f8f220d3fb1acff1f225
+  base=69d8ba3097ea95b20c15a4b3b10cd7e44e9a8851
+  byte_identical_to_candidate=True
+tests/test_factcheck_fc_r1_fix.py
+  index_blob=569a4b91e3941a9730053315ad95ea9131fc726a
+  cand=569a4b91e3941a9730053315ad95ea9131fc726a
+  base=6f8620473731b2eb0d49a8c10bfd70ce7a4cc7a4
+  byte_identical_to_candidate=True
+tests/test_factcheck_orchestrator_cfg06.py
+  index_blob=82298d04a82ddf435bd2462306eec1c8c7a37c49
+  cand=82298d04a82ddf435bd2462306eec1c8c7a37c49
+  base=9353c671144b122aaf1d0380bf9efaaeb2b76df9
+  byte_identical_to_candidate=True
+tests/test_factcheck_service.py
+  index_blob=0f43bb08032b8dad7fc81c6d56915033eab96e26
+  cand=0f43bb08032b8dad7fc81c6d56915033eab96e26
+  base=98aea851061c00bad47bc257ff3b9ed06da47a9a
+  byte_identical_to_candidate=True

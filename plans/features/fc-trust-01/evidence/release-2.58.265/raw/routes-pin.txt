@@ -1,0 +1,8 @@
+﻿== ROUTES / BUNDLE PIN ==
+routes_sha256_head = b8f63355495c388a4240f9a96a0bebc3f1a99af663a7883ddfc4ab352a13c78a
+routes_blob_head   = a851e4f857b13ea1851ebfcc00aec940b867a896
+routes_blob_base   = a851e4f857b13ea1851ebfcc00aec940b867a896
+routes_blob_cand   = a851e4f857b13ea1851ebfcc00aec940b867a896
+ROUTES_SHA256_pin_matches_expected_b8f63355 = True
+app_js_sha256_disk = 3631e82de2a82b506b63d13914902678e31a28d1aa1abb7d41c79501c4b0282a
+app_js_size = 2739459

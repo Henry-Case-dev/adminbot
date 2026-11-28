@@ -1,0 +1,8 @@
+﻿changed_files_total_vs_base=37
+migration_or_db_files_changed=0 []
+ddl_added_lines_in_services_config_web_handlers=0
+max_schema_constant=49 (regex over services/database.py _SCHEMA_VERSION_*)
+param_catalog_changed=False
+factcheck_limit_keys_changed=False
+bot_settings_expected_rows=558 (new seeds: none => unchanged)
+rollback=code-only (DDL delta 0, schema 49)

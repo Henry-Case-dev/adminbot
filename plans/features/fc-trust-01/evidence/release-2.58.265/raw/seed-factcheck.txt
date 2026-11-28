@@ -1,0 +1,10 @@
+﻿== SEED / PARAM CATALOG ==
+services/param_catalog.py blob:
+  head    = d4b0a884c738f5e2c18d94c518c7398e731dec36
+  base    = d4b0a884c738f5e2c18d94c518c7398e731dec36
+  changed = False
+
+new limits.factcheck_* keys in product diff: (0 expected)
+  count = 0
+
+new settings/seeds expected: NONE => bot_settings rows stay 558

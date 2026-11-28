@@ -1,0 +1,23 @@
+﻿== git diff --stat c67683dd6 -- . (exclude plans) ==
+ services/factcheck_orchestrator.py         | 147 +++++++-
+ services/factcheck_planner.py              |   9 +-
+ services/factcheck_service.py              |  43 ++-
+ tests/test_evol_fc_evidence_style.py       |  35 +-
+ tests/test_factcheck_fc_r1_fix.py          |  53 ++-
+ tests/test_factcheck_orchestrator_cfg06.py |   8 +-
+ tests/test_factcheck_service.py            |  16 +-
+ tests/test_fc_trust_verdict.py             | 517 +++++++++++++++++++++++++++++
+ 8 files changed, 802 insertions(+), 26 deletions(-)
+== changed product-ish files (services handlers web config migrations) ==
+services/factcheck_orchestrator.py
+services/factcheck_planner.py
+services/factcheck_service.py
+== all changed files vs base (exclude plans) ==
+services/factcheck_orchestrator.py
+services/factcheck_planner.py
+services/factcheck_service.py
+tests/test_evol_fc_evidence_style.py
+tests/test_factcheck_fc_r1_fix.py
+tests/test_factcheck_orchestrator_cfg06.py
+tests/test_factcheck_service.py
+tests/test_fc_trust_verdict.py
