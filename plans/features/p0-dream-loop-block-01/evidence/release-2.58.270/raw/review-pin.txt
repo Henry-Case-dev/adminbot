@@ -1,0 +1,6 @@
+﻿path=plans/features/p0-dream-loop-block-01/evidence/fix-2026-11-28/review-r1/review-r1.md
+sha256=4abee23f31b777af5f3abcbc8c6ca72dbfd50a3b7995d93cce1c4c5df6ef660a
+verdict=APPROVED_FOR_RELEASE_PREPARATION
+candidate_product=e30ae12bf0a6fff5f7eac7bfaea400175dd55c52
+candidate_tip=028dcf637f7927231352e9b876dc1aa1ebde3852
+location=master line (not copied into release tree)

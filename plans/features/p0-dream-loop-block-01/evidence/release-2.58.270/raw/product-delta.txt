@@ -1,0 +1,15 @@
+head=3eafef83cbd3d875ea71c89c816d81d223b42deb
+base=6d97c02d8
+changed_files_total_vs_base=31
+product_files=['services/summary_memory.py', 'tests/p0_dream_loop/test_no_event_loop_block.py']
+bump_touched_files=29
+evidence_files=0
+outside_product_tests_bump_evidence=(none)
+services_changed=['services/summary_memory.py']
+tests_changed=['tests/p0_dream_loop/test_no_event_loop_block.py']
+ddl_relevant_changed=(none)
+worktree_dirty_entries=2
+
+numstat(base..product):
+43	3	services/summary_memory.py
+156	0	tests/p0_dream_loop/test_no_event_loop_block.py

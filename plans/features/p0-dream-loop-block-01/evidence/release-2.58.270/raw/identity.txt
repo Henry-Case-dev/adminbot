@@ -1,0 +1,29 @@
+release_worktree=C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\p0-dream-loop-release-2-58-270-bfcae9601298-23c78ff9
+base=6d97c02d8
+product=e30ae12bf0a6fff5f7eac7bfaea400175dd55c52
+tip=028dcf637f7927231352e9b876dc1aa1ebde3852
+
+services/summary_memory.py
+  index_blob=2fdb657c1f35d34076b6f87a4fd5f1f9a3a636fd
+  product_blob=2fdb657c1f35d34076b6f87a4fd5f1f9a3a636fd
+  tip_blob=2fdb657c1f35d34076b6f87a4fd5f1f9a3a636fd
+  base_blob=6ebe96e8b955d44a36cb22c2e331cb35d4d1e338
+  worktree_sha256=e93a4aac299051c5183050f31b34aea03fb02dc777312e98bea1d4c476985485
+  product_sha256=e93a4aac299051c5183050f31b34aea03fb02dc777312e98bea1d4c476985485
+  index_eq_product=True
+  index_eq_tip=True
+  bytes_equal_product=True
+  size=480595
+
+tests/p0_dream_loop/test_no_event_loop_block.py
+  index_blob=391772ed50efec97d5fe65828dc1bf17b43d76a7
+  product_blob=391772ed50efec97d5fe65828dc1bf17b43d76a7
+  tip_blob=391772ed50efec97d5fe65828dc1bf17b43d76a7
+  base_blob=(absent)
+  worktree_sha256=d209eb3e1054b938fa6eab63b19f45906e4c786e5ce517fc2ad612cfeabab4b2
+  product_sha256=d209eb3e1054b938fa6eab63b19f45906e4c786e5ce517fc2ad612cfeabab4b2
+  index_eq_product=True
+  index_eq_tip=True
+  bytes_equal_product=True
+  size=6509
+
